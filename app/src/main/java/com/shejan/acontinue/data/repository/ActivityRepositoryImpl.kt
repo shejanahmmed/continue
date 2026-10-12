@@ -1,0 +1,52 @@
+package com.shejan.acontinue.data.repository
+
+import com.shejan.acontinue.data.local.dao.ActivityDao
+import com.shejan.acontinue.data.mapper.toDomain
+import com.shejan.acontinue.data.mapper.toEntity
+import com.shejan.acontinue.domain.model.ActivityItem
+import com.shejan.acontinue.domain.repository.ActivityRepository
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+
+class ActivityRepositoryImpl(
+    private val activityDao: ActivityDao
+) : ActivityRepository {
+
+    override fun getActivitiesForDateRange(startMillis: Long, endMillis: Long): Flow<List<ActivityItem>> {
+        return activityDao.getActivitiesForDateRange(startMillis, endMillis).map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+
+    override fun getActivityById(id: Long): Flow<ActivityItem?> {
+        return activityDao.getActivityById(id).map { it?.toDomain() }
+    }
+
+    override fun getAllActivities(): Flow<List<ActivityItem>> {
+        return activityDao.getAllActivities().map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+
+    override suspend fun insertActivity(activity: ActivityItem): Long {
+        return activityDao.insertActivity(activity.toEntity())
+    }
+
+    override suspend fun updateActivity(activity: ActivityItem) {
+        activityDao.updateActivity(activity.toEntity())
+    }
+
+    override suspend fun deleteActivity(id: Long) {
+        activityDao.deleteActivity(id)
+    }
+
+    override suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean) {
+        activityDao.updateCompletionStatus(id, isCompleted)
+    }
+
+    override fun searchActivities(query: String): Flow<List<ActivityItem>> {
+        return activityDao.searchActivities(query).map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+}
