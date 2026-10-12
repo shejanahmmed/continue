@@ -62,7 +62,7 @@ fun DiaryScreen(
     ) {
         item {
             DotMatrixHeader(
-                title = "ACTIVITY DIARY",
+                title = "DIARY",
                 badgeText = "${uiState.activities.size} ENTRIES"
             )
             Spacer(modifier = Modifier.height(12.dp))

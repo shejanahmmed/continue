@@ -74,9 +74,8 @@ fun HomeScreen(
         // Top Header
         item {
             DotMatrixHeader(
-                title = dateHeader,
-                badgeText = "${uiState.timeline.activities.size} SCHEDULED",
-                isAccentBadge = false
+                title = "HOME",
+                badgeText = dateHeader.uppercase()
             )
             Spacer(modifier = Modifier.height(12.dp))
         }

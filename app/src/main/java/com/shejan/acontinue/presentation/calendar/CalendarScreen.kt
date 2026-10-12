@@ -43,6 +43,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
@@ -81,17 +82,69 @@ fun CalendarScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 14.dp),
-            contentPadding = PaddingValues(top = 8.dp, bottom = 96.dp)
+                .padding(horizontal = 16.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
         ) {
-            // Top Bar
+            // Top Header: Unified DotMatrixHeader
             item {
-                CalendarTopBar(
-                    monthTitle = monthTitle,
-                    todayNumber = uiState.todayDateNumber,
-                    onPreviousMonth = { viewModel.previousMonth() },
-                    onNextMonth = { viewModel.nextMonth() },
-                    onJumpToday = { viewModel.jumpToToday() }
+                DotMatrixHeader(
+                    title = "CALENDAR",
+                    actions = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(
+                                onClick = { viewModel.previousMonth() },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ChevronLeft,
+                                    contentDescription = "Previous Month",
+                                    tint = UtilitarianTextSecondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            Text(
+                                text = monthTitle,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                letterSpacing = 0.5.sp,
+                                color = UtilitarianTextPrimary,
+                                modifier = Modifier.padding(horizontal = 2.dp)
+                            )
+
+                            IconButton(
+                                onClick = { viewModel.nextMonth() },
+                                modifier = Modifier.size(28.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.ChevronRight,
+                                    contentDescription = "Next Month",
+                                    tint = UtilitarianTextSecondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(6.dp))
+
+                            // Today Jump Box Button [12]
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(7.dp))
+                                    .clickable { viewModel.jumpToToday() },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = uiState.todayDateNumber.toString(),
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 12.sp,
+                                    color = UtilitarianTextPrimary
+                                )
+                            }
+                        }
+                    }
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
@@ -202,74 +255,7 @@ fun CalendarScreen(
     }
 }
 
-@Composable
-private fun CalendarTopBar(
-    monthTitle: String,
-    todayNumber: Int,
-    onPreviousMonth: () -> Unit,
-    onNextMonth: () -> Unit,
-    onJumpToday: () -> Unit
-) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        IconButton(
-            onClick = onPreviousMonth,
-            modifier = Modifier.size(28.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.ChevronLeft,
-                contentDescription = "Previous Month",
-                tint = UtilitarianTextSecondary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
 
-        Text(
-            text = monthTitle,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold,
-            fontSize = 19.sp,
-            letterSpacing = 1.sp,
-            color = UtilitarianTextPrimary,
-            modifier = Modifier.padding(horizontal = 4.dp)
-        )
-
-        IconButton(
-            onClick = onNextMonth,
-            modifier = Modifier.size(28.dp)
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.ChevronRight,
-                contentDescription = "Next Month",
-                tint = UtilitarianTextSecondary,
-                modifier = Modifier.size(20.dp)
-            )
-        }
-
-        Spacer(modifier = Modifier.weight(1f))
-
-        // Today Jump Box Button [12]
-        Box(
-            modifier = Modifier
-                .size(30.dp)
-                .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(7.dp))
-                .clickable { onJumpToday() },
-            contentAlignment = Alignment.Center
-        ) {
-            Text(
-                text = todayNumber.toString(),
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                fontSize = 12.sp,
-                color = UtilitarianTextPrimary
-            )
-        }
-    }
-}
 
 @Composable
 private fun DayOfWeekHeaderRow() {

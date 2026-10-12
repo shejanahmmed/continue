@@ -44,7 +44,7 @@ fun SettingsScreen(
     ) {
         item {
             DotMatrixHeader(
-                title = "SYSTEM SETTINGS",
+                title = "SETTINGS",
                 badgeText = "V1.0"
             )
             Spacer(modifier = Modifier.height(12.dp))
