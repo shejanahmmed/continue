@@ -41,7 +41,7 @@ abstract class ContinueDatabase : RoomDatabase() {
                     context.applicationContext,
                     ContinueDatabase::class.java,
                     "continue_app.db"
-                ).fallbackToDestructiveMigration().build()
+                ).fallbackToDestructiveMigration(dropAllTables = true).build()
                 INSTANCE = instance
                 instance
             }
