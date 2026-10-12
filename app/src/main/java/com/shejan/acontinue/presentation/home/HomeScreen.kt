@@ -27,6 +27,7 @@ import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -75,6 +76,7 @@ fun HomeScreen(
         item {
             DotMatrixHeader(
                 title = "HOME",
+                leadingIcon = Icons.Outlined.Home,
                 badgeText = dateHeader.uppercase()
             )
             Spacer(modifier = Modifier.height(12.dp))

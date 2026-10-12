@@ -13,6 +13,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -45,6 +47,7 @@ fun SettingsScreen(
         item {
             DotMatrixHeader(
                 title = "SETTINGS",
+                leadingIcon = Icons.Outlined.Settings,
                 badgeText = "V1.0"
             )
             Spacer(modifier = Modifier.height(12.dp))

@@ -22,6 +22,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.Checkbox
@@ -89,6 +90,7 @@ fun CalendarScreen(
             item {
                 DotMatrixHeader(
                     title = "CALENDAR",
+                    leadingIcon = Icons.Outlined.CalendarToday,
                     actions = {
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             IconButton(
