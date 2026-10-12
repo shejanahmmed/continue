@@ -113,6 +113,9 @@ fun ContinueNavHost(
                     viewModel = calendarViewModel,
                     onActivityClick = { activityId ->
                         navController.navigate(Screen.Workspace.createRoute(activityId))
+                    },
+                    onCreateClick = {
+                        navController.navigate(Screen.Create.route)
                     }
                 )
             }

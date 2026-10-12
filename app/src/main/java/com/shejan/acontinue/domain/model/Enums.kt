@@ -6,12 +6,12 @@ enum class EntryType {
 }
 
 enum class ActivityCategory(val displayName: String, val colorHex: Long) {
-    CLASS("Class", 0xFFE0E0E0),
-    LAB("Lab", 0xFFB0B0B0),
-    MEETING("Meeting", 0xFF909090),
-    PROJECT("Project", 0xFFD71921),
-    PERSONAL("Personal", 0xFFFFFFFF),
-    OTHER("Other", 0xFF707070)
+    CLASS("Class", 0xFFE5A93C),     // Amber / Gold (matches reference image event accent)
+    LAB("Lab", 0xFF00BFA5),         // Mint / Teal
+    MEETING("Meeting", 0xFF7E57C2), // Royal Purple
+    PROJECT("Project", 0xFFD71921), // Utilitarian Accent Red
+    PERSONAL("Personal", 0xFF3D82F6), // Azure Blue
+    OTHER("Other", 0xFF4CAF50)      // Emerald Green
 }
 
 enum class ActivityPriority(val displayName: String) {
