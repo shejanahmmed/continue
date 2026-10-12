@@ -8,10 +8,12 @@ import com.shejan.acontinue.data.local.ContinueDatabase
 import com.shejan.acontinue.data.repository.ActivityRepositoryImpl
 import com.shejan.acontinue.data.repository.LinkRepositoryImpl
 import com.shejan.acontinue.data.repository.NoteRepositoryImpl
+import com.shejan.acontinue.data.repository.SettingsRepositoryImpl
 import com.shejan.acontinue.data.repository.TaskRepositoryImpl
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.repository.LinkRepository
 import com.shejan.acontinue.domain.repository.NoteRepository
+import com.shejan.acontinue.domain.repository.SettingsRepository
 import com.shejan.acontinue.domain.repository.TaskRepository
 import com.shejan.acontinue.domain.usecase.GetActivityWorkspaceUseCase
 import com.shejan.acontinue.domain.usecase.GetTodayTimelineUseCase
@@ -20,6 +22,7 @@ import com.shejan.acontinue.presentation.calendar.CalendarViewModel
 import com.shejan.acontinue.presentation.create.CreateEntryViewModel
 import com.shejan.acontinue.presentation.diary.DiaryViewModel
 import com.shejan.acontinue.presentation.home.HomeViewModel
+import com.shejan.acontinue.presentation.settings.SettingsViewModel
 import com.shejan.acontinue.presentation.workspace.ActivityWorkspaceViewModel
 
 class AppContainer(context: Context) {
@@ -30,6 +33,7 @@ class AppContainer(context: Context) {
     val taskRepository: TaskRepository = TaskRepositoryImpl(database.taskDao())
     val noteRepository: NoteRepository = NoteRepositoryImpl(database.noteDao())
     val linkRepository: LinkRepository = LinkRepositoryImpl(database.linkDao())
+    val settingsRepository: SettingsRepository = SettingsRepositoryImpl(context)
 
     val alarmScheduler: AlarmScheduler = AlarmScheduler(context)
 
@@ -94,6 +98,14 @@ class AppContainer(context: Context) {
                     noteRepository,
                     linkRepository
                 ) as T
+            }
+        }
+
+    fun provideSettingsViewModelFactory(): ViewModelProvider.Factory =
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return SettingsViewModel(settingsRepository) as T
             }
         }
 }

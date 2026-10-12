@@ -27,9 +27,11 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
+import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
 import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
+import com.shejan.acontinue.ui.theme.UtilitarianPureBlack
 import com.shejan.acontinue.ui.theme.UtilitarianTextDisabled
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
 
@@ -85,11 +87,13 @@ fun FloatingUtilitarianNavBar(
                 )
 
                 // Create (Prominent center action button)
+                val colors = LocalUtilitarianColors.current
+                val iconTint = if (colors.accent == UtilitarianTextPrimary) UtilitarianPureBlack else UtilitarianTextPrimary
                 Box(
                     modifier = Modifier
                         .size(44.dp)
                         .clip(CircleShape)
-                        .background(UtilitarianAccentRed)
+                        .background(colors.accent)
                         .clickable(
                             interactionSource = remember { MutableInteractionSource() },
                             indication = null,
@@ -100,7 +104,7 @@ fun FloatingUtilitarianNavBar(
                     Icon(
                         imageVector = Icons.Outlined.Add,
                         contentDescription = "Create",
-                        tint = UtilitarianTextPrimary,
+                        tint = iconTint,
                         modifier = Modifier.size(21.dp)
                     )
                 }

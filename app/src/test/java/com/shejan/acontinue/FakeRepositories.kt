@@ -173,3 +173,25 @@ class FakeScheduler : com.shejan.acontinue.core.notification.ActivityScheduler {
     }
 }
 
+class FakeSettingsRepository : com.shejan.acontinue.domain.repository.SettingsRepository {
+    val settingsFlow = MutableStateFlow(com.shejan.acontinue.domain.model.UserSettings())
+
+    override fun getUserSettings(): Flow<com.shejan.acontinue.domain.model.UserSettings> = settingsFlow
+
+    override suspend fun setThemeMode(mode: com.shejan.acontinue.domain.model.ThemeMode) {
+        settingsFlow.value = settingsFlow.value.copy(themeMode = mode)
+    }
+
+    override suspend fun setAccentPalette(palette: com.shejan.acontinue.domain.model.AccentPalette) {
+        settingsFlow.value = settingsFlow.value.copy(accentPalette = palette)
+    }
+
+    override suspend fun setHapticFeedbackEnabled(enabled: Boolean) {
+        settingsFlow.value = settingsFlow.value.copy(hapticFeedbackEnabled = enabled)
+    }
+
+    override suspend fun setNotificationsEnabled(enabled: Boolean) {
+        settingsFlow.value = settingsFlow.value.copy(notificationsEnabled = enabled)
+    }
+}
+

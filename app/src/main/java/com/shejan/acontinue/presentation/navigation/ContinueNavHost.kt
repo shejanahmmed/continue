@@ -122,7 +122,10 @@ fun ContinueNavHost(
 
             // Settings Destination
             composable(Screen.Settings.route) {
-                SettingsScreen()
+                val settingsViewModel: com.shejan.acontinue.presentation.settings.SettingsViewModel = viewModel(
+                    factory = container.provideSettingsViewModelFactory()
+                )
+                SettingsScreen(viewModel = settingsViewModel)
             }
 
             // Create Screen

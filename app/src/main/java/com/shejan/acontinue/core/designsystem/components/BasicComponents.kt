@@ -27,13 +27,13 @@ import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
 import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
-import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
+import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 
 @Composable
 fun MonochromeCard(
     modifier: Modifier = Modifier,
-    borderColor: Color = UtilitarianBorderStroke,
-    backgroundColor: Color = UtilitarianCardBackground,
+    borderColor: Color = LocalUtilitarianColors.current.borderStroke,
+    backgroundColor: Color = LocalUtilitarianColors.current.cardBackground,
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
@@ -60,6 +60,7 @@ fun DotMatrixHeader(
     isAccentBadge: Boolean = false,
     actions: @Composable (RowScope.() -> Unit)? = null
 ) {
+    val colors = LocalUtilitarianColors.current
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -70,7 +71,7 @@ fun DotMatrixHeader(
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,
-                tint = UtilitarianTextPrimary,
+                tint = colors.textPrimary,
                 modifier = Modifier.size(20.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -78,7 +79,7 @@ fun DotMatrixHeader(
 
         Text(
             text = title.uppercase(),
-            color = UtilitarianTextPrimary,
+            color = colors.textPrimary,
             fontFamily = FontFamily.Monospace,
             fontWeight = FontWeight.Bold,
             fontSize = 20.sp,
@@ -89,11 +90,11 @@ fun DotMatrixHeader(
             Spacer(modifier = Modifier.width(8.dp))
             Surface(
                 shape = RoundedCornerShape(4.dp),
-                color = if (isAccentBadge) UtilitarianAccentRed else UtilitarianBorderStroke
+                color = if (isAccentBadge) colors.accent else colors.borderStroke
             ) {
                 Text(
                     text = badgeText,
-                    color = UtilitarianTextPrimary,
+                    color = if (isAccentBadge && colors.accent == Color.White) Color.Black else colors.textPrimary,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Medium,

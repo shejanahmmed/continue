@@ -16,10 +16,7 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
-import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
-import com.shejan.acontinue.ui.theme.UtilitarianPureBlack
-import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
+import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 
 @Composable
 fun HighContrastButton(
@@ -29,14 +26,18 @@ fun HighContrastButton(
     isAccent: Boolean = false,
     isOutlined: Boolean = false
 ) {
+    val colors = LocalUtilitarianColors.current
+    val accentColor = colors.accent
+    val onAccentColor = if (accentColor == Color.White) Color.Black else Color.White
+
     if (isOutlined) {
         OutlinedButton(
             onClick = onClick,
             modifier = modifier,
             shape = RoundedCornerShape(24.dp),
-            border = BorderStroke(1.dp, if (isAccent) UtilitarianAccentRed else UtilitarianBorderStroke),
+            border = BorderStroke(1.dp, if (isAccent) accentColor else colors.borderStroke),
             colors = ButtonDefaults.outlinedButtonColors(
-                contentColor = if (isAccent) UtilitarianAccentRed else UtilitarianTextPrimary
+                contentColor = if (isAccent) accentColor else colors.textPrimary
             ),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
         ) {
@@ -53,8 +54,8 @@ fun HighContrastButton(
             modifier = modifier,
             shape = RoundedCornerShape(24.dp),
             colors = ButtonDefaults.buttonColors(
-                containerColor = if (isAccent) UtilitarianAccentRed else UtilitarianTextPrimary,
-                contentColor = if (isAccent) UtilitarianTextPrimary else UtilitarianPureBlack
+                containerColor = if (isAccent) accentColor else colors.textPrimary,
+                contentColor = if (isAccent) onAccentColor else colors.background
             ),
             contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp)
         ) {
@@ -72,8 +73,8 @@ fun HighContrastButton(
 fun UtilitarianBadge(
     text: String,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = UtilitarianBorderStroke,
-    textColor: Color = UtilitarianTextPrimary
+    backgroundColor: Color = LocalUtilitarianColors.current.borderStroke,
+    textColor: Color = LocalUtilitarianColors.current.textPrimary
 ) {
     Surface(
         modifier = modifier,
