@@ -25,6 +25,24 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
+fun defaultStartMillis(): Long {
+    val cal = Calendar.getInstance().apply {
+        add(Calendar.HOUR_OF_DAY, 1)
+        set(Calendar.MINUTE, 0)
+        set(Calendar.SECOND, 0)
+        set(Calendar.MILLISECOND, 0)
+    }
+    return cal.timeInMillis
+}
+
+fun defaultEndMillis(startMillis: Long = defaultStartMillis()): Long {
+    val cal = Calendar.getInstance().apply {
+        timeInMillis = startMillis
+        add(Calendar.HOUR_OF_DAY, 1)
+    }
+    return cal.timeInMillis
+}
+
 data class CreateEntryState(
     val entryType: EntryType = EntryType.ACTIVITY,
     val title: String = "",
@@ -32,8 +50,8 @@ data class CreateEntryState(
     val recentEmojis: List<String> = emptyList(),
     val category: ActivityCategory = ActivityCategory.PERSONAL,
     val isAllDay: Boolean = false,
-    val startMillis: Long = System.currentTimeMillis() + 3600000L,
-    val endMillis: Long = System.currentTimeMillis() + 7200000L,
+    val startMillis: Long = defaultStartMillis(),
+    val endMillis: Long = defaultEndMillis(defaultStartMillis()),
     val location: String = "",
     val reminderOffset: ReminderOffset = ReminderOffset.FIFTEEN_MINUTES,
     val recurrenceMode: RecurrenceMode = RecurrenceMode.NONE,
@@ -114,6 +132,47 @@ class CreateEntryViewModel(
                 set(Calendar.YEAR, year)
                 set(Calendar.MONTH, month)
                 set(Calendar.DAY_OF_MONTH, dayOfMonth)
+            }
+            val newEnd = cal.timeInMillis
+            val newStart = if (newEnd < current.startMillis) newEnd else current.startMillis
+            current.copy(startMillis = newStart, endMillis = newEnd)
+        }
+    }
+
+    fun updateStartTime(hour12: Int, minute: Int, isPm: Boolean) {
+        _state.update { current ->
+            val hour24 = when {
+                isPm && hour12 < 12 -> hour12 + 12
+                !isPm && hour12 == 12 -> 0
+                else -> hour12
+            }
+            val cal = Calendar.getInstance().apply {
+                timeInMillis = current.startMillis
+                set(Calendar.HOUR_OF_DAY, hour24)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
+            }
+            val newStart = cal.timeInMillis
+            val duration = (current.endMillis - current.startMillis).coerceAtLeast(3600000L)
+            val newEnd = if (current.endMillis <= newStart) newStart + duration else current.endMillis
+            current.copy(startMillis = newStart, endMillis = newEnd)
+        }
+    }
+
+    fun updateEndTime(hour12: Int, minute: Int, isPm: Boolean) {
+        _state.update { current ->
+            val hour24 = when {
+                isPm && hour12 < 12 -> hour12 + 12
+                !isPm && hour12 == 12 -> 0
+                else -> hour12
+            }
+            val cal = Calendar.getInstance().apply {
+                timeInMillis = current.endMillis
+                set(Calendar.HOUR_OF_DAY, hour24)
+                set(Calendar.MINUTE, minute)
+                set(Calendar.SECOND, 0)
+                set(Calendar.MILLISECOND, 0)
             }
             val newEnd = cal.timeInMillis
             val newStart = if (newEnd < current.startMillis) newEnd else current.startMillis

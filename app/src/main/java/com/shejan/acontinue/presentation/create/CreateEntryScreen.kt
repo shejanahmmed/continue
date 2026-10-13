@@ -111,10 +111,12 @@ import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
 
-enum class ActiveDateField {
+enum class ActivePickerField {
     NONE,
     START_DATE,
-    END_DATE
+    END_DATE,
+    START_TIME,
+    END_TIME
 }
 
 @Composable
@@ -129,7 +131,7 @@ fun CreateEntryScreen(
 
     var showColorPicker by remember { mutableStateOf(false) }
     var showEmojiKeyboard by remember { mutableStateOf(false) }
-    var activeDateField by remember { mutableStateOf(ActiveDateField.NONE) }
+    var activePickerField by remember { mutableStateOf(ActivePickerField.NONE) }
     var isRollerMode by remember { mutableStateOf(false) }
     var displayedYear by remember {
         val cal = Calendar.getInstance().apply { timeInMillis = state.startMillis }
@@ -302,7 +304,12 @@ fun CreateEntryScreen(
                             }
                             Switch(
                                 checked = state.isAllDay,
-                                onCheckedChange = { viewModel.updateAllDay(it) },
+                                onCheckedChange = {
+                                    if (it && (activePickerField == ActivePickerField.START_TIME || activePickerField == ActivePickerField.END_TIME)) {
+                                        activePickerField = ActivePickerField.NONE
+                                    }
+                                    viewModel.updateAllDay(it)
+                                },
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = colors.textPrimary,
                                     checkedTrackColor = colors.accent,
@@ -319,40 +326,36 @@ fun CreateEntryScreen(
                             isAllDay = state.isAllDay,
                             startMillis = state.startMillis,
                             endMillis = state.endMillis,
-                            activeDateField = activeDateField,
-                            onDateClick = { clickedField ->
+                            activePickerField = activePickerField,
+                            onDateFieldClick = { clickedField ->
                                 showColorPicker = false
                                 showEmojiKeyboard = false
-                                val newActive = if (activeDateField == clickedField) ActiveDateField.NONE else clickedField
-                                activeDateField = newActive
-                                if (newActive != ActiveDateField.NONE) {
-                                    val targetMillis = if (newActive == ActiveDateField.START_DATE) state.startMillis else state.endMillis
+                                val newActive = if (activePickerField == clickedField) ActivePickerField.NONE else clickedField
+                                activePickerField = newActive
+                                if (newActive == ActivePickerField.START_DATE || newActive == ActivePickerField.END_DATE) {
+                                    val targetMillis = if (newActive == ActivePickerField.START_DATE) state.startMillis else state.endMillis
                                     val cal = Calendar.getInstance().apply { timeInMillis = targetMillis }
                                     displayedYear = cal.get(Calendar.YEAR)
                                     displayedMonth = cal.get(Calendar.MONTH)
                                 }
                             },
-                            onStartTimeClick = {
-                                viewModel.updateStartMillis(state.startMillis + 3600000L)
-                                if (state.endMillis <= state.startMillis + 3600000L) {
-                                    viewModel.updateEndMillis(state.startMillis + 7200000L)
-                                }
-                            },
-                            onEndTimeClick = {
-                                viewModel.updateEndMillis(state.endMillis + 3600000L)
+                            onTimeFieldClick = { clickedField ->
+                                showColorPicker = false
+                                showEmojiKeyboard = false
+                                activePickerField = if (activePickerField == clickedField) ActivePickerField.NONE else clickedField
                             }
                         )
 
                         // Inline Expandable Calendar & Roller Date Picker
                         AnimatedVisibility(
-                            visible = activeDateField != ActiveDateField.NONE,
+                            visible = activePickerField == ActivePickerField.START_DATE || activePickerField == ActivePickerField.END_DATE,
                             enter = expandVertically(animationSpec = tween(250)) + fadeIn(animationSpec = tween(200)),
                             exit = shrinkVertically(animationSpec = tween(200)) + fadeOut(animationSpec = tween(150))
                         ) {
                             Column(modifier = Modifier.fillMaxWidth()) {
                                 HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
                                 InlineCalendarDatePicker(
-                                    selectedMillis = if (activeDateField == ActiveDateField.START_DATE) state.startMillis else state.endMillis,
+                                    selectedMillis = if (activePickerField == ActivePickerField.START_DATE) state.startMillis else state.endMillis,
                                     displayedYear = displayedYear,
                                     displayedMonth = displayedMonth,
                                     isRollerMode = isRollerMode,
@@ -369,13 +372,34 @@ fun CreateEntryScreen(
                                         displayedMonth = cal.get(Calendar.MONTH)
                                     },
                                     onDateSelected = { y, m, d ->
-                                        if (activeDateField == ActiveDateField.START_DATE) {
+                                        if (activePickerField == ActivePickerField.START_DATE) {
                                             viewModel.updateStartDate(y, m, d)
-                                        } else if (activeDateField == ActiveDateField.END_DATE) {
+                                        } else if (activePickerField == ActivePickerField.END_DATE) {
                                             viewModel.updateEndDate(y, m, d)
                                         }
                                         displayedYear = y
                                         displayedMonth = m
+                                    }
+                                )
+                            }
+                        }
+
+                        // Inline Expandable 3-Column Wheel Time Picker
+                        AnimatedVisibility(
+                            visible = !state.isAllDay && (activePickerField == ActivePickerField.START_TIME || activePickerField == ActivePickerField.END_TIME),
+                            enter = expandVertically(animationSpec = tween(250)) + fadeIn(animationSpec = tween(200)),
+                            exit = shrinkVertically(animationSpec = tween(200)) + fadeOut(animationSpec = tween(150))
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                                InlineWheelTimePicker(
+                                    selectedMillis = if (activePickerField == ActivePickerField.START_TIME) state.startMillis else state.endMillis,
+                                    onTimeSelected = { hour12, minute, isPm ->
+                                        if (activePickerField == ActivePickerField.START_TIME) {
+                                            viewModel.updateStartTime(hour12, minute, isPm)
+                                        } else if (activePickerField == ActivePickerField.END_TIME) {
+                                            viewModel.updateEndTime(hour12, minute, isPm)
+                                        }
                                     }
                                 )
                             }
@@ -945,12 +969,10 @@ private fun DateTimeRow(
     isAllDay: Boolean,
     startMillis: Long,
     endMillis: Long,
-    activeDateField: ActiveDateField,
-    onDateClick: (ActiveDateField) -> Unit,
-    onStartTimeClick: () -> Unit,
-    onEndTimeClick: () -> Unit
+    activePickerField: ActivePickerField,
+    onDateFieldClick: (ActivePickerField) -> Unit,
+    onTimeFieldClick: (ActivePickerField) -> Unit
 ) {
-    val colors = LocalUtilitarianColors.current
     val dateFormat = remember { SimpleDateFormat("EEE, d MMM", Locale.ENGLISH) }
     val timeFormat = remember { SimpleDateFormat("h:mm a", Locale.ENGLISH) }
 
@@ -967,47 +989,37 @@ private fun DateTimeRow(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                DatePill(
+                SelectablePill(
                     text = dateFormat.format(Date(startMillis)),
-                    isActive = activeDateField == ActiveDateField.START_DATE,
-                    onClick = { onDateClick(ActiveDateField.START_DATE) }
+                    isActive = activePickerField == ActivePickerField.START_DATE,
+                    onClick = { onDateFieldClick(ActivePickerField.START_DATE) }
                 )
                 if (!isAllDay) {
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
+                    Spacer(modifier = Modifier.width(8.dp))
+                    SelectablePill(
                         text = timeFormat.format(Date(startMillis)).lowercase(Locale.ENGLISH),
-                        color = colors.textPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onStartTimeClick)
-                            .padding(horizontal = 8.dp, vertical = 6.dp)
+                        isActive = activePickerField == ActivePickerField.START_TIME,
+                        onClick = { onTimeFieldClick(ActivePickerField.START_TIME) }
                     )
                 }
             }
         } else {
-            // Activity: Start -> End 2-column range matching screenshot
+            // Activity: Start -> End 2-column range matching reference
             Column(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.Start
             ) {
-                DatePill(
+                SelectablePill(
                     text = dateFormat.format(Date(startMillis)),
-                    isActive = activeDateField == ActiveDateField.START_DATE,
-                    onClick = { onDateClick(ActiveDateField.START_DATE) }
+                    isActive = activePickerField == ActivePickerField.START_DATE,
+                    onClick = { onDateFieldClick(ActivePickerField.START_DATE) }
                 )
                 if (!isAllDay) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
+                    SelectablePill(
                         text = timeFormat.format(Date(startMillis)).lowercase(Locale.ENGLISH),
-                        color = colors.textPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onStartTimeClick)
-                            .padding(horizontal = 14.dp, vertical = 4.dp)
+                        isActive = activePickerField == ActivePickerField.START_TIME,
+                        onClick = { onTimeFieldClick(ActivePickerField.START_TIME) }
                     )
                 }
             }
@@ -1015,7 +1027,7 @@ private fun DateTimeRow(
             Icon(
                 imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
                 contentDescription = "to",
-                tint = colors.textSecondary,
+                tint = LocalUtilitarianColors.current.textSecondary,
                 modifier = Modifier
                     .size(16.dp)
                     .padding(horizontal = 2.dp)
@@ -1025,22 +1037,17 @@ private fun DateTimeRow(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.End
             ) {
-                DatePill(
+                SelectablePill(
                     text = dateFormat.format(Date(endMillis)),
-                    isActive = activeDateField == ActiveDateField.END_DATE,
-                    onClick = { onDateClick(ActiveDateField.END_DATE) }
+                    isActive = activePickerField == ActivePickerField.END_DATE,
+                    onClick = { onDateFieldClick(ActivePickerField.END_DATE) }
                 )
                 if (!isAllDay) {
                     Spacer(modifier = Modifier.height(4.dp))
-                    Text(
+                    SelectablePill(
                         text = timeFormat.format(Date(endMillis)).lowercase(Locale.ENGLISH),
-                        color = colors.textPrimary,
-                        fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable(onClick = onEndTimeClick)
-                            .padding(horizontal = 14.dp, vertical = 4.dp)
+                        isActive = activePickerField == ActivePickerField.END_TIME,
+                        onClick = { onTimeFieldClick(ActivePickerField.END_TIME) }
                     )
                 }
             }
@@ -1049,7 +1056,7 @@ private fun DateTimeRow(
 }
 
 @Composable
-private fun DatePill(
+private fun SelectablePill(
     text: String,
     isActive: Boolean,
     onClick: () -> Unit
@@ -1402,22 +1409,24 @@ private fun CalendarRollerPicker(
         horizontalArrangement = Arrangement.SpaceEvenly,
         verticalAlignment = Alignment.CenterVertically
     ) {
-        // Column 1: Day (1..maxDays)
+        // Column 1: Day (1..maxDays) - Circular loop
         WheelPickerColumn(
             modifier = Modifier.weight(1f),
             items = daysList,
             selectedIndex = (currentDay - 1).coerceIn(0, daysList.lastIndex),
+            isCyclic = true,
             onItemSelected = { dayIndex ->
                 val newDay = dayIndex + 1
                 onDateSelected(currentYear, currentMonth, newDay)
             }
         )
 
-        // Column 2: Month (JAN..DEC)
+        // Column 2: Month (JAN..DEC) - Circular loop
         WheelPickerColumn(
             modifier = Modifier.weight(1.3f),
             items = monthNames,
             selectedIndex = currentMonth.coerceIn(0, monthNames.lastIndex),
+            isCyclic = true,
             onItemSelected = { monthIndex ->
                 val newMaxDays = Calendar.getInstance().apply {
                     clear()
@@ -1428,11 +1437,12 @@ private fun CalendarRollerPicker(
             }
         )
 
-        // Column 3: Year (1970..2050)
+        // Column 3: Year (1970..2050) - Bounded
         WheelPickerColumn(
             modifier = Modifier.weight(1.3f),
             items = yearsList,
             selectedIndex = (currentYear - startYear).coerceIn(0, yearsList.lastIndex),
+            isCyclic = false,
             onItemSelected = { yearIndex ->
                 val newYear = startYear + yearIndex
                 val newMaxDays = Calendar.getInstance().apply {
@@ -1451,39 +1461,85 @@ private fun WheelPickerColumn(
     modifier: Modifier = Modifier,
     items: List<String>,
     selectedIndex: Int,
+    isCyclic: Boolean = false,
     onItemSelected: (Int) -> Unit
 ) {
     val coroutineScope = rememberCoroutineScope()
     val itemHeight = 48.dp
     val itemHeightPx = with(LocalDensity.current) { itemHeight.toPx() }
 
-    val listState = rememberLazyListState(
-        initialFirstVisibleItemIndex = selectedIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
-    )
+    val cycleMultiplier = 10_000
+    val totalItemCount = if (isCyclic && items.isNotEmpty()) items.size * cycleMultiplier else items.size
 
-    // Sync state when external selectedIndex changes
-    LaunchedEffect(selectedIndex) {
-        if (!listState.isScrollInProgress) {
-            val centerIndex = listState.firstVisibleItemIndex + if (listState.firstVisibleItemScrollOffset > itemHeightPx / 2) 1 else 0
-            if (centerIndex != selectedIndex && selectedIndex in items.indices) {
-                listState.scrollToItem(selectedIndex)
-            }
+    val initialIndex = remember(items.size, isCyclic) {
+        if (isCyclic && items.isNotEmpty()) {
+            (cycleMultiplier / 2) * items.size + selectedIndex.coerceIn(0, items.lastIndex)
+        } else {
+            selectedIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
         }
     }
 
-    val currentCenterIndex by remember {
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = initialIndex
+    )
+
+    // Handle dynamic items.size change while remaining in the same cycle
+    LaunchedEffect(items.size) {
+        if (isCyclic && items.isNotEmpty()) {
+            val centerCycle = (listState.firstVisibleItemIndex / items.size).coerceAtLeast(1)
+            val safeIndex = selectedIndex.coerceIn(0, items.lastIndex)
+            val newTarget = centerCycle * items.size + safeIndex
+            listState.scrollToItem(newTarget)
+        }
+    }
+
+    // Centered raw item in the viewport
+    val currentRawIndex by remember {
         derivedStateOf {
             val firstVisible = listState.firstVisibleItemIndex
             val offset = listState.firstVisibleItemScrollOffset
             val index = if (offset > itemHeightPx / 2) firstVisible + 1 else firstVisible
-            index.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+            index.coerceIn(0, (totalItemCount - 1).coerceAtLeast(0))
         }
     }
 
+    // Normalized index in 0 until items.size
+    val currentNormalizedIndex by remember {
+        derivedStateOf {
+            if (isCyclic && items.isNotEmpty()) {
+                (currentRawIndex % items.size + items.size) % items.size
+            } else {
+                currentRawIndex
+            }
+        }
+    }
+
+    // Sync external selectedIndex changes
+    LaunchedEffect(selectedIndex) {
+        if (!listState.isScrollInProgress) {
+            if (currentNormalizedIndex != selectedIndex && selectedIndex in items.indices) {
+                if (isCyclic && items.isNotEmpty()) {
+                    val currentCycle = currentRawIndex / items.size
+                    var targetIndex = currentCycle * items.size + selectedIndex
+                    val diff = targetIndex - currentRawIndex
+                    if (diff > items.size / 2) {
+                        targetIndex -= items.size
+                    } else if (diff < -items.size / 2) {
+                        targetIndex += items.size
+                    }
+                    listState.scrollToItem(targetIndex.coerceIn(0, totalItemCount - 1))
+                } else {
+                    listState.scrollToItem(selectedIndex)
+                }
+            }
+        }
+    }
+
+    // Trigger onItemSelected when scroll settles on a new center item
     LaunchedEffect(listState.isScrollInProgress) {
         if (!listState.isScrollInProgress) {
-            if (currentCenterIndex != selectedIndex && currentCenterIndex in items.indices) {
-                onItemSelected(currentCenterIndex)
+            if (currentNormalizedIndex != selectedIndex && currentNormalizedIndex in items.indices) {
+                onItemSelected(currentNormalizedIndex)
             }
         }
     }
@@ -1501,8 +1557,17 @@ private fun WheelPickerColumn(
             modifier = Modifier.fillMaxSize(),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            itemsIndexed(items) { index, text ->
-                val isSelected = index == currentCenterIndex
+            items(
+                count = totalItemCount,
+                key = if (isCyclic) { index -> index } else null
+            ) { globalIndex ->
+                val normalizedIndex = if (isCyclic && items.isNotEmpty()) {
+                    (globalIndex % items.size + items.size) % items.size
+                } else {
+                    globalIndex
+                }
+                val text = items[normalizedIndex]
+                val isSelected = globalIndex == currentRawIndex
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1510,7 +1575,7 @@ private fun WheelPickerColumn(
                         .clip(RoundedCornerShape(8.dp))
                         .clickable {
                             coroutineScope.launch {
-                                listState.animateScrollToItem(index)
+                                listState.animateScrollToItem(globalIndex)
                             }
                         },
                     contentAlignment = Alignment.Center
@@ -1524,6 +1589,93 @@ private fun WheelPickerColumn(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun InlineWheelTimePicker(
+    selectedMillis: Long,
+    onTimeSelected: (hour12: Int, minute: Int, isPm: Boolean) -> Unit
+) {
+    val cal = remember(selectedMillis) {
+        Calendar.getInstance().apply { timeInMillis = selectedMillis }
+    }
+    val currentHour24 = cal.get(Calendar.HOUR_OF_DAY)
+    val currentMinuteRaw = cal.get(Calendar.MINUTE)
+    val isPm = currentHour24 >= 12
+    val currentHour12 = when {
+        currentHour24 == 0 -> 12
+        currentHour24 > 12 -> currentHour24 - 12
+        else -> currentHour24
+    }
+
+    val hoursList = remember { (1..12).map { "$it" } }
+    val minutesList = remember { (0..55 step 5).map { String.format(Locale.ENGLISH, "%02d", it) } }
+    val amPmList = remember { listOf("am", "pm") }
+
+    val currentHourIndex = (currentHour12 - 1).coerceIn(0, 11)
+    val currentMinuteIndex = ((currentMinuteRaw + 2) / 5).coerceIn(0, 11)
+    val currentAmPmIndex = if (isPm) 1 else 0
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp, horizontal = 24.dp),
+        horizontalArrangement = Arrangement.Center,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Column 1: Hour (1..12) - Circular loop
+        WheelPickerColumn(
+            modifier = Modifier.width(68.dp),
+            items = hoursList,
+            selectedIndex = currentHourIndex,
+            isCyclic = true,
+            onItemSelected = { hourIdx ->
+                val newHour12 = hourIdx + 1
+                val minVal = minutesList[currentMinuteIndex].toInt()
+                onTimeSelected(newHour12, minVal, isPm)
+            }
+        )
+
+        // Colon separator
+        Box(
+            modifier = Modifier.width(28.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            Text(
+                text = ":",
+                color = Color.White,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold
+            )
+        }
+
+        // Column 2: Minute (00..55 step 5) - Circular loop
+        WheelPickerColumn(
+            modifier = Modifier.width(68.dp),
+            items = minutesList,
+            selectedIndex = currentMinuteIndex,
+            isCyclic = true,
+            onItemSelected = { minIdx ->
+                val newMinute = minutesList[minIdx].toInt()
+                onTimeSelected(currentHour12, newMinute, isPm)
+            }
+        )
+
+        Spacer(modifier = Modifier.width(24.dp))
+
+        // Column 3: AM / PM - Bounded 2-state toggle
+        WheelPickerColumn(
+            modifier = Modifier.width(68.dp),
+            items = amPmList,
+            selectedIndex = currentAmPmIndex,
+            isCyclic = false,
+            onItemSelected = { amPmIdx ->
+                val newIsPm = amPmIdx == 1
+                val minVal = minutesList[currentMinuteIndex].toInt()
+                onTimeSelected(currentHour12, minVal, newIsPm)
+            }
+        )
     }
 }
 

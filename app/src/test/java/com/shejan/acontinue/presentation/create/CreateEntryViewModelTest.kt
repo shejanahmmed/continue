@@ -164,4 +164,45 @@ class CreateEntryViewModelTest {
         assertEquals(minute, updatedEndCal.get(java.util.Calendar.MINUTE))
         assertTrue(updatedEnd >= viewModel.state.value.startMillis)
     }
+
+    @Test
+    fun `test default start and end times initialize to clean top of hour`() = runTest(testDispatcher) {
+        val startMillis = viewModel.state.value.startMillis
+        val endMillis = viewModel.state.value.endMillis
+
+        val startCal = java.util.Calendar.getInstance().apply { timeInMillis = startMillis }
+        assertEquals(0, startCal.get(java.util.Calendar.MINUTE))
+        assertEquals(0, startCal.get(java.util.Calendar.SECOND))
+        assertEquals(0, startCal.get(java.util.Calendar.MILLISECOND))
+
+        assertEquals(startMillis + 3600000L, endMillis)
+    }
+
+    @Test
+    fun `test updateStartTime sets correct hour minute ampm and adjusts endMillis if necessary`() = runTest(testDispatcher) {
+        // Set start time to 8:30 PM (20:30)
+        viewModel.updateStartTime(hour12 = 8, minute = 30, isPm = true)
+
+        val startCal = java.util.Calendar.getInstance().apply { timeInMillis = viewModel.state.value.startMillis }
+        assertEquals(20, startCal.get(java.util.Calendar.HOUR_OF_DAY))
+        assertEquals(30, startCal.get(java.util.Calendar.MINUTE))
+        assertEquals(0, startCal.get(java.util.Calendar.SECOND))
+
+        // Verify endMillis is maintained greater than or equal to startMillis
+        assertTrue(viewModel.state.value.endMillis >= viewModel.state.value.startMillis)
+    }
+
+    @Test
+    fun `test updateEndTime sets correct hour minute ampm and maintains interval integrity`() = runTest(testDispatcher) {
+        // Set end time to 10:45 PM (22:45)
+        viewModel.updateEndTime(hour12 = 10, minute = 45, isPm = true)
+
+        val endCal = java.util.Calendar.getInstance().apply { timeInMillis = viewModel.state.value.endMillis }
+        assertEquals(22, endCal.get(java.util.Calendar.HOUR_OF_DAY))
+        assertEquals(45, endCal.get(java.util.Calendar.MINUTE))
+        assertEquals(0, endCal.get(java.util.Calendar.SECOND))
+
+        assertTrue(viewModel.state.value.endMillis >= viewModel.state.value.startMillis)
+    }
 }
+
