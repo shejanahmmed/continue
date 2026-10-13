@@ -21,6 +21,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -29,12 +30,14 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -43,6 +46,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.drawBehind
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.Path
+import java.text.SimpleDateFormat
+import java.util.Locale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.platform.LocalFocusManager
@@ -165,10 +171,10 @@ fun RepeatSelectionScreen(
                 fontWeight = FontWeight.Normal,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 4.dp, vertical = 8.dp)
+                    .padding(horizontal = 0.dp, vertical = 6.dp)
             )
 
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
 
             // Card 1: Recurrence Frequency Container (#1C1C1E, RoundedCornerShape 28dp)
             Box(
@@ -338,6 +344,126 @@ fun RepeatSelectionScreen(
                                     .padding(horizontal = 20.dp)
                                     .padding(bottom = 18.dp)
                             )
+                        }
+                    }
+                }
+            }
+
+            // Card 2: Duration Section (Appears when repeat != NONE)
+            AnimatedVisibility(
+                visible = state.recurrenceMode != RecurrenceMode.NONE,
+                enter = expandVertically() + fadeIn(),
+                exit = shrinkVertically() + fadeOut()
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Spacer(modifier = Modifier.height(20.dp))
+
+                    Text(
+                        text = "Duration",
+                        color = TextMuted,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+                    )
+
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(28.dp))
+                            .background(CardBackground)
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            // 1. Forever
+                            val isForever = state.recurrenceEndType == RecurrenceEndType.FOREVER
+                            RepeatRow(
+                                isSelected = isForever,
+                                onClick = { onUpdateEndType(RecurrenceEndType.FOREVER) },
+                                content = {
+                                    Text(
+                                        text = "Forever",
+                                        color = Color.White,
+                                        fontSize = 17.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                            )
+
+                            HorizontalDivider(
+                                color = CardDividerColor,
+                                thickness = 0.5.dp,
+                                modifier = Modifier.padding(start = 60.dp, end = 20.dp)
+                            )
+
+                            // 2. Specific number of times
+                            val isCount = state.recurrenceEndType == RecurrenceEndType.COUNT
+                            RepeatRow(
+                                isSelected = isCount,
+                                onClick = { onUpdateEndType(RecurrenceEndType.COUNT) },
+                                content = {
+                                    if (isCount) {
+                                        CountInputRow(
+                                            count = state.recurrenceEndCount,
+                                            onCountChange = onUpdateEndCount
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "Specific number of times",
+                                            color = Color.White,
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    }
+                                }
+                            )
+
+                            HorizontalDivider(
+                                color = CardDividerColor,
+                                thickness = 0.5.dp,
+                                modifier = Modifier.padding(start = 60.dp, end = 20.dp)
+                            )
+
+                            // 3. Until
+                            val isUntil = state.recurrenceEndType == RecurrenceEndType.UNTIL_DATE
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                RepeatRow(
+                                    isSelected = isUntil,
+                                    onClick = { onUpdateEndType(RecurrenceEndType.UNTIL_DATE) },
+                                    content = {
+                                        val untilLabel = if (isUntil) {
+                                            "Until " + formatUntilDate(state.recurrenceEndDateMillis)
+                                        } else {
+                                            "Until"
+                                        }
+                                        Text(
+                                            text = untilLabel,
+                                            color = Color.White,
+                                            fontSize = 17.sp,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    }
+                                )
+
+                                // Inline Monthly Calendar Date Picker
+                                AnimatedVisibility(
+                                    visible = isUntil,
+                                    enter = expandVertically() + fadeIn(),
+                                    exit = shrinkVertically() + fadeOut()
+                                ) {
+                                    InlineDurationCalendar(
+                                        selectedMillis = state.recurrenceEndDateMillis,
+                                        onDateSelected = { y, m, d ->
+                                            val newCal = Calendar.getInstance().apply {
+                                                clear()
+                                                set(y, m, d, 23, 59, 59)
+                                            }
+                                            onUpdateEndDate(newCal.timeInMillis)
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 8.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -767,13 +893,17 @@ private fun buildDynamicSubtitle(
     dayOfWeekInMonth: Int,
     monthIndex: Int
 ): String {
-    return when (state.recurrenceMode) {
-        RecurrenceMode.NONE -> "This event doesn't repeat."
+    if (state.recurrenceMode == RecurrenceMode.NONE) {
+        return "This event doesn't repeat."
+    }
+
+    val base = when (state.recurrenceMode) {
+        RecurrenceMode.NONE -> "This event doesn't repeat"
         RecurrenceMode.DAILY -> {
             if (state.recurrenceInterval == 1) {
-                "This event will repeat every day."
+                "This event will repeat every day"
             } else {
-                "This event will repeat every ${state.recurrenceInterval} days."
+                "This event will repeat every ${state.recurrenceInterval} days"
             }
         }
         RecurrenceMode.WEEKLY -> {
@@ -784,25 +914,25 @@ private fun buildDynamicSubtitle(
                 daysList.joinToString(", ") { getDayOfWeekName(it) }
             }
             if (state.recurrenceInterval == 1) {
-                "This event will repeat every $dayNames."
+                "This event will repeat every $dayNames"
             } else {
-                "This event will repeat every ${state.recurrenceInterval} weeks on $dayNames."
+                "This event will repeat every ${state.recurrenceInterval} weeks on $dayNames"
             }
         }
-        RecurrenceMode.WEEKDAYS -> "This event will repeat every weekday."
+        RecurrenceMode.WEEKDAYS -> "This event will repeat every weekday"
         RecurrenceMode.MONTHLY -> {
             val intervalClause = if (state.recurrenceInterval == 1) "every month" else "every ${state.recurrenceInterval} months"
             when (state.monthlyRepeatType) {
                 MonthlyRepeatType.SAME_DAY_OF_MONTH -> {
-                    "This event will repeat on the ${getOrdinal(dayOfMonth)} day of $intervalClause."
+                    "This event will repeat on the ${getOrdinal(dayOfMonth)} day of $intervalClause"
                 }
                 MonthlyRepeatType.DAY_OF_WEEK_OF_MONTH -> {
-                    "This event will repeat on the ${getOrdinal(dayOfWeekInMonth)} ${getDayOfWeekName(dayOfWeek)} of $intervalClause."
+                    "This event will repeat on the ${getOrdinal(dayOfWeekInMonth)} ${getDayOfWeekName(dayOfWeek)} of $intervalClause"
                 }
                 MonthlyRepeatType.SPECIFIC_DATES -> {
                     val days = state.monthlySelectedDays.sorted()
                     val daysStr = if (days.isEmpty()) "${getOrdinal(dayOfMonth)} day" else days.joinToString(", ") { getOrdinal(it) } + " day"
-                    "This event will repeat on the $daysStr of $intervalClause."
+                    "This event will repeat on the $daysStr of $intervalClause"
                 }
             }
         }
@@ -810,18 +940,24 @@ private fun buildDynamicSubtitle(
             val intervalClause = if (state.recurrenceInterval == 1) "every year" else "every ${state.recurrenceInterval} years"
             when (state.yearlyRepeatType) {
                 YearlyRepeatType.SAME_DATE -> {
-                    "This event will repeat $intervalClause on ${getOrdinal(dayOfMonth)} ${getMonthShortName(monthIndex)}."
+                    "This event will repeat $intervalClause on ${getOrdinal(dayOfMonth)} ${getMonthShortName(monthIndex)}"
                 }
                 YearlyRepeatType.DAY_OF_WEEK_OF_MONTH -> {
-                    "This event will repeat on the ${getOrdinal(dayOfWeekInMonth)} ${getDayOfWeekName(dayOfWeek)} of ${getMonthShortName(monthIndex)} $intervalClause."
+                    "This event will repeat on the ${getOrdinal(dayOfWeekInMonth)} ${getDayOfWeekName(dayOfWeek)} of ${getMonthShortName(monthIndex)} $intervalClause"
                 }
                 YearlyRepeatType.SPECIFIC_MONTHS -> {
                     val months = state.yearlySelectedMonths.sorted()
                     val monthsStr = if (months.isEmpty()) getMonthShortName(monthIndex) else months.joinToString(", ") { getMonthShortName(it) }
-                    "This event will repeat on the ${getOrdinal(dayOfMonth)} day of $monthsStr $intervalClause."
+                    "This event will repeat on the ${getOrdinal(dayOfMonth)} day of $monthsStr $intervalClause"
                 }
             }
         }
+    }
+
+    return when (state.recurrenceEndType) {
+        RecurrenceEndType.FOREVER -> "$base."
+        RecurrenceEndType.COUNT -> "$base, ${state.recurrenceEndCount} times total."
+        RecurrenceEndType.UNTIL_DATE -> "$base until ${formatUntilDate(state.recurrenceEndDateMillis)}."
     }
 }
 
@@ -864,4 +1000,396 @@ private fun getMonthShortName(monthIndex: Int): String {
         11 -> "Dec"
         else -> "Month"
     }
+}
+
+private fun formatUntilDate(millis: Long): String {
+    val cal = Calendar.getInstance().apply { timeInMillis = millis }
+    return SimpleDateFormat("EEE, d MMM yyyy", Locale.ENGLISH).format(cal.time)
+}
+
+/**
+ * Editable number box for "Specific number of times": [ 10 ] times total
+ */
+@Composable
+private fun CountInputRow(
+    count: Int,
+    onCountChange: (Int) -> Unit
+) {
+    val focusManager = LocalFocusManager.current
+    var textValue by remember(count) { mutableStateOf(count.toString()) }
+
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .width(42.dp)
+                .height(28.dp)
+                .drawBehind {
+                    val strokeWidth = 1.5.dp.toPx()
+                    val y = size.height - strokeWidth / 2
+                    drawLine(
+                        color = AccentBlue,
+                        start = Offset(0f, y),
+                        end = Offset(size.width, y),
+                        strokeWidth = strokeWidth
+                    )
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            BasicTextField(
+                value = textValue,
+                onValueChange = { input ->
+                    val filtered = input.filter { it.isDigit() }.take(3)
+                    textValue = filtered
+                    val parsed = filtered.toIntOrNull()
+                    if (parsed != null && parsed > 0) {
+                        onCountChange(parsed)
+                    }
+                },
+                textStyle = TextStyle(
+                    color = Color.White,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                    textAlign = TextAlign.Center
+                ),
+                cursorBrush = SolidColor(AccentBlue),
+                singleLine = true,
+                keyboardOptions = KeyboardOptions(
+                    keyboardType = KeyboardType.Number,
+                    imeAction = ImeAction.Done
+                ),
+                keyboardActions = KeyboardActions(
+                    onDone = { focusManager.clearFocus() }
+                ),
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+
+        Spacer(modifier = Modifier.width(10.dp))
+
+        Text(
+            text = "times total",
+            color = Color.White,
+            fontSize = 17.sp,
+            fontWeight = FontWeight.Normal
+        )
+    }
+}
+
+/**
+ * Inline Monthly Calendar Date Picker for Duration "Until" mode
+ */
+@Composable
+private fun InlineDurationCalendar(
+    selectedMillis: Long,
+    onDateSelected: (year: Int, month: Int, day: Int) -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val selCal = remember(selectedMillis) {
+        Calendar.getInstance().apply { timeInMillis = selectedMillis }
+    }
+    var displayedYear by remember { mutableIntStateOf(selCal.get(Calendar.YEAR)) }
+    var displayedMonth by remember { mutableIntStateOf(selCal.get(Calendar.MONTH)) }
+
+    val monthTitle = remember(displayedYear, displayedMonth) {
+        val c = Calendar.getInstance().apply {
+            clear()
+            set(displayedYear, displayedMonth, 1)
+        }
+        SimpleDateFormat("MMMM yyyy", Locale.ENGLISH).format(c.time)
+    }
+
+    Column(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp)
+    ) {
+        // Navigation Header: <  October 2026 ▾  >
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            IconButton(
+                onClick = {
+                    if (displayedMonth == 0) {
+                        displayedMonth = 11
+                        displayedYear -= 1
+                    } else {
+                        displayedMonth -= 1
+                    }
+                },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ChevronLeft,
+                    contentDescription = "Previous Month",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+            ) {
+                Text(
+                    text = monthTitle,
+                    color = Color.White,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+                Canvas(modifier = Modifier.size(9.dp)) {
+                    val path = Path().apply {
+                        moveTo(0f, size.height * 0.25f)
+                        lineTo(size.width, size.height * 0.25f)
+                        lineTo(size.width / 2f, size.height * 0.85f)
+                        close()
+                    }
+                    drawPath(path, color = Color.White)
+                }
+            }
+
+            Spacer(modifier = Modifier.width(10.dp))
+
+            IconButton(
+                onClick = {
+                    if (displayedMonth == 11) {
+                        displayedMonth = 0
+                        displayedYear += 1
+                    } else {
+                        displayedMonth += 1
+                    }
+                },
+                modifier = Modifier.size(32.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.ChevronRight,
+                    contentDescription = "Next Month",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Weekday Headers: SAT SUN MON TUE WED THU FRI
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp, vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceAround
+        ) {
+            val dayHeaders = listOf(
+                "SAT" to SaturdayColor,
+                "SUN" to SundayColor,
+                "MON" to Color(0xFF8E8E93),
+                "TUE" to Color(0xFF8E8E93),
+                "WED" to Color(0xFF8E8E93),
+                "THU" to Color(0xFF8E8E93),
+                "FRI" to Color(0xFF8E8E93)
+            )
+            dayHeaders.forEach { (name, color) ->
+                Box(
+                    modifier = Modifier.weight(1f),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = name,
+                        color = color,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            }
+        }
+
+        // 42-Day Month Grid
+        val days = remember(displayedYear, displayedMonth) {
+            generateCalendarDays(displayedYear, displayedMonth)
+        }
+        val selYear = selCal.get(Calendar.YEAR)
+        val selMonth = selCal.get(Calendar.MONTH)
+        val selDay = selCal.get(Calendar.DAY_OF_MONTH)
+
+        val todayCal = remember { Calendar.getInstance() }
+        val todayYear = todayCal.get(Calendar.YEAR)
+        val todayMonth = todayCal.get(Calendar.MONTH)
+        val todayDay = todayCal.get(Calendar.DAY_OF_MONTH)
+
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 4.dp)
+        ) {
+            for (week in 0 until 6) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(38.dp),
+                    horizontalArrangement = Arrangement.SpaceAround,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    for (col in 0 until 7) {
+                        val item = days[week * 7 + col]
+                        if (item.day == null) {
+                            Spacer(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(38.dp)
+                            )
+                        } else {
+                            val isSelected = item.year == selYear && item.month == selMonth && item.day == selDay
+                            val isToday = item.year == todayYear && item.month == todayMonth && item.day == todayDay
+
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(38.dp)
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        onDateSelected(item.year, item.month, item.day)
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isSelected) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .background(AccentBlue),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "${item.day}",
+                                            color = Color.White,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Bold
+                                        )
+                                    }
+                                } else if (isToday) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(32.dp)
+                                            .clip(CircleShape)
+                                            .border(1.5.dp, Color.White, CircleShape),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        val textColor = when {
+                                            item.dayOfWeek == Calendar.SATURDAY -> SaturdayColor
+                                            item.dayOfWeek == Calendar.SUNDAY -> SundayColor
+                                            else -> Color.White
+                                        }
+                                        Text(
+                                            text = "${item.day}",
+                                            color = textColor,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.SemiBold
+                                        )
+                                    }
+                                } else {
+                                    val textColor = when {
+                                        !item.isCurrentMonth -> {
+                                            if (item.dayOfWeek == Calendar.SUNDAY) SundayColor.copy(alpha = 0.5f)
+                                            else if (item.dayOfWeek == Calendar.SATURDAY) SaturdayColor.copy(alpha = 0.5f)
+                                            else Color(0xFF5E5E62)
+                                        }
+                                        item.dayOfWeek == Calendar.SATURDAY -> SaturdayColor
+                                        item.dayOfWeek == Calendar.SUNDAY -> SundayColor
+                                        else -> Color.White
+                                    }
+                                    Text(
+                                        text = "${item.day}",
+                                        color = textColor,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private data class DurationCalendarDay(
+    val year: Int,
+    val month: Int,
+    val day: Int?,
+    val isCurrentMonth: Boolean,
+    val dayOfWeek: Int
+)
+
+private fun generateCalendarDays(year: Int, month: Int): List<DurationCalendarDay> {
+    val cal = Calendar.getInstance().apply {
+        clear()
+        set(year, month, 1)
+    }
+    val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+    // Days before Saturday (Calendar.SATURDAY = 7)
+    // Index: SAT=0, SUN=1, MON=2, TUE=3, WED=4, THU=5, FRI=6
+    val daysBefore = firstDayOfWeek % 7
+
+    val days = ArrayList<DurationCalendarDay>(42)
+
+    // Leading empty slots for the first week
+    for (i in 0 until daysBefore) {
+        val dow = (Calendar.SATURDAY + i - 1) % 7 + 1
+        days.add(
+            DurationCalendarDay(
+                year = year,
+                month = month,
+                day = null,
+                isCurrentMonth = false,
+                dayOfWeek = dow
+            )
+        )
+    }
+
+    val maxDaysInMonth = cal.getActualMaximum(Calendar.DAY_OF_MONTH)
+    for (d in 1..maxDaysInMonth) {
+        cal.set(Calendar.DAY_OF_MONTH, d)
+        days.add(
+            DurationCalendarDay(
+                year = year,
+                month = month,
+                day = d,
+                isCurrentMonth = true,
+                dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+            )
+        )
+    }
+
+    // Trailing days from next month to complete the 42 cells grid
+    var nextDay = 1
+    val nextMonth = if (month == 11) 0 else month + 1
+    val nextYear = if (month == 11) year + 1 else year
+    val nextCal = Calendar.getInstance().apply {
+        clear()
+        set(nextYear, nextMonth, 1)
+    }
+    while (days.size < 42) {
+        nextCal.set(Calendar.DAY_OF_MONTH, nextDay)
+        days.add(
+            DurationCalendarDay(
+                year = nextYear,
+                month = nextMonth,
+                day = nextDay,
+                isCurrentMonth = false,
+                dayOfWeek = nextCal.get(Calendar.DAY_OF_WEEK)
+            )
+        )
+        nextDay++
+    }
+
+    return days
 }

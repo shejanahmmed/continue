@@ -1924,7 +1924,9 @@ private fun BottomCancelSaveDock(
 }
 
 private fun formatRecurrenceLabel(state: CreateEntryState): String {
-    return when (state.recurrenceMode) {
+    if (state.recurrenceMode == RecurrenceMode.NONE) return "Don't repeat"
+
+    val base = when (state.recurrenceMode) {
         RecurrenceMode.NONE -> "Don't repeat"
         RecurrenceMode.DAILY -> if (state.recurrenceInterval == 1) "Daily" else "Every ${state.recurrenceInterval} days"
         RecurrenceMode.WEEKDAYS -> "Every weekday"
@@ -1980,4 +1982,19 @@ private fun formatRecurrenceLabel(state: CreateEntryState): String {
             if (state.recurrenceInterval == 1) "Yearly ($monthStr)" else "Every ${state.recurrenceInterval} years ($monthStr)"
         }
     }
+
+    val durationSuffix = when (state.recurrenceEndType) {
+        com.shejan.acontinue.domain.model.RecurrenceEndType.FOREVER -> ""
+        com.shejan.acontinue.domain.model.RecurrenceEndType.COUNT -> " (${state.recurrenceEndCount} times)"
+        com.shejan.acontinue.domain.model.RecurrenceEndType.UNTIL_DATE -> {
+            val untilCal = Calendar.getInstance().apply { timeInMillis = state.recurrenceEndDateMillis }
+            val mStr = when (untilCal.get(Calendar.MONTH)) {
+                0 -> "Jan"; 1 -> "Feb"; 2 -> "Mar"; 3 -> "Apr"; 4 -> "May"; 5 -> "Jun"; 6 -> "Jul"; 7 -> "Aug"; 8 -> "Sept"; 9 -> "Oct"; 10 -> "Nov"; 11 -> "Dec"; else -> ""
+            }
+            " (until $mStr ${untilCal.get(Calendar.DAY_OF_MONTH)})"
+        }
+    }
+
+    return "$base$durationSuffix"
 }
+
