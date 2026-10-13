@@ -52,6 +52,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -59,6 +60,7 @@ import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.HighContrastButton
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.core.designsystem.components.UtilitarianBadge
+import com.shejan.acontinue.core.util.ClickableLinkText
 import com.shejan.acontinue.core.util.LocationHelper
 import com.shejan.acontinue.domain.model.ActivityLink
 import com.shejan.acontinue.domain.model.ActivityNote
@@ -439,7 +441,13 @@ private fun NotesTabContent(
                         Column(modifier = Modifier.weight(1f)) {
                             Text(text = note.title, color = UtilitarianTextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(text = note.content, color = UtilitarianTextSecondary, fontSize = 13.sp, lineHeight = 18.sp)
+                            ClickableLinkText(
+                                text = note.content,
+                                color = UtilitarianTextSecondary,
+                                linkColor = Color(0xFF3897F0),
+                                style = TextStyle(fontSize = 13.sp),
+                                lineHeight = 18.sp
+                            )
                         }
                         IconButton(onClick = { onDeleteNote(note.id) }) {
                             Icon(imageVector = Icons.Outlined.Delete, contentDescription = "Delete", tint = UtilitarianTextDisabled, modifier = Modifier.size(18.dp))

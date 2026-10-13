@@ -36,6 +36,7 @@ import androidx.compose.ui.unit.sp
 import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.core.designsystem.components.UtilitarianBadge
+import com.shejan.acontinue.core.util.ClickableLinkText
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
@@ -189,11 +190,11 @@ fun DiaryScreen(
                             )
                         }
                         Spacer(modifier = Modifier.height(4.dp))
-                        Text(
+                        ClickableLinkText(
                             text = note.content,
                             color = UtilitarianTextSecondary,
-                            fontSize = 12.sp,
-                            maxLines = 3
+                            linkColor = Color(0xFF3897F0),
+                            style = androidx.compose.ui.text.TextStyle(fontSize = 12.sp)
                         )
                     }
                 }

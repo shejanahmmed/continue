@@ -406,7 +406,7 @@ class CreateEntryViewModel(
                 noteRepository.insertNote(
                     ActivityNote(
                         activityId = newId,
-                        title = "Initial Notes",
+                        title = current.title.trim().ifBlank { "Notes" },
                         content = current.notes.trim()
                     )
                 )

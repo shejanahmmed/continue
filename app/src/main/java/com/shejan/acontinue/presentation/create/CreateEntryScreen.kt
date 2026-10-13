@@ -41,6 +41,7 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -57,6 +58,7 @@ import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Language
+import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.PersonOutline
@@ -65,6 +67,7 @@ import androidx.compose.material.icons.outlined.SentimentSatisfied
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.HorizontalDivider
+import com.shejan.acontinue.core.util.LinkHelper
 import com.shejan.acontinue.core.util.LocationHelper
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -577,26 +580,76 @@ fun CreateEntryScreen(
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(16.dp))
-                            BasicTextField(
-                                value = state.notes,
-                                onValueChange = { viewModel.updateNotes(it) },
-                                modifier = Modifier.fillMaxWidth(),
-                                textStyle = TextStyle(
-                                    color = colors.textPrimary,
-                                    fontSize = 15.sp
-                                ),
-                                cursorBrush = SolidColor(colors.accent),
-                                decorationBox = { innerTextField ->
-                                    if (state.notes.isEmpty()) {
-                                        Text(
-                                            text = "Notes",
-                                            color = colors.textSecondary,
-                                            fontSize = 15.sp
-                                        )
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                BasicTextField(
+                                    value = state.notes,
+                                    onValueChange = { viewModel.updateNotes(it) },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    textStyle = TextStyle(
+                                        color = colors.textPrimary,
+                                        fontSize = 15.sp
+                                    ),
+                                    cursorBrush = SolidColor(colors.accent),
+                                    decorationBox = { innerTextField ->
+                                        if (state.notes.isEmpty()) {
+                                            Text(
+                                                text = "Notes",
+                                                color = colors.textSecondary,
+                                                fontSize = 15.sp
+                                            )
+                                        }
+                                        innerTextField()
                                     }
-                                    innerTextField()
+                                )
+
+                                val detectedUrls = remember(state.notes) { LinkHelper.extractUrls(state.notes) }
+                                if (detectedUrls.isNotEmpty()) {
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .horizontalScroll(rememberScrollState()),
+                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                    ) {
+                                        detectedUrls.forEach { url ->
+                                            Box(
+                                                modifier = Modifier
+                                                    .clip(RoundedCornerShape(12.dp))
+                                                    .background(Color(0xFF1E3A5F).copy(alpha = 0.4f))
+                                                    .border(1.dp, Color(0xFF3897F0), RoundedCornerShape(12.dp))
+                                                    .clickable { LinkHelper.openUrl(context, url) }
+                                                    .padding(horizontal = 10.dp, vertical = 5.dp),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                Row(
+                                                    verticalAlignment = Alignment.CenterVertically,
+                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                ) {
+                                                    Icon(
+                                                        imageVector = Icons.Outlined.Link,
+                                                        contentDescription = "Open Link",
+                                                        tint = Color(0xFF3897F0),
+                                                        modifier = Modifier.size(13.dp)
+                                                    )
+                                                    Text(
+                                                        text = url.removePrefix("https://").removePrefix("http://").take(30) + if (url.length > 36) "…" else "",
+                                                        color = Color(0xFF3897F0),
+                                                        fontSize = 12.sp,
+                                                        fontWeight = FontWeight.Medium,
+                                                        maxLines = 1
+                                                    )
+                                                    Icon(
+                                                        imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                                                        contentDescription = null,
+                                                        tint = Color(0xFF3897F0),
+                                                        modifier = Modifier.size(11.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
                                 }
-                            )
+                            }
                         }
 
                         HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
