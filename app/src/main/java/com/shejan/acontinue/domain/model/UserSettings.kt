@@ -1,5 +1,7 @@
 package com.shejan.acontinue.domain.model
 
+import java.util.UUID
+
 enum class ThemeMode(val displayName: String) {
     DARK("Dark"),
     LIGHT("Light"),
@@ -17,10 +19,37 @@ enum class AccentPalette(
     TACTILE_WHITE("Tactile White", 0xFFFFFFFF, 0xFF333333)
 }
 
+data class CustomAlert(
+    val id: String = UUID.randomUUID().toString(),
+    val value: Int,
+    val unit: String
+) {
+    val minutesBefore: Int get() = when (unit.lowercase()) {
+        "minutes" -> value
+        "hours" -> value * 60
+        "days" -> value * 1440
+        "weeks" -> value * 10080
+        else -> value
+    }
+
+    val displayName: String get() {
+        val singular = when (unit.lowercase()) {
+            "minutes" -> "minute"
+            "hours" -> "hour"
+            "days" -> "day"
+            "weeks" -> "week"
+            else -> unit
+        }
+        val unitStr = if (value == 1) singular else "${singular}s"
+        return "$value $unitStr before"
+    }
+}
+
 data class UserSettings(
     val themeMode: ThemeMode = ThemeMode.DARK,
     val accentPalette: AccentPalette = AccentPalette.MONOCHROME_RED,
     val hapticFeedbackEnabled: Boolean = true,
     val notificationsEnabled: Boolean = true,
-    val recentEmojis: List<String> = emptyList()
+    val recentEmojis: List<String> = emptyList(),
+    val customAlerts: List<CustomAlert> = emptyList()
 )

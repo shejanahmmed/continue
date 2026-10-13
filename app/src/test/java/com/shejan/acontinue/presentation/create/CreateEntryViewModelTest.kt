@@ -15,6 +15,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -203,6 +204,57 @@ class CreateEntryViewModelTest {
         assertEquals(0, endCal.get(java.util.Calendar.SECOND))
 
         assertTrue(viewModel.state.value.endMillis >= viewModel.state.value.startMillis)
+    }
+
+    @Test
+    fun `test multi alert selection and custom alert addition`() = runTest(testDispatcher) {
+        // Initial state has alertsEnabled = false and selectedAlertMinutes = emptySet()
+        assertFalse(viewModel.state.value.alertsEnabled)
+        assertTrue(viewModel.state.value.selectedAlertMinutes.isEmpty())
+
+        // Enable alerts -> defaults to 10 mins before
+        viewModel.toggleAlertsEnabled(true)
+        assertTrue(viewModel.state.value.alertsEnabled)
+        assertEquals(setOf(10), viewModel.state.value.selectedAlertMinutes)
+
+        // Toggle '1 hour before' (60 min)
+        viewModel.toggleAlertMinute(60)
+        assertEquals(setOf(10, 60), viewModel.state.value.selectedAlertMinutes)
+
+        // Add custom alert '9 hours'
+        viewModel.addCustomAlert(9, "hours")
+        testScheduler.advanceUntilIdle()
+
+        // 9 hours = 540 min
+        assertEquals(setOf(10, 60, 540), viewModel.state.value.selectedAlertMinutes)
+        assertEquals(1, viewModel.state.value.savedCustomAlerts.size)
+        assertEquals(9, viewModel.state.value.savedCustomAlerts.first().value)
+        assertEquals("hours", viewModel.state.value.savedCustomAlerts.first().unit)
+
+        // Delete custom alert
+        val customId = viewModel.state.value.savedCustomAlerts.first().id
+        viewModel.deleteCustomAlert(customId)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(setOf(10, 60), viewModel.state.value.selectedAlertMinutes)
+        assertTrue(viewModel.state.value.savedCustomAlerts.isEmpty())
+    }
+
+    @Test
+    fun `test disabling alert switch clears scheduled offsets`() = runTest(testDispatcher) {
+        viewModel.updateTitle("Team Sync")
+        viewModel.toggleAlertsEnabled(false)
+
+        viewModel.events.test {
+            viewModel.saveEntry()
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+
+            val saved = activityRepository.activitiesFlow.value.first()
+            assertTrue(saved.reminderMinutesList.isEmpty())
+            assertEquals(-1, saved.reminderMinutesBefore)
+        }
     }
 }
 

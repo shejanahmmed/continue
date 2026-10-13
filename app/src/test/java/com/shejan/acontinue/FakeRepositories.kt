@@ -198,5 +198,24 @@ class FakeSettingsRepository : com.shejan.acontinue.domain.repository.SettingsRe
         val updated = (listOf(emoji) + settingsFlow.value.recentEmojis).distinct().take(30)
         settingsFlow.value = settingsFlow.value.copy(recentEmojis = updated)
     }
+
+    override suspend fun addCustomAlert(value: Int, unit: String): com.shejan.acontinue.domain.model.CustomAlert {
+        val alert = com.shejan.acontinue.domain.model.CustomAlert(value = value, unit = unit)
+        val updated = settingsFlow.value.customAlerts + alert
+        settingsFlow.value = settingsFlow.value.copy(customAlerts = updated)
+        return alert
+    }
+
+    override suspend fun updateCustomAlert(id: String, value: Int, unit: String) {
+        val updated = settingsFlow.value.customAlerts.map {
+            if (it.id == id) it.copy(value = value, unit = unit) else it
+        }
+        settingsFlow.value = settingsFlow.value.copy(customAlerts = updated)
+    }
+
+    override suspend fun deleteCustomAlert(id: String) {
+        val updated = settingsFlow.value.customAlerts.filterNot { it.id == id }
+        settingsFlow.value = settingsFlow.value.copy(customAlerts = updated)
+    }
 }
 

@@ -12,6 +12,7 @@ data class ActivityItem(
     val location: String = "",
     val priority: ActivityPriority = ActivityPriority.MEDIUM,
     val reminderMinutesBefore: Int = 15,
+    val reminderMinutesList: List<Int> = if (reminderMinutesBefore >= 0) listOf(reminderMinutesBefore) else emptyList(),
     val recurrenceMode: RecurrenceMode = RecurrenceMode.NONE,
     val isCompleted: Boolean = false,
     val createdAtMillis: Long = System.currentTimeMillis()

@@ -17,62 +17,95 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
 
     override fun schedule(activity: ActivityItem) {
-        if (activity.reminderMinutesBefore < 0) return
-
-        val triggerTimeMillis = activity.startTimeMillis - (activity.reminderMinutesBefore * 60 * 1000L)
-        if (triggerTimeMillis <= System.currentTimeMillis()) return
-
-        val intent = Intent(context, AlarmReceiver::class.java).apply {
-            putExtra(EXTRA_ACTIVITY_ID, activity.id)
-            putExtra(EXTRA_ACTIVITY_TITLE, activity.title)
-            putExtra(EXTRA_ACTIVITY_LOCATION, activity.location)
-            putExtra(EXTRA_ACTIVITY_START_TIME, activity.startTimeMillis)
+        val offsets = if (activity.reminderMinutesList.isNotEmpty()) {
+            activity.reminderMinutesList
+        } else if (activity.reminderMinutesBefore >= 0) {
+            listOf(activity.reminderMinutesBefore)
+        } else {
+            emptyList()
         }
 
-        val pendingIntent = PendingIntent.getBroadcast(
-            context,
-            activity.id.toInt(),
-            intent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
+        if (offsets.isEmpty()) return
 
-        alarmManager?.let { manager ->
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                if (manager.canScheduleExactAlarms()) {
+        for (minutes in offsets) {
+            if (minutes < 0) continue
+            val triggerTimeMillis = activity.startTimeMillis - (minutes * 60 * 1000L)
+            if (triggerTimeMillis <= System.currentTimeMillis()) continue
+
+            val intent = Intent(context, AlarmReceiver::class.java).apply {
+                putExtra(EXTRA_ACTIVITY_ID, activity.id)
+                putExtra(EXTRA_ACTIVITY_TITLE, activity.title)
+                putExtra(EXTRA_ACTIVITY_LOCATION, activity.location)
+                putExtra(EXTRA_ACTIVITY_START_TIME, activity.startTimeMillis)
+            }
+
+            val requestCode = getRequestCode(activity.id, minutes)
+            val pendingIntent = PendingIntent.getBroadcast(
+                context,
+                requestCode,
+                intent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            alarmManager?.let { manager ->
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    if (manager.canScheduleExactAlarms()) {
+                        manager.setExactAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerTimeMillis,
+                            pendingIntent
+                        )
+                    } else {
+                        manager.setAndAllowWhileIdle(
+                            AlarmManager.RTC_WAKEUP,
+                            triggerTimeMillis,
+                            pendingIntent
+                        )
+                    }
+                } else {
                     manager.setExactAndAllowWhileIdle(
                         AlarmManager.RTC_WAKEUP,
                         triggerTimeMillis,
                         pendingIntent
                     )
-                } else {
-                    manager.setAndAllowWhileIdle(
-                        AlarmManager.RTC_WAKEUP,
-                        triggerTimeMillis,
-                        pendingIntent
-                    )
                 }
-            } else {
-                manager.setExactAndAllowWhileIdle(
-                    AlarmManager.RTC_WAKEUP,
-                    triggerTimeMillis,
-                    pendingIntent
-                )
             }
         }
     }
 
     override fun cancel(activityId: Long) {
-        val intent = Intent(context, AlarmReceiver::class.java)
-        val pendingIntent = PendingIntent.getBroadcast(
+        // Cancel base request code as well as potential offset slots
+        val baseIntent = Intent(context, AlarmReceiver::class.java)
+        val basePending = PendingIntent.getBroadcast(
             context,
             activityId.toInt(),
-            intent,
+            baseIntent,
             PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
         )
-        if (pendingIntent != null) {
-            alarmManager?.cancel(pendingIntent)
-            pendingIntent.cancel()
+        if (basePending != null) {
+            alarmManager?.cancel(basePending)
+            basePending.cancel()
         }
+
+        // Cancel common preset offset slots
+        val commonOffsets = listOf(0, 5, 10, 15, 30, 60, 1440, 10080)
+        for (m in commonOffsets) {
+            val reqCode = getRequestCode(activityId, m)
+            val pi = PendingIntent.getBroadcast(
+                context,
+                reqCode,
+                baseIntent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+            if (pi != null) {
+                alarmManager?.cancel(pi)
+                pi.cancel()
+            }
+        }
+    }
+
+    private fun getRequestCode(activityId: Long, minutes: Int): Int {
+        return ((activityId % 100000L) * 1000L + (minutes % 1000L)).toInt()
     }
 
     companion object {

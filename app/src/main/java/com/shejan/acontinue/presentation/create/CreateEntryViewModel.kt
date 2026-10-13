@@ -7,6 +7,7 @@ import com.shejan.acontinue.domain.model.ActivityCategory
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.ActivityPriority
+import com.shejan.acontinue.domain.model.CustomAlert
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.RecurrenceMode
 import com.shejan.acontinue.domain.model.ReminderOffset
@@ -53,7 +54,10 @@ data class CreateEntryState(
     val startMillis: Long = defaultStartMillis(),
     val endMillis: Long = defaultEndMillis(defaultStartMillis()),
     val location: String = "",
-    val reminderOffset: ReminderOffset = ReminderOffset.FIFTEEN_MINUTES,
+    val reminderOffset: ReminderOffset = ReminderOffset.NONE,
+    val alertsEnabled: Boolean = false,
+    val selectedAlertMinutes: Set<Int> = emptySet(),
+    val savedCustomAlerts: List<CustomAlert> = emptyList(),
     val recurrenceMode: RecurrenceMode = RecurrenceMode.NONE,
     val notes: String = "",
     val attachmentPath: String = "",
@@ -82,7 +86,12 @@ class CreateEntryViewModel(
     init {
         settingsRepository?.getUserSettings()
             ?.onEach { userSettings ->
-                _state.update { it.copy(recentEmojis = userSettings.recentEmojis) }
+                _state.update { current ->
+                    current.copy(
+                        recentEmojis = userSettings.recentEmojis,
+                        savedCustomAlerts = userSettings.customAlerts
+                    )
+                }
             }
             ?.launchIn(viewModelScope)
     }
@@ -180,6 +189,74 @@ class CreateEntryViewModel(
         }
     }
     fun updateLocation(location: String) = _state.update { it.copy(location = location) }
+
+    fun toggleAlertsEnabled(enabled: Boolean) = _state.update { current ->
+        current.copy(
+            alertsEnabled = enabled,
+            selectedAlertMinutes = if (enabled && current.selectedAlertMinutes.isEmpty()) setOf(10) else if (!enabled) emptySet() else current.selectedAlertMinutes
+        )
+    }
+
+    fun toggleAlertMinute(minutes: Int) = _state.update { current ->
+        val updated = if (current.selectedAlertMinutes.contains(minutes)) {
+            current.selectedAlertMinutes - minutes
+        } else {
+            current.selectedAlertMinutes + minutes
+        }
+        current.copy(selectedAlertMinutes = updated)
+    }
+
+    fun addCustomAlert(value: Int, unit: String) {
+        viewModelScope.launch {
+            val created = settingsRepository?.addCustomAlert(value, unit)
+            val minutes = created?.minutesBefore ?: when (unit.lowercase()) {
+                "minutes" -> value
+                "hours" -> value * 60
+                "days" -> value * 1440
+                "weeks" -> value * 10080
+                else -> value
+            }
+            _state.update { current ->
+                current.copy(selectedAlertMinutes = current.selectedAlertMinutes + minutes)
+            }
+        }
+    }
+
+    fun updateCustomAlert(id: String, value: Int, unit: String) {
+        viewModelScope.launch {
+            val oldAlert = _state.value.savedCustomAlerts.firstOrNull { it.id == id }
+            settingsRepository?.updateCustomAlert(id, value, unit)
+            val newMinutes = when (unit.lowercase()) {
+                "minutes" -> value
+                "hours" -> value * 60
+                "days" -> value * 1440
+                "weeks" -> value * 10080
+                else -> value
+            }
+            if (oldAlert != null) {
+                _state.update { current ->
+                    val wasSelected = current.selectedAlertMinutes.contains(oldAlert.minutesBefore)
+                    val updatedMinutes = if (wasSelected) {
+                        (current.selectedAlertMinutes - oldAlert.minutesBefore) + newMinutes
+                    } else current.selectedAlertMinutes
+                    current.copy(selectedAlertMinutes = updatedMinutes)
+                }
+            }
+        }
+    }
+
+    fun deleteCustomAlert(id: String) {
+        val target = _state.value.savedCustomAlerts.firstOrNull { it.id == id }
+        viewModelScope.launch {
+            settingsRepository?.deleteCustomAlert(id)
+            if (target != null) {
+                _state.update { current ->
+                    current.copy(selectedAlertMinutes = current.selectedAlertMinutes - target.minutesBefore)
+                }
+            }
+        }
+    }
+
     fun updateReminderOffset(offset: ReminderOffset) = _state.update { it.copy(reminderOffset = offset) }
     fun updateRecurrence(mode: RecurrenceMode) = _state.update { it.copy(recurrenceMode = mode) }
     fun updateNotes(notes: String) = _state.update { it.copy(notes = notes) }
@@ -195,6 +272,14 @@ class CreateEntryViewModel(
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true) }
 
+            val minutesList = if (current.alertsEnabled) {
+                current.selectedAlertMinutes.toList().sorted()
+            } else {
+                emptyList()
+            }
+
+            val primaryOffset = if (minutesList.isNotEmpty()) minutesList.first() else -1
+
             val activity = ActivityItem(
                 title = current.title.trim(),
                 description = current.notes.trim(),
@@ -205,7 +290,8 @@ class CreateEntryViewModel(
                 endTimeMillis = if (current.entryType == EntryType.REMINDER) current.startMillis + 1800000L else current.endMillis,
                 location = current.location.trim(),
                 priority = current.priority,
-                reminderMinutesBefore = current.reminderOffset.minutesBefore,
+                reminderMinutesBefore = primaryOffset,
+                reminderMinutesList = minutesList,
                 recurrenceMode = current.recurrenceMode,
                 isCompleted = false
             )
@@ -213,7 +299,6 @@ class CreateEntryViewModel(
             val newId = activityRepository.insertActivity(activity)
             val savedActivity = activity.copy(id = newId)
 
-            // If initial notes were provided, also record them as the first workspace note
             if (current.notes.isNotBlank()) {
                 noteRepository.insertNote(
                     ActivityNote(
@@ -224,7 +309,6 @@ class CreateEntryViewModel(
                 )
             }
 
-            // Schedule exact notification
             scheduler.schedule(savedActivity)
 
             _state.update { it.copy(isSaving = false) }

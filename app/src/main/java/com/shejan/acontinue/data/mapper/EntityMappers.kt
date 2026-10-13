@@ -16,6 +16,13 @@ import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.RecurrenceMode
 
 fun ActivityEntity.toDomain(): ActivityItem {
+    val parsedList = if (reminderMinutesCsv.isNotBlank()) {
+        reminderMinutesCsv.split(",").mapNotNull { it.trim().toIntOrNull() }
+    } else if (reminderMinutesBefore >= 0) {
+        listOf(reminderMinutesBefore)
+    } else {
+        emptyList()
+    }
     return ActivityItem(
         id = id,
         title = title,
@@ -28,6 +35,7 @@ fun ActivityEntity.toDomain(): ActivityItem {
         location = location,
         priority = runCatching { ActivityPriority.valueOf(priority) }.getOrDefault(ActivityPriority.MEDIUM),
         reminderMinutesBefore = reminderMinutesBefore,
+        reminderMinutesList = parsedList,
         recurrenceMode = runCatching { RecurrenceMode.valueOf(recurrenceMode) }.getOrDefault(RecurrenceMode.NONE),
         isCompleted = isCompleted,
         createdAtMillis = createdAtMillis
@@ -35,6 +43,7 @@ fun ActivityEntity.toDomain(): ActivityItem {
 }
 
 fun ActivityItem.toEntity(): ActivityEntity {
+    val csv = reminderMinutesList.joinToString(",")
     return ActivityEntity(
         id = id,
         title = title,
@@ -46,7 +55,8 @@ fun ActivityItem.toEntity(): ActivityEntity {
         endTimeMillis = endTimeMillis,
         location = location,
         priority = priority.name,
-        reminderMinutesBefore = reminderMinutesBefore,
+        reminderMinutesBefore = reminderMinutesList.firstOrNull() ?: reminderMinutesBefore,
+        reminderMinutesCsv = csv,
         recurrenceMode = recurrenceMode.name,
         isCompleted = isCompleted,
         createdAtMillis = createdAtMillis

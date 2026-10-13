@@ -1,6 +1,7 @@
 package com.shejan.acontinue.presentation.create
 
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -51,7 +52,6 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
@@ -131,6 +131,25 @@ fun CreateEntryScreen(
     val state by viewModel.state.collectAsState()
     val colors = LocalUtilitarianColors.current
     val context = LocalContext.current
+
+    var isAlertScreenVisible by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = isAlertScreenVisible) {
+        isAlertScreenVisible = false
+    }
+
+    if (isAlertScreenVisible) {
+        AlertSelectionScreen(
+            state = state,
+            onToggleAlertsEnabled = { viewModel.toggleAlertsEnabled(it) },
+            onToggleAlertMinute = { viewModel.toggleAlertMinute(it) },
+            onAddCustomAlert = { value, unit -> viewModel.addCustomAlert(value, unit) },
+            onUpdateCustomAlert = { id, value, unit -> viewModel.updateCustomAlert(id, value, unit) },
+            onDeleteCustomAlert = { id -> viewModel.deleteCustomAlert(id) },
+            onNavigateBack = { isAlertScreenVisible = false }
+        )
+        return
+    }
 
     var showColorPicker by remember { mutableStateOf(false) }
     var showEmojiKeyboard by remember { mutableStateOf(false) }
@@ -486,34 +505,30 @@ fun CreateEntryScreen(
 
                         HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
 
-                        // Account / Calendar Row
-                        FormOptionRow(
-                            icon = Icons.Outlined.CalendarMonth,
-                            label = "beingshejanahmmed@gmail.com",
-                            isPlaceholder = false,
-                            leadingDotColor = Color(state.category.colorHex),
-                            onClick = { /* Account switch / calendar scope */ }
-                        )
-
-                        HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
-
                         // Alert / Reminder Offset Row
+                        val alertLabel = if (!state.alertsEnabled || state.selectedAlertMinutes.isEmpty()) {
+                            "Alert"
+                        } else {
+                            val labels = state.selectedAlertMinutes.sorted().map { minutes ->
+                                when (minutes) {
+                                    0 -> "At time of event"
+                                    10 -> "10 mins before"
+                                    60 -> "1 hour before"
+                                    1440 -> "1 day before"
+                                    else -> {
+                                        val custom = state.savedCustomAlerts.firstOrNull { it.minutesBefore == minutes }
+                                        custom?.displayName ?: "$minutes mins before"
+                                    }
+                                }
+                            }
+                            if (labels.size == 1) labels.first() else "${labels.size} alerts"
+                        }
+
                         FormOptionRow(
                             icon = Icons.Outlined.Notifications,
-                            label = if (state.reminderOffset == ReminderOffset.NONE) "Alert" else state.reminderOffset.displayName,
-                            isPlaceholder = state.reminderOffset == ReminderOffset.NONE,
-                            onClick = {
-                                val next = when (state.reminderOffset) {
-                                    ReminderOffset.NONE -> ReminderOffset.AT_TIME
-                                    ReminderOffset.AT_TIME -> ReminderOffset.FIVE_MINUTES
-                                    ReminderOffset.FIVE_MINUTES -> ReminderOffset.TEN_MINUTES
-                                    ReminderOffset.TEN_MINUTES -> ReminderOffset.FIFTEEN_MINUTES
-                                    ReminderOffset.FIFTEEN_MINUTES -> ReminderOffset.THIRTY_MINUTES
-                                    ReminderOffset.THIRTY_MINUTES -> ReminderOffset.ONE_HOUR
-                                    ReminderOffset.ONE_HOUR -> ReminderOffset.NONE
-                                }
-                                viewModel.updateReminderOffset(next)
-                            }
+                            label = alertLabel,
+                            isPlaceholder = !state.alertsEnabled || state.selectedAlertMinutes.isEmpty(),
+                            onClick = { isAlertScreenVisible = true }
                         )
 
                         HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)

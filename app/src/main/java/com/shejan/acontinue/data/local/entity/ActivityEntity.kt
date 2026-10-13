@@ -17,6 +17,7 @@ data class ActivityEntity(
     val location: String,
     val priority: String,
     val reminderMinutesBefore: Int,
+    val reminderMinutesCsv: String = "",
     val recurrenceMode: String,
     val isCompleted: Boolean,
     val createdAtMillis: Long
