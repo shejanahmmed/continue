@@ -9,8 +9,11 @@ import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.ActivityPriority
 import com.shejan.acontinue.domain.model.CustomAlert
 import com.shejan.acontinue.domain.model.EntryType
+import com.shejan.acontinue.domain.model.MonthlyRepeatType
+import com.shejan.acontinue.domain.model.RecurrenceEndType
 import com.shejan.acontinue.domain.model.RecurrenceMode
 import com.shejan.acontinue.domain.model.ReminderOffset
+import com.shejan.acontinue.domain.model.YearlyRepeatType
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.repository.NoteRepository
 import com.shejan.acontinue.domain.repository.SettingsRepository
@@ -44,6 +47,14 @@ fun defaultEndMillis(startMillis: Long = defaultStartMillis()): Long {
     return cal.timeInMillis
 }
 
+fun defaultRecurrenceEndDateMillis(startMillis: Long = defaultStartMillis()): Long {
+    val cal = Calendar.getInstance().apply {
+        timeInMillis = startMillis
+        add(Calendar.DAY_OF_YEAR, 7)
+    }
+    return cal.timeInMillis
+}
+
 data class CreateEntryState(
     val entryType: EntryType = EntryType.ACTIVITY,
     val title: String = "",
@@ -59,6 +70,15 @@ data class CreateEntryState(
     val selectedAlertMinutes: Set<Int> = emptySet(),
     val savedCustomAlerts: List<CustomAlert> = emptyList(),
     val recurrenceMode: RecurrenceMode = RecurrenceMode.NONE,
+    val recurrenceInterval: Int = 1,
+    val recurrenceDaysOfWeek: Set<Int> = emptySet(),
+    val monthlyRepeatType: MonthlyRepeatType = MonthlyRepeatType.SAME_DAY_OF_MONTH,
+    val monthlySelectedDays: Set<Int> = emptySet(),
+    val yearlyRepeatType: YearlyRepeatType = YearlyRepeatType.SAME_DATE,
+    val yearlySelectedMonths: Set<Int> = emptySet(),
+    val recurrenceEndType: RecurrenceEndType = RecurrenceEndType.FOREVER,
+    val recurrenceEndCount: Int = 10,
+    val recurrenceEndDateMillis: Long = defaultRecurrenceEndDateMillis(defaultStartMillis()),
     val notes: String = "",
     val attachmentPath: String = "",
     val priority: ActivityPriority = ActivityPriority.MEDIUM,
@@ -258,7 +278,81 @@ class CreateEntryViewModel(
     }
 
     fun updateReminderOffset(offset: ReminderOffset) = _state.update { it.copy(reminderOffset = offset) }
-    fun updateRecurrence(mode: RecurrenceMode) = _state.update { it.copy(recurrenceMode = mode) }
+
+    fun updateRecurrence(mode: RecurrenceMode, interval: Int = 1) {
+        val cal = Calendar.getInstance().apply { timeInMillis = _state.value.startMillis }
+        val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+        val dayOfMonth = cal.get(Calendar.DAY_OF_MONTH)
+        val month = cal.get(Calendar.MONTH)
+
+        _state.update { current ->
+            current.copy(
+                recurrenceMode = mode,
+                recurrenceInterval = interval.coerceAtLeast(1),
+                recurrenceDaysOfWeek = if (current.recurrenceDaysOfWeek.isEmpty()) setOf(dayOfWeek) else current.recurrenceDaysOfWeek,
+                monthlySelectedDays = if (current.monthlySelectedDays.isEmpty()) setOf(dayOfMonth) else current.monthlySelectedDays,
+                yearlySelectedMonths = if (current.yearlySelectedMonths.isEmpty()) setOf(month) else current.yearlySelectedMonths
+            )
+        }
+    }
+
+    fun updateRecurrenceInterval(interval: Int) {
+        _state.update { it.copy(recurrenceInterval = interval.coerceAtLeast(1)) }
+    }
+
+    fun toggleRecurrenceDay(dayOfWeek: Int) {
+        _state.update { current ->
+            val updated = if (current.recurrenceDaysOfWeek.contains(dayOfWeek)) {
+                if (current.recurrenceDaysOfWeek.size > 1) current.recurrenceDaysOfWeek - dayOfWeek else current.recurrenceDaysOfWeek
+            } else {
+                current.recurrenceDaysOfWeek + dayOfWeek
+            }
+            current.copy(recurrenceDaysOfWeek = updated)
+        }
+    }
+
+    fun updateMonthlyRepeatType(type: MonthlyRepeatType) {
+        _state.update { it.copy(monthlyRepeatType = type) }
+    }
+
+    fun toggleMonthlySelectedDay(day: Int) {
+        _state.update { current ->
+            val updated = if (current.monthlySelectedDays.contains(day)) {
+                if (current.monthlySelectedDays.size > 1) current.monthlySelectedDays - day else current.monthlySelectedDays
+            } else {
+                current.monthlySelectedDays + day
+            }
+            current.copy(monthlySelectedDays = updated)
+        }
+    }
+
+    fun updateYearlyRepeatType(type: YearlyRepeatType) {
+        _state.update { it.copy(yearlyRepeatType = type) }
+    }
+
+    fun toggleYearlySelectedMonth(month: Int) {
+        _state.update { current ->
+            val updated = if (current.yearlySelectedMonths.contains(month)) {
+                if (current.yearlySelectedMonths.size > 1) current.yearlySelectedMonths - month else current.yearlySelectedMonths
+            } else {
+                current.yearlySelectedMonths + month
+            }
+            current.copy(yearlySelectedMonths = updated)
+        }
+    }
+
+    fun updateRecurrenceEndType(endType: RecurrenceEndType) {
+        _state.update { it.copy(recurrenceEndType = endType) }
+    }
+
+    fun updateRecurrenceEndCount(count: Int) {
+        _state.update { it.copy(recurrenceEndCount = count.coerceAtLeast(1)) }
+    }
+
+    fun updateRecurrenceEndDate(dateMillis: Long) {
+        _state.update { it.copy(recurrenceEndDateMillis = dateMillis) }
+    }
+
     fun updateNotes(notes: String) = _state.update { it.copy(notes = notes) }
     fun updatePriority(priority: ActivityPriority) = _state.update { it.copy(priority = priority) }
 
@@ -293,6 +387,15 @@ class CreateEntryViewModel(
                 reminderMinutesBefore = primaryOffset,
                 reminderMinutesList = minutesList,
                 recurrenceMode = current.recurrenceMode,
+                recurrenceInterval = current.recurrenceInterval,
+                recurrenceDaysOfWeek = current.recurrenceDaysOfWeek.toList().sorted(),
+                monthlyRepeatType = current.monthlyRepeatType,
+                monthlySelectedDays = current.monthlySelectedDays.toList().sorted(),
+                yearlyRepeatType = current.yearlyRepeatType,
+                yearlySelectedMonths = current.yearlySelectedMonths.toList().sorted(),
+                recurrenceEndType = current.recurrenceEndType,
+                recurrenceEndCount = current.recurrenceEndCount,
+                recurrenceEndDateMillis = current.recurrenceEndDateMillis,
                 isCompleted = false
             )
 

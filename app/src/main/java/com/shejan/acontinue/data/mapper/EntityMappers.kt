@@ -13,7 +13,10 @@ import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.ActivityPriority
 import com.shejan.acontinue.domain.model.ActivityTask
 import com.shejan.acontinue.domain.model.EntryType
+import com.shejan.acontinue.domain.model.MonthlyRepeatType
+import com.shejan.acontinue.domain.model.RecurrenceEndType
 import com.shejan.acontinue.domain.model.RecurrenceMode
+import com.shejan.acontinue.domain.model.YearlyRepeatType
 
 fun ActivityEntity.toDomain(): ActivityItem {
     val parsedList = if (reminderMinutesCsv.isNotBlank()) {
@@ -23,6 +26,22 @@ fun ActivityEntity.toDomain(): ActivityItem {
     } else {
         emptyList()
     }
+    val parsedDaysOfWeek = if (recurrenceDaysOfWeekCsv.isNotBlank()) {
+        recurrenceDaysOfWeekCsv.split(",").mapNotNull { it.trim().toIntOrNull() }
+    } else {
+        emptyList()
+    }
+    val parsedMonthlyDays = if (monthlySelectedDaysCsv.isNotBlank()) {
+        monthlySelectedDaysCsv.split(",").mapNotNull { it.trim().toIntOrNull() }
+    } else {
+        emptyList()
+    }
+    val parsedYearlyMonths = if (yearlySelectedMonthsCsv.isNotBlank()) {
+        yearlySelectedMonthsCsv.split(",").mapNotNull { it.trim().toIntOrNull() }
+    } else {
+        emptyList()
+    }
+
     return ActivityItem(
         id = id,
         title = title,
@@ -37,6 +56,15 @@ fun ActivityEntity.toDomain(): ActivityItem {
         reminderMinutesBefore = reminderMinutesBefore,
         reminderMinutesList = parsedList,
         recurrenceMode = runCatching { RecurrenceMode.valueOf(recurrenceMode) }.getOrDefault(RecurrenceMode.NONE),
+        recurrenceInterval = recurrenceInterval,
+        recurrenceDaysOfWeek = parsedDaysOfWeek,
+        monthlyRepeatType = runCatching { MonthlyRepeatType.valueOf(monthlyRepeatType) }.getOrDefault(MonthlyRepeatType.SAME_DAY_OF_MONTH),
+        monthlySelectedDays = parsedMonthlyDays,
+        yearlyRepeatType = runCatching { YearlyRepeatType.valueOf(yearlyRepeatType) }.getOrDefault(YearlyRepeatType.SAME_DATE),
+        yearlySelectedMonths = parsedYearlyMonths,
+        recurrenceEndType = runCatching { RecurrenceEndType.valueOf(recurrenceEndType) }.getOrDefault(RecurrenceEndType.FOREVER),
+        recurrenceEndCount = recurrenceEndCount,
+        recurrenceEndDateMillis = recurrenceEndDateMillis,
         isCompleted = isCompleted,
         createdAtMillis = createdAtMillis
     )
@@ -58,6 +86,15 @@ fun ActivityItem.toEntity(): ActivityEntity {
         reminderMinutesBefore = reminderMinutesList.firstOrNull() ?: reminderMinutesBefore,
         reminderMinutesCsv = csv,
         recurrenceMode = recurrenceMode.name,
+        recurrenceInterval = recurrenceInterval,
+        recurrenceDaysOfWeekCsv = recurrenceDaysOfWeek.joinToString(","),
+        monthlyRepeatType = monthlyRepeatType.name,
+        monthlySelectedDaysCsv = monthlySelectedDays.joinToString(","),
+        yearlyRepeatType = yearlyRepeatType.name,
+        yearlySelectedMonthsCsv = yearlySelectedMonths.joinToString(","),
+        recurrenceEndType = recurrenceEndType.name,
+        recurrenceEndCount = recurrenceEndCount,
+        recurrenceEndDateMillis = recurrenceEndDateMillis,
         isCompleted = isCompleted,
         createdAtMillis = createdAtMillis
     )

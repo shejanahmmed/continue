@@ -256,5 +256,66 @@ class CreateEntryViewModelTest {
             assertEquals(-1, saved.reminderMinutesBefore)
         }
     }
+
+    @Test
+    fun `test recurrence defaults and state mutations`() = runTest(testDispatcher) {
+        val defaultState = viewModel.state.value
+        assertEquals(com.shejan.acontinue.domain.model.RecurrenceMode.NONE, defaultState.recurrenceMode)
+        assertEquals(1, defaultState.recurrenceInterval)
+        assertEquals(com.shejan.acontinue.domain.model.RecurrenceEndType.FOREVER, defaultState.recurrenceEndType)
+        assertEquals(10, defaultState.recurrenceEndCount)
+
+        // Update to Weekly with interval 2
+        viewModel.updateRecurrence(com.shejan.acontinue.domain.model.RecurrenceMode.WEEKLY, 2)
+        assertEquals(com.shejan.acontinue.domain.model.RecurrenceMode.WEEKLY, viewModel.state.value.recurrenceMode)
+        assertEquals(2, viewModel.state.value.recurrenceInterval)
+        assertFalse(viewModel.state.value.recurrenceDaysOfWeek.isEmpty())
+
+        // Toggle weekday
+        viewModel.toggleRecurrenceDay(java.util.Calendar.MONDAY)
+        assertTrue(viewModel.state.value.recurrenceDaysOfWeek.contains(java.util.Calendar.MONDAY))
+
+        // Update Monthly mode and toggle specific day
+        viewModel.updateMonthlyRepeatType(com.shejan.acontinue.domain.model.MonthlyRepeatType.SPECIFIC_DATES)
+        assertEquals(com.shejan.acontinue.domain.model.MonthlyRepeatType.SPECIFIC_DATES, viewModel.state.value.monthlyRepeatType)
+        viewModel.toggleMonthlySelectedDay(28)
+        assertTrue(viewModel.state.value.monthlySelectedDays.contains(28))
+
+        // Update Yearly mode and toggle month
+        viewModel.updateYearlyRepeatType(com.shejan.acontinue.domain.model.YearlyRepeatType.SPECIFIC_MONTHS)
+        assertEquals(com.shejan.acontinue.domain.model.YearlyRepeatType.SPECIFIC_MONTHS, viewModel.state.value.yearlyRepeatType)
+        viewModel.toggleYearlySelectedMonth(java.util.Calendar.DECEMBER)
+        assertTrue(viewModel.state.value.yearlySelectedMonths.contains(java.util.Calendar.DECEMBER))
+
+        // Update duration type and count
+        viewModel.updateRecurrenceEndType(com.shejan.acontinue.domain.model.RecurrenceEndType.COUNT)
+        viewModel.updateRecurrenceEndCount(5)
+        assertEquals(com.shejan.acontinue.domain.model.RecurrenceEndType.COUNT, viewModel.state.value.recurrenceEndType)
+        assertEquals(5, viewModel.state.value.recurrenceEndCount)
+    }
+
+    @Test
+    fun `test saving entry preserves recurrence metadata`() = runTest(testDispatcher) {
+        viewModel.updateTitle("Project Sprint")
+        viewModel.updateRecurrence(com.shejan.acontinue.domain.model.RecurrenceMode.WEEKLY, 2)
+        viewModel.toggleRecurrenceDay(java.util.Calendar.WEDNESDAY)
+        viewModel.updateRecurrenceEndType(com.shejan.acontinue.domain.model.RecurrenceEndType.COUNT)
+        viewModel.updateRecurrenceEndCount(8)
+
+        viewModel.events.test {
+            viewModel.saveEntry()
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+
+            val saved = activityRepository.activitiesFlow.value.first()
+            assertEquals("Project Sprint", saved.title)
+            assertEquals(com.shejan.acontinue.domain.model.RecurrenceMode.WEEKLY, saved.recurrenceMode)
+            assertEquals(2, saved.recurrenceInterval)
+            assertTrue(saved.recurrenceDaysOfWeek.contains(java.util.Calendar.WEDNESDAY))
+            assertEquals(com.shejan.acontinue.domain.model.RecurrenceEndType.COUNT, saved.recurrenceEndType)
+            assertEquals(8, saved.recurrenceEndCount)
+        }
+    }
 }
 

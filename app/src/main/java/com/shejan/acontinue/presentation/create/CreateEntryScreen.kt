@@ -544,7 +544,8 @@ fun CreateEntryScreen(
                                     RecurrenceMode.DAILY -> RecurrenceMode.WEEKDAYS
                                     RecurrenceMode.WEEKDAYS -> RecurrenceMode.WEEKLY
                                     RecurrenceMode.WEEKLY -> RecurrenceMode.MONTHLY
-                                    RecurrenceMode.MONTHLY -> RecurrenceMode.NONE
+                                    RecurrenceMode.MONTHLY -> RecurrenceMode.YEARLY
+                                    RecurrenceMode.YEARLY -> RecurrenceMode.NONE
                                 }
                                 viewModel.updateRecurrence(next)
                             }

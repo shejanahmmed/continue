@@ -14,6 +14,15 @@ data class ActivityItem(
     val reminderMinutesBefore: Int = 15,
     val reminderMinutesList: List<Int> = if (reminderMinutesBefore >= 0) listOf(reminderMinutesBefore) else emptyList(),
     val recurrenceMode: RecurrenceMode = RecurrenceMode.NONE,
+    val recurrenceInterval: Int = 1,
+    val recurrenceDaysOfWeek: List<Int> = emptyList(),
+    val monthlyRepeatType: MonthlyRepeatType = MonthlyRepeatType.SAME_DAY_OF_MONTH,
+    val monthlySelectedDays: List<Int> = emptyList(),
+    val yearlyRepeatType: YearlyRepeatType = YearlyRepeatType.SAME_DATE,
+    val yearlySelectedMonths: List<Int> = emptyList(),
+    val recurrenceEndType: RecurrenceEndType = RecurrenceEndType.FOREVER,
+    val recurrenceEndCount: Int = 10,
+    val recurrenceEndDateMillis: Long = 0L,
     val isCompleted: Boolean = false,
     val createdAtMillis: Long = System.currentTimeMillis()
 )

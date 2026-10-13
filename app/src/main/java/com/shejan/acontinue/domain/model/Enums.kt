@@ -36,10 +36,29 @@ enum class ActivityPriority(val displayName: String) {
 
 enum class RecurrenceMode(val displayName: String) {
     NONE("Don't repeat"),
-    DAILY("Daily"),
+    DAILY("Every 1 day"),
     WEEKDAYS("Every weekday"),
-    WEEKLY("Weekly"),
-    MONTHLY("Monthly")
+    WEEKLY("Every 1 week"),
+    MONTHLY("Every 1 month"),
+    YEARLY("Every 1 year")
+}
+
+enum class MonthlyRepeatType {
+    SAME_DAY_OF_MONTH,
+    DAY_OF_WEEK_OF_MONTH,
+    SPECIFIC_DATES
+}
+
+enum class YearlyRepeatType {
+    SAME_DATE,
+    DAY_OF_WEEK_OF_MONTH,
+    SPECIFIC_MONTHS
+}
+
+enum class RecurrenceEndType {
+    FOREVER,
+    COUNT,
+    UNTIL_DATE
 }
 
 enum class ReminderOffset(val minutesBefore: Int, val displayName: String) {
