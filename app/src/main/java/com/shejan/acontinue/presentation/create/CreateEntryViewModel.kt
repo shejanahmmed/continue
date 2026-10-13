@@ -91,6 +91,35 @@ class CreateEntryViewModel(
     fun updateAllDay(isAllDay: Boolean) = _state.update { it.copy(isAllDay = isAllDay) }
     fun updateStartMillis(millis: Long) = _state.update { it.copy(startMillis = millis) }
     fun updateEndMillis(millis: Long) = _state.update { it.copy(endMillis = millis) }
+
+    fun updateStartDate(year: Int, month: Int, dayOfMonth: Int) {
+        _state.update { current ->
+            val cal = Calendar.getInstance().apply {
+                timeInMillis = current.startMillis
+                set(Calendar.YEAR, year)
+                set(Calendar.MONTH, month)
+                set(Calendar.DAY_OF_MONTH, dayOfMonth)
+            }
+            val newStart = cal.timeInMillis
+            val duration = (current.endMillis - current.startMillis).coerceAtLeast(3600000L)
+            val newEnd = if (current.endMillis <= newStart) newStart + duration else current.endMillis
+            current.copy(startMillis = newStart, endMillis = newEnd)
+        }
+    }
+
+    fun updateEndDate(year: Int, month: Int, dayOfMonth: Int) {
+        _state.update { current ->
+            val cal = Calendar.getInstance().apply {
+                timeInMillis = current.endMillis
+                set(Calendar.YEAR, year)
+                set(Calendar.MONTH, month)
+                set(Calendar.DAY_OF_MONTH, dayOfMonth)
+            }
+            val newEnd = cal.timeInMillis
+            val newStart = if (newEnd < current.startMillis) newEnd else current.startMillis
+            current.copy(startMillis = newStart, endMillis = newEnd)
+        }
+    }
     fun updateLocation(location: String) = _state.update { it.copy(location = location) }
     fun updateReminderOffset(offset: ReminderOffset) = _state.update { it.copy(reminderOffset = offset) }
     fun updateRecurrence(mode: RecurrenceMode) = _state.update { it.copy(recurrenceMode = mode) }

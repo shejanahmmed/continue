@@ -122,4 +122,46 @@ class CreateEntryViewModelTest {
         assertEquals(listOf("🎉", "🎂"), viewModel.state.value.recentEmojis)
         assertEquals(listOf("🎉", "🎂"), settingsRepository.settingsFlow.value.recentEmojis)
     }
+
+    @Test
+    fun `test updateStartDate preserves time and adjusts endMillis if necessary`() = runTest(testDispatcher) {
+        val initialStart = viewModel.state.value.startMillis
+        val initialEnd = viewModel.state.value.endMillis
+
+        val startCal = java.util.Calendar.getInstance().apply { timeInMillis = initialStart }
+        val hour = startCal.get(java.util.Calendar.HOUR_OF_DAY)
+        val minute = startCal.get(java.util.Calendar.MINUTE)
+
+        viewModel.updateStartDate(2026, java.util.Calendar.OCTOBER, 13)
+
+        val updatedStart = viewModel.state.value.startMillis
+        val updatedStartCal = java.util.Calendar.getInstance().apply { timeInMillis = updatedStart }
+
+        assertEquals(2026, updatedStartCal.get(java.util.Calendar.YEAR))
+        assertEquals(java.util.Calendar.OCTOBER, updatedStartCal.get(java.util.Calendar.MONTH))
+        assertEquals(13, updatedStartCal.get(java.util.Calendar.DAY_OF_MONTH))
+        assertEquals(hour, updatedStartCal.get(java.util.Calendar.HOUR_OF_DAY))
+        assertEquals(minute, updatedStartCal.get(java.util.Calendar.MINUTE))
+        assertTrue(viewModel.state.value.endMillis >= updatedStart)
+    }
+
+    @Test
+    fun `test updateEndDate preserves time and maintains interval integrity`() = runTest(testDispatcher) {
+        val initialEnd = viewModel.state.value.endMillis
+        val endCal = java.util.Calendar.getInstance().apply { timeInMillis = initialEnd }
+        val hour = endCal.get(java.util.Calendar.HOUR_OF_DAY)
+        val minute = endCal.get(java.util.Calendar.MINUTE)
+
+        viewModel.updateEndDate(2027, java.util.Calendar.NOVEMBER, 20)
+
+        val updatedEnd = viewModel.state.value.endMillis
+        val updatedEndCal = java.util.Calendar.getInstance().apply { timeInMillis = updatedEnd }
+
+        assertEquals(2027, updatedEndCal.get(java.util.Calendar.YEAR))
+        assertEquals(java.util.Calendar.NOVEMBER, updatedEndCal.get(java.util.Calendar.MONTH))
+        assertEquals(20, updatedEndCal.get(java.util.Calendar.DAY_OF_MONTH))
+        assertEquals(hour, updatedEndCal.get(java.util.Calendar.HOUR_OF_DAY))
+        assertEquals(minute, updatedEndCal.get(java.util.Calendar.MINUTE))
+        assertTrue(updatedEnd >= viewModel.state.value.startMillis)
+    }
 }

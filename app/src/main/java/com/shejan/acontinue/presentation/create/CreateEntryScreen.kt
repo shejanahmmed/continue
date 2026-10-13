@@ -1,13 +1,25 @@
 package com.shejan.acontinue.presentation.create
 
 import android.widget.Toast
+import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -21,11 +33,13 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
 import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -37,6 +51,8 @@ import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.CalendarMonth
+import androidx.compose.material.icons.outlined.ChevronLeft
+import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LocationOn
@@ -48,6 +64,7 @@ import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.SwitchDefaults
@@ -55,17 +72,22 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.TextStyle
@@ -84,9 +106,16 @@ import com.shejan.acontinue.domain.model.ReminderOffset
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import kotlinx.coroutines.flow.collectLatest
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 import java.util.TimeZone
+
+enum class ActiveDateField {
+    NONE,
+    START_DATE,
+    END_DATE
+}
 
 @Composable
 fun CreateEntryScreen(
@@ -100,6 +129,17 @@ fun CreateEntryScreen(
 
     var showColorPicker by remember { mutableStateOf(false) }
     var showEmojiKeyboard by remember { mutableStateOf(false) }
+    var activeDateField by remember { mutableStateOf(ActiveDateField.NONE) }
+    var isRollerMode by remember { mutableStateOf(false) }
+    var displayedYear by remember {
+        val cal = Calendar.getInstance().apply { timeInMillis = state.startMillis }
+        mutableIntStateOf(cal.get(Calendar.YEAR))
+    }
+    var displayedMonth by remember {
+        val cal = Calendar.getInstance().apply { timeInMillis = state.startMillis }
+        mutableIntStateOf(cal.get(Calendar.MONTH))
+    }
+    var slideDirection by remember { mutableIntStateOf(1) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
@@ -279,11 +319,67 @@ fun CreateEntryScreen(
                             isAllDay = state.isAllDay,
                             startMillis = state.startMillis,
                             endMillis = state.endMillis,
-                            onTimeClick = {
+                            activeDateField = activeDateField,
+                            onDateClick = { clickedField ->
+                                showColorPicker = false
+                                showEmojiKeyboard = false
+                                val newActive = if (activeDateField == clickedField) ActiveDateField.NONE else clickedField
+                                activeDateField = newActive
+                                if (newActive != ActiveDateField.NONE) {
+                                    val targetMillis = if (newActive == ActiveDateField.START_DATE) state.startMillis else state.endMillis
+                                    val cal = Calendar.getInstance().apply { timeInMillis = targetMillis }
+                                    displayedYear = cal.get(Calendar.YEAR)
+                                    displayedMonth = cal.get(Calendar.MONTH)
+                                }
+                            },
+                            onStartTimeClick = {
                                 viewModel.updateStartMillis(state.startMillis + 3600000L)
+                                if (state.endMillis <= state.startMillis + 3600000L) {
+                                    viewModel.updateEndMillis(state.startMillis + 7200000L)
+                                }
+                            },
+                            onEndTimeClick = {
                                 viewModel.updateEndMillis(state.endMillis + 3600000L)
                             }
                         )
+
+                        // Inline Expandable Calendar & Roller Date Picker
+                        AnimatedVisibility(
+                            visible = activeDateField != ActiveDateField.NONE,
+                            enter = expandVertically(animationSpec = tween(250)) + fadeIn(animationSpec = tween(200)),
+                            exit = shrinkVertically(animationSpec = tween(200)) + fadeOut(animationSpec = tween(150))
+                        ) {
+                            Column(modifier = Modifier.fillMaxWidth()) {
+                                HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                                InlineCalendarDatePicker(
+                                    selectedMillis = if (activeDateField == ActiveDateField.START_DATE) state.startMillis else state.endMillis,
+                                    displayedYear = displayedYear,
+                                    displayedMonth = displayedMonth,
+                                    isRollerMode = isRollerMode,
+                                    slideDirection = slideDirection,
+                                    onToggleRollerMode = { isRollerMode = !isRollerMode },
+                                    onNavigateMonth = { delta ->
+                                        slideDirection = delta
+                                        val cal = Calendar.getInstance().apply {
+                                            clear()
+                                            set(displayedYear, displayedMonth, 1)
+                                            add(Calendar.MONTH, delta)
+                                        }
+                                        displayedYear = cal.get(Calendar.YEAR)
+                                        displayedMonth = cal.get(Calendar.MONTH)
+                                    },
+                                    onDateSelected = { y, m, d ->
+                                        if (activeDateField == ActiveDateField.START_DATE) {
+                                            viewModel.updateStartDate(y, m, d)
+                                        } else if (activeDateField == ActiveDateField.END_DATE) {
+                                            viewModel.updateEndDate(y, m, d)
+                                        }
+                                        displayedYear = y
+                                        displayedMonth = m
+                                    }
+                                )
+                            }
+                        }
 
                         HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
 
@@ -849,16 +945,18 @@ private fun DateTimeRow(
     isAllDay: Boolean,
     startMillis: Long,
     endMillis: Long,
-    onTimeClick: () -> Unit
+    activeDateField: ActiveDateField,
+    onDateClick: (ActiveDateField) -> Unit,
+    onStartTimeClick: () -> Unit,
+    onEndTimeClick: () -> Unit
 ) {
     val colors = LocalUtilitarianColors.current
-    val dateFormat = remember { SimpleDateFormat("EEE, dd MMM", Locale.getDefault()) }
-    val timeFormat = remember { SimpleDateFormat("h:mm a", Locale.getDefault()) }
+    val dateFormat = remember { SimpleDateFormat("EEE, d MMM", Locale.ENGLISH) }
+    val timeFormat = remember { SimpleDateFormat("h:mm a", Locale.ENGLISH) }
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onTimeClick)
             .padding(vertical = 10.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically
@@ -869,37 +967,47 @@ private fun DateTimeRow(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
+                DatePill(
                     text = dateFormat.format(Date(startMillis)),
-                    color = colors.textPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
+                    isActive = activeDateField == ActiveDateField.START_DATE,
+                    onClick = { onDateClick(ActiveDateField.START_DATE) }
                 )
                 if (!isAllDay) {
+                    Spacer(modifier = Modifier.width(12.dp))
                     Text(
-                        text = "  ${timeFormat.format(Date(startMillis))}",
+                        text = timeFormat.format(Date(startMillis)).lowercase(Locale.ENGLISH),
                         color = colors.textPrimary,
                         fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onStartTimeClick)
+                            .padding(horizontal = 8.dp, vertical = 6.dp)
                     )
                 }
             }
         } else {
             // Activity: Start -> End 2-column range matching screenshot
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
+            Column(
+                modifier = Modifier.weight(1f),
+                horizontalAlignment = Alignment.Start
+            ) {
+                DatePill(
                     text = dateFormat.format(Date(startMillis)),
-                    color = colors.textPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
+                    isActive = activeDateField == ActiveDateField.START_DATE,
+                    onClick = { onDateClick(ActiveDateField.START_DATE) }
                 )
                 if (!isAllDay) {
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = timeFormat.format(Date(startMillis)),
+                        text = timeFormat.format(Date(startMillis)).lowercase(Locale.ENGLISH),
                         color = colors.textPrimary,
                         fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onStartTimeClick)
+                            .padding(horizontal = 14.dp, vertical = 4.dp)
                     )
                 }
             }
@@ -917,24 +1025,545 @@ private fun DateTimeRow(
                 modifier = Modifier.weight(1f),
                 horizontalAlignment = Alignment.End
             ) {
-                Text(
+                DatePill(
                     text = dateFormat.format(Date(endMillis)),
-                    color = colors.textPrimary,
-                    fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium
+                    isActive = activeDateField == ActiveDateField.END_DATE,
+                    onClick = { onDateClick(ActiveDateField.END_DATE) }
                 )
                 if (!isAllDay) {
-                    Spacer(modifier = Modifier.height(2.dp))
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = timeFormat.format(Date(endMillis)),
+                        text = timeFormat.format(Date(endMillis)).lowercase(Locale.ENGLISH),
                         color = colors.textPrimary,
                         fontSize = 15.sp,
-                        fontWeight = FontWeight.Medium
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable(onClick = onEndTimeClick)
+                            .padding(horizontal = 14.dp, vertical = 4.dp)
                     )
                 }
             }
         }
     }
+}
+
+@Composable
+private fun DatePill(
+    text: String,
+    isActive: Boolean,
+    onClick: () -> Unit
+) {
+    val colors = LocalUtilitarianColors.current
+    Surface(
+        shape = RoundedCornerShape(16.dp),
+        color = if (isActive) Color(0xFF282828) else Color.Transparent,
+        border = if (isActive) BorderStroke(1.dp, Color(0xFF404040)) else null,
+        modifier = Modifier
+            .clip(RoundedCornerShape(16.dp))
+            .clickable(onClick = onClick)
+    ) {
+        Text(
+            text = text,
+            color = colors.textPrimary,
+            fontSize = 15.sp,
+            fontWeight = FontWeight.Medium,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
+        )
+    }
+}
+
+@Composable
+private fun InlineCalendarDatePicker(
+    selectedMillis: Long,
+    displayedYear: Int,
+    displayedMonth: Int,
+    isRollerMode: Boolean,
+    slideDirection: Int,
+    onToggleRollerMode: () -> Unit,
+    onNavigateMonth: (Int) -> Unit,
+    onDateSelected: (year: Int, month: Int, day: Int) -> Unit
+) {
+    val colors = LocalUtilitarianColors.current
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 12.dp)
+    ) {
+        // Navigation Header
+        if (!isRollerMode) {
+            // Mode A Header: < Month Year ▼ > (Centered)
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                IconButton(
+                    onClick = { onNavigateMonth(-1) },
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ChevronLeft,
+                        contentDescription = "Previous Month",
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onToggleRollerMode)
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val monthTitle = remember(displayedYear, displayedMonth) {
+                        val cal = Calendar.getInstance().apply {
+                            clear()
+                            set(displayedYear, displayedMonth, 1)
+                        }
+                        SimpleDateFormat("MMMM yyyy", Locale.ENGLISH).format(cal.time)
+                    }
+                    Text(
+                        text = monthTitle,
+                        color = colors.textPrimary,
+                        fontSize = 17.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Canvas(modifier = Modifier.size(9.dp)) {
+                        val path = Path().apply {
+                            moveTo(0f, size.height * 0.25f)
+                            lineTo(size.width, size.height * 0.25f)
+                            lineTo(size.width / 2f, size.height * 0.85f)
+                            close()
+                        }
+                        drawPath(path, color = Color.White)
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                IconButton(
+                    onClick = { onNavigateMonth(1) },
+                    modifier = Modifier.size(34.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ChevronRight,
+                        contentDescription = "Next Month",
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Day Headers Row: SAT SUN MON TUE WED THU FRI
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 4.dp, vertical = 6.dp),
+                horizontalArrangement = Arrangement.SpaceAround
+            ) {
+                val dayHeaders = listOf(
+                    "SAT" to Color(0xFF3897F0),
+                    "SUN" to Color(0xFFEF5350),
+                    "MON" to Color(0xFF8E8E93),
+                    "TUE" to Color(0xFF8E8E93),
+                    "WED" to Color(0xFF8E8E93),
+                    "THU" to Color(0xFF8E8E93),
+                    "FRI" to Color(0xFF8E8E93)
+                )
+                dayHeaders.forEach { (name, color) ->
+                    Box(
+                        modifier = Modifier.weight(1f),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = name,
+                            color = color,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+
+            // Monthly 42-Day Grid with Horizontal Slide Animation
+            AnimatedContent(
+                targetState = Pair(displayedYear, displayedMonth),
+                transitionSpec = {
+                    if (slideDirection > 0) {
+                        slideInHorizontally(animationSpec = tween(220)) { width -> width } + fadeIn(animationSpec = tween(220)) togetherWith
+                                slideOutHorizontally(animationSpec = tween(220)) { width -> -width } + fadeOut(animationSpec = tween(220))
+                    } else {
+                        slideInHorizontally(animationSpec = tween(220)) { width -> -width } + fadeIn(animationSpec = tween(220)) togetherWith
+                                slideOutHorizontally(animationSpec = tween(220)) { width -> width } + fadeOut(animationSpec = tween(220))
+                    }
+                },
+                label = "CalendarMonthTransition"
+            ) { (targetYear, targetMonth) ->
+                val days = remember(targetYear, targetMonth) {
+                    generate42Days(targetYear, targetMonth)
+                }
+                val selCal = Calendar.getInstance().apply { timeInMillis = selectedMillis }
+                val selYear = selCal.get(Calendar.YEAR)
+                val selMonth = selCal.get(Calendar.MONTH)
+                val selDay = selCal.get(Calendar.DAY_OF_MONTH)
+
+                val todayCal = remember { Calendar.getInstance() }
+                val todayYear = todayCal.get(Calendar.YEAR)
+                val todayMonth = todayCal.get(Calendar.MONTH)
+                val todayDay = todayCal.get(Calendar.DAY_OF_MONTH)
+
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 4.dp)
+                ) {
+                    for (week in 0 until 6) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(40.dp),
+                            horizontalArrangement = Arrangement.SpaceAround,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            for (col in 0 until 7) {
+                                val item = days[week * 7 + col]
+                                val isSelected = item.year == selYear && item.month == selMonth && item.day == selDay
+                                val isToday = item.year == todayYear && item.month == todayMonth && item.day == todayDay
+
+                                Box(
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .height(40.dp)
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            onDateSelected(item.year, item.month, item.day)
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isSelected) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(CircleShape)
+                                                .background(Color(0xFF3897F0)),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "${item.day}",
+                                                color = Color.White,
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Bold
+                                            )
+                                        }
+                                    } else if (isToday) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(32.dp)
+                                                .clip(CircleShape)
+                                                .border(1.5.dp, Color(0xFF3897F0), CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Text(
+                                                text = "${item.day}",
+                                                color = Color(0xFF3897F0),
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.SemiBold
+                                            )
+                                        }
+                                    } else {
+                                        val textColor = when {
+                                            !item.isCurrentMonth -> {
+                                                when {
+                                                    item.isSaturday -> Color(0xFF3897F0).copy(alpha = 0.35f)
+                                                    item.isSunday -> Color(0xFFEF5350).copy(alpha = 0.35f)
+                                                    else -> Color(0xFF4A4A4A)
+                                                }
+                                            }
+                                            item.isSaturday -> Color(0xFF3897F0)
+                                            item.isSunday -> Color(0xFFEF5350)
+                                            else -> Color.White
+                                        }
+                                        Text(
+                                            text = "${item.day}",
+                                            color = textColor,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        } else {
+            // Mode B Header: Centered Month Year ▲
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 4.dp),
+                horizontalArrangement = Arrangement.Center,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Row(
+                    modifier = Modifier
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable(onClick = onToggleRollerMode)
+                        .padding(horizontal = 10.dp, vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    val selCal = Calendar.getInstance().apply { timeInMillis = selectedMillis }
+                    val rollerMonth = SimpleDateFormat("MMMM", Locale.ENGLISH).format(selCal.time)
+                    val rollerYear = selCal.get(Calendar.YEAR)
+
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(
+                            text = "$rollerMonth $rollerYear",
+                            color = colors.textPrimary,
+                            fontSize = 17.sp,
+                            fontWeight = FontWeight.SemiBold
+                        )
+                        Canvas(modifier = Modifier.size(9.dp)) {
+                            val path = Path().apply {
+                                moveTo(size.width / 2f, size.height * 0.15f)
+                                lineTo(size.width, size.height * 0.85f)
+                                lineTo(0f, size.height * 0.85f)
+                                close()
+                            }
+                            drawPath(path, color = Color.White)
+                        }
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // 3-Column Native Smooth Snapping Roller Wheel Picker
+            CalendarRollerPicker(
+                selectedMillis = selectedMillis,
+                onDateSelected = onDateSelected
+            )
+        }
+    }
+}
+
+@Composable
+private fun CalendarRollerPicker(
+    selectedMillis: Long,
+    onDateSelected: (year: Int, month: Int, day: Int) -> Unit
+) {
+    val cal = remember(selectedMillis) {
+        Calendar.getInstance().apply { timeInMillis = selectedMillis }
+    }
+    val currentYear = cal.get(Calendar.YEAR)
+    val currentMonth = cal.get(Calendar.MONTH)
+    val currentDay = cal.get(Calendar.DAY_OF_MONTH)
+
+    val maxDays = remember(currentYear, currentMonth) {
+        val temp = Calendar.getInstance().apply {
+            clear()
+            set(currentYear, currentMonth, 1)
+        }
+        temp.getActualMaximum(Calendar.DAY_OF_MONTH)
+    }
+
+    val daysList = remember(maxDays) {
+        (1..maxDays).map { "$it" }
+    }
+
+    val monthNames = remember {
+        listOf("JAN", "FEB", "MAR", "APR", "MAY", "JUN", "JUL", "AUG", "SEPT", "OCT", "NOV", "DEC")
+    }
+
+    val startYear = 1970
+    val endYear = 2050
+    val yearsList = remember {
+        (startYear..endYear).map { "$it" }
+    }
+
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp, horizontal = 16.dp),
+        horizontalArrangement = Arrangement.SpaceEvenly,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Column 1: Day (1..maxDays)
+        WheelPickerColumn(
+            modifier = Modifier.weight(1f),
+            items = daysList,
+            selectedIndex = (currentDay - 1).coerceIn(0, daysList.lastIndex),
+            onItemSelected = { dayIndex ->
+                val newDay = dayIndex + 1
+                onDateSelected(currentYear, currentMonth, newDay)
+            }
+        )
+
+        // Column 2: Month (JAN..DEC)
+        WheelPickerColumn(
+            modifier = Modifier.weight(1.3f),
+            items = monthNames,
+            selectedIndex = currentMonth.coerceIn(0, monthNames.lastIndex),
+            onItemSelected = { monthIndex ->
+                val newMaxDays = Calendar.getInstance().apply {
+                    clear()
+                    set(currentYear, monthIndex, 1)
+                }.getActualMaximum(Calendar.DAY_OF_MONTH)
+                val safeDay = currentDay.coerceAtMost(newMaxDays)
+                onDateSelected(currentYear, monthIndex, safeDay)
+            }
+        )
+
+        // Column 3: Year (1970..2050)
+        WheelPickerColumn(
+            modifier = Modifier.weight(1.3f),
+            items = yearsList,
+            selectedIndex = (currentYear - startYear).coerceIn(0, yearsList.lastIndex),
+            onItemSelected = { yearIndex ->
+                val newYear = startYear + yearIndex
+                val newMaxDays = Calendar.getInstance().apply {
+                    clear()
+                    set(newYear, currentMonth, 1)
+                }.getActualMaximum(Calendar.DAY_OF_MONTH)
+                val safeDay = currentDay.coerceAtMost(newMaxDays)
+                onDateSelected(newYear, currentMonth, safeDay)
+            }
+        )
+    }
+}
+
+@Composable
+private fun WheelPickerColumn(
+    modifier: Modifier = Modifier,
+    items: List<String>,
+    selectedIndex: Int,
+    onItemSelected: (Int) -> Unit
+) {
+    val coroutineScope = rememberCoroutineScope()
+    val itemHeight = 48.dp
+    val itemHeightPx = with(LocalDensity.current) { itemHeight.toPx() }
+
+    val listState = rememberLazyListState(
+        initialFirstVisibleItemIndex = selectedIndex.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+    )
+
+    // Sync state when external selectedIndex changes
+    LaunchedEffect(selectedIndex) {
+        if (!listState.isScrollInProgress) {
+            val centerIndex = listState.firstVisibleItemIndex + if (listState.firstVisibleItemScrollOffset > itemHeightPx / 2) 1 else 0
+            if (centerIndex != selectedIndex && selectedIndex in items.indices) {
+                listState.scrollToItem(selectedIndex)
+            }
+        }
+    }
+
+    val currentCenterIndex by remember {
+        derivedStateOf {
+            val firstVisible = listState.firstVisibleItemIndex
+            val offset = listState.firstVisibleItemScrollOffset
+            val index = if (offset > itemHeightPx / 2) firstVisible + 1 else firstVisible
+            index.coerceIn(0, (items.size - 1).coerceAtLeast(0))
+        }
+    }
+
+    LaunchedEffect(listState.isScrollInProgress) {
+        if (!listState.isScrollInProgress) {
+            if (currentCenterIndex != selectedIndex && currentCenterIndex in items.indices) {
+                onItemSelected(currentCenterIndex)
+            }
+        }
+    }
+
+    val snapFlingBehavior = rememberSnapFlingBehavior(lazyListState = listState)
+
+    Box(
+        modifier = modifier.height(itemHeight * 3),
+        contentAlignment = Alignment.Center
+    ) {
+        LazyColumn(
+            state = listState,
+            flingBehavior = snapFlingBehavior,
+            contentPadding = PaddingValues(vertical = itemHeight),
+            modifier = Modifier.fillMaxSize(),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            itemsIndexed(items) { index, text ->
+                val isSelected = index == currentCenterIndex
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(itemHeight)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            coroutineScope.launch {
+                                listState.animateScrollToItem(index)
+                            }
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = text,
+                        color = if (isSelected) Color.White else Color(0xFF555555),
+                        fontSize = if (isSelected) 28.sp else 20.sp,
+                        fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium
+                    )
+                }
+            }
+        }
+    }
+}
+
+private data class CalendarDay(
+    val year: Int,
+    val month: Int,
+    val day: Int,
+    val isCurrentMonth: Boolean,
+    val isSaturday: Boolean,
+    val isSunday: Boolean
+)
+
+private fun generate42Days(year: Int, month: Int): List<CalendarDay> {
+    val cal = Calendar.getInstance().apply {
+        clear()
+        set(year, month, 1)
+    }
+    val firstDayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+    val daysBefore = firstDayOfWeek % 7
+
+    cal.add(Calendar.DAY_OF_MONTH, -daysBefore)
+    val days = ArrayList<CalendarDay>(42)
+    for (i in 0 until 42) {
+        val y = cal.get(Calendar.YEAR)
+        val m = cal.get(Calendar.MONTH)
+        val d = cal.get(Calendar.DAY_OF_MONTH)
+        val dayOfWeek = cal.get(Calendar.DAY_OF_WEEK)
+        days.add(
+            CalendarDay(
+                year = y,
+                month = m,
+                day = d,
+                isCurrentMonth = m == month,
+                isSaturday = dayOfWeek == Calendar.SATURDAY,
+                isSunday = dayOfWeek == Calendar.SUNDAY
+            )
+        )
+        cal.add(Calendar.DAY_OF_MONTH, 1)
+    }
+    return days
 }
 
 @Composable
