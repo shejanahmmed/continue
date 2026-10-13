@@ -57,7 +57,6 @@ import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Description
-import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
@@ -113,7 +112,6 @@ import java.text.SimpleDateFormat
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
-import java.util.TimeZone
 
 enum class ActivePickerField {
     NONE,
@@ -198,13 +196,6 @@ fun CreateEntryScreen(
     }
 
     val scrollState = rememberScrollState()
-
-    val localTimeZoneString = remember {
-        val tz = TimeZone.getDefault()
-        val offsetHours = tz.rawOffset / (1000 * 60 * 60)
-        val sign = if (offsetHours >= 0) "+$offsetHours" else "$offsetHours"
-        "(GMT$sign) ${tz.getDisplayName(tz.inDaylightTime(Date()), TimeZone.LONG, Locale.getDefault())}"
-    }
 
     Box(
         modifier = modifier
@@ -658,16 +649,6 @@ fun CreateEntryScreen(
                             label = if (state.attachmentPath.isEmpty()) "Attachment" else "1 File Attached",
                             isPlaceholder = state.attachmentPath.isEmpty(),
                             onClick = { /* File picker integration */ }
-                        )
-
-                        HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
-
-                        // Dynamic Timezone Row
-                        FormOptionRow(
-                            icon = Icons.Outlined.Language,
-                            label = localTimeZoneString,
-                            isPlaceholder = false,
-                            onClick = { /* Timezone change */ }
                         )
 
                         // Priority Row (Reminder mode)
