@@ -47,12 +47,14 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.LocationOn
@@ -63,6 +65,7 @@ import androidx.compose.material.icons.outlined.SentimentSatisfied
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.HorizontalDivider
+import com.shejan.acontinue.core.util.LocationHelper
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
@@ -407,20 +410,79 @@ fun CreateEntryScreen(
 
                         HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
 
-                        // Location Row
-                        FormOptionRow(
-                            icon = Icons.Outlined.LocationOn,
-                            label = state.location.ifEmpty { "Location" },
-                            isPlaceholder = state.location.isEmpty(),
-                            onClick = {
-                                val nextLoc = when (state.location) {
-                                    "" -> "Room 302"
-                                    "Room 302" -> "Main Hall"
-                                    else -> ""
+                        // Location Row with free typing, clear button & "Open map" when a map link is entered
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 10.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LocationOn,
+                                contentDescription = "Location",
+                                tint = colors.textSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(16.dp))
+
+                            BasicTextField(
+                                value = state.location,
+                                onValueChange = { viewModel.updateLocation(it) },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .padding(vertical = 4.dp),
+                                textStyle = TextStyle(
+                                    color = colors.textPrimary,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Normal
+                                ),
+                                cursorBrush = SolidColor(colors.accent),
+                                singleLine = true,
+                                decorationBox = { innerTextField ->
+                                    if (state.location.isEmpty()) {
+                                        Text(
+                                            text = "Location",
+                                            color = colors.textSecondary,
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    }
+                                    innerTextField()
                                 }
-                                viewModel.updateLocation(nextLoc)
+                            )
+
+                            // Quick clear button if location is not empty
+                            if (state.location.isNotEmpty()) {
+                                IconButton(
+                                    onClick = { viewModel.updateLocation("") },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = "Clear location",
+                                        tint = colors.textSecondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
-                        )
+
+                            // Open map icon button only appears if user pastes/enters a map location link
+                            if (LocationHelper.isMapLocationLink(state.location)) {
+                                Spacer(modifier = Modifier.width(4.dp))
+                                IconButton(
+                                    onClick = { LocationHelper.openLocationInMapApp(context, state.location) },
+                                    modifier = Modifier.size(24.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                                        contentDescription = "Open map",
+                                        tint = Color(0xFF3897F0),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
 
                         HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
 

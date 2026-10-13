@@ -59,6 +59,7 @@ import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.HighContrastButton
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.core.designsystem.components.UtilitarianBadge
+import com.shejan.acontinue.core.util.LocationHelper
 import com.shejan.acontinue.domain.model.ActivityLink
 import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.ActivityTask
@@ -190,22 +191,37 @@ fun ActivityWorkspaceScreen(
         }
 
         if (activity.location.isNotEmpty()) {
+            val context = LocalContext.current
+            val isLink = LocationHelper.isMapLocationLink(activity.location)
             Row(
-                modifier = Modifier.padding(bottom = 12.dp),
+                modifier = Modifier
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { LocationHelper.openLocationInMapApp(context, activity.location) }
+                    .padding(vertical = 2.dp)
+                    .padding(bottom = 10.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
                     imageVector = Icons.Outlined.LocationOn,
-                    contentDescription = null,
-                    tint = UtilitarianTextSecondary,
+                    contentDescription = "Location",
+                    tint = if (isLink) Color(0xFF3897F0) else UtilitarianTextSecondary,
                     modifier = Modifier.size(14.dp)
                 )
                 Spacer(modifier = Modifier.width(4.dp))
                 Text(
                     text = activity.location,
-                    color = UtilitarianTextSecondary,
+                    color = if (isLink) Color(0xFF3897F0) else UtilitarianTextSecondary,
                     fontSize = 12.sp
                 )
+                if (isLink) {
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                        contentDescription = "Open in Map",
+                        tint = Color(0xFF3897F0),
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
             }
         }
 
