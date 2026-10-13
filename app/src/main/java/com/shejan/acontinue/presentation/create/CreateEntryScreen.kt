@@ -133,9 +133,11 @@ fun CreateEntryScreen(
     val context = LocalContext.current
 
     var isAlertScreenVisible by remember { mutableStateOf(false) }
+    var isRepeatScreenVisible by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = isAlertScreenVisible) {
-        isAlertScreenVisible = false
+    BackHandler(enabled = isAlertScreenVisible || isRepeatScreenVisible) {
+        if (isAlertScreenVisible) isAlertScreenVisible = false
+        else if (isRepeatScreenVisible) isRepeatScreenVisible = false
     }
 
     if (isAlertScreenVisible) {
@@ -147,6 +149,24 @@ fun CreateEntryScreen(
             onUpdateCustomAlert = { id, value, unit -> viewModel.updateCustomAlert(id, value, unit) },
             onDeleteCustomAlert = { id -> viewModel.deleteCustomAlert(id) },
             onNavigateBack = { isAlertScreenVisible = false }
+        )
+        return
+    }
+
+    if (isRepeatScreenVisible) {
+        RepeatSelectionScreen(
+            state = state,
+            onSelectRecurrence = { mode, interval -> viewModel.updateRecurrence(mode, interval) },
+            onUpdateInterval = { viewModel.updateRecurrenceInterval(it) },
+            onToggleRecurrenceDay = { viewModel.toggleRecurrenceDay(it) },
+            onUpdateMonthlyType = { viewModel.updateMonthlyRepeatType(it) },
+            onToggleMonthlyDay = { viewModel.toggleMonthlySelectedDay(it) },
+            onUpdateYearlyType = { viewModel.updateYearlyRepeatType(it) },
+            onToggleYearlyMonth = { viewModel.toggleYearlySelectedMonth(it) },
+            onUpdateEndType = { viewModel.updateRecurrenceEndType(it) },
+            onUpdateEndCount = { viewModel.updateRecurrenceEndCount(it) },
+            onUpdateEndDate = { viewModel.updateRecurrenceEndDate(it) },
+            onNavigateBack = { isRepeatScreenVisible = false }
         )
         return
     }
@@ -536,19 +556,9 @@ fun CreateEntryScreen(
                         // Repeat Row
                         FormOptionRow(
                             icon = Icons.Outlined.Repeat,
-                            label = state.recurrenceMode.displayName,
+                            label = formatRecurrenceLabel(state),
                             isPlaceholder = state.recurrenceMode == RecurrenceMode.NONE,
-                            onClick = {
-                                val next = when (state.recurrenceMode) {
-                                    RecurrenceMode.NONE -> RecurrenceMode.DAILY
-                                    RecurrenceMode.DAILY -> RecurrenceMode.WEEKDAYS
-                                    RecurrenceMode.WEEKDAYS -> RecurrenceMode.WEEKLY
-                                    RecurrenceMode.WEEKLY -> RecurrenceMode.MONTHLY
-                                    RecurrenceMode.MONTHLY -> RecurrenceMode.YEARLY
-                                    RecurrenceMode.YEARLY -> RecurrenceMode.NONE
-                                }
-                                viewModel.updateRecurrence(next)
-                            }
+                            onClick = { isRepeatScreenVisible = true }
                         )
 
                         HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
@@ -1909,6 +1919,65 @@ private fun BottomCancelSaveDock(
                     )
                 }
             }
+        }
+    }
+}
+
+private fun formatRecurrenceLabel(state: CreateEntryState): String {
+    return when (state.recurrenceMode) {
+        RecurrenceMode.NONE -> "Don't repeat"
+        RecurrenceMode.DAILY -> if (state.recurrenceInterval == 1) "Daily" else "Every ${state.recurrenceInterval} days"
+        RecurrenceMode.WEEKDAYS -> "Every weekday"
+        RecurrenceMode.WEEKLY -> {
+            val dayNames = state.recurrenceDaysOfWeek.sorted().map { day ->
+                when (day) {
+                    Calendar.SUNDAY -> "Sun"
+                    Calendar.MONDAY -> "Mon"
+                    Calendar.TUESDAY -> "Tue"
+                    Calendar.WEDNESDAY -> "Wed"
+                    Calendar.THURSDAY -> "Thu"
+                    Calendar.FRIDAY -> "Fri"
+                    Calendar.SATURDAY -> "Sat"
+                    else -> ""
+                }
+            }.filter { it.isNotEmpty() }
+
+            val suffix = if (dayNames.isNotEmpty()) " (${dayNames.joinToString(", ")})" else ""
+            if (state.recurrenceInterval == 1) "Weekly$suffix" else "Every ${state.recurrenceInterval} weeks$suffix"
+        }
+        RecurrenceMode.MONTHLY -> {
+            val cal = Calendar.getInstance().apply { timeInMillis = state.startMillis }
+            val dayOfMonth = cal.get(Calendar.DAY_OF_MONTH)
+            when (state.monthlyRepeatType) {
+                com.shejan.acontinue.domain.model.MonthlyRepeatType.SAME_DAY_OF_MONTH -> {
+                    if (state.recurrenceInterval == 1) "Monthly (${dayOfMonth}th)" else "Every ${state.recurrenceInterval} months"
+                }
+                com.shejan.acontinue.domain.model.MonthlyRepeatType.DAY_OF_WEEK_OF_MONTH -> {
+                    val nth = cal.get(Calendar.DAY_OF_WEEK_IN_MONTH)
+                    val dayName = when (cal.get(Calendar.DAY_OF_WEEK)) {
+                        Calendar.SUNDAY -> "Sun"
+                        Calendar.MONDAY -> "Mon"
+                        Calendar.TUESDAY -> "Tue"
+                        Calendar.WEDNESDAY -> "Wed"
+                        Calendar.THURSDAY -> "Thu"
+                        Calendar.FRIDAY -> "Fri"
+                        Calendar.SATURDAY -> "Sat"
+                        else -> "Day"
+                    }
+                    "Monthly (${nth}th $dayName)"
+                }
+                com.shejan.acontinue.domain.model.MonthlyRepeatType.SPECIFIC_DATES -> {
+                    val daysStr = state.monthlySelectedDays.sorted().joinToString(",")
+                    "Monthly ($daysStr)"
+                }
+            }
+        }
+        RecurrenceMode.YEARLY -> {
+            val cal = Calendar.getInstance().apply { timeInMillis = state.startMillis }
+            val monthStr = when (cal.get(Calendar.MONTH)) {
+                0 -> "Jan"; 1 -> "Feb"; 2 -> "Mar"; 3 -> "Apr"; 4 -> "May"; 5 -> "Jun"; 6 -> "Jul"; 7 -> "Aug"; 8 -> "Sept"; 9 -> "Oct"; 10 -> "Nov"; 11 -> "Dec"; else -> ""
+            }
+            if (state.recurrenceInterval == 1) "Yearly ($monthStr)" else "Every ${state.recurrenceInterval} years ($monthStr)"
         }
     }
 }
