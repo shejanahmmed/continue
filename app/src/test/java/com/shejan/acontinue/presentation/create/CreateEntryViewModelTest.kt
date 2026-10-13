@@ -4,6 +4,7 @@ import app.cash.turbine.test
 import com.shejan.acontinue.FakeActivityRepository
 import com.shejan.acontinue.FakeNoteRepository
 import com.shejan.acontinue.FakeScheduler
+import com.shejan.acontinue.FakeSettingsRepository
 import com.shejan.acontinue.domain.model.ActivityCategory
 import com.shejan.acontinue.domain.model.EntryType
 import kotlinx.coroutines.Dispatchers
@@ -25,6 +26,7 @@ class CreateEntryViewModelTest {
     private lateinit var activityRepository: FakeActivityRepository
     private lateinit var noteRepository: FakeNoteRepository
     private lateinit var scheduler: FakeScheduler
+    private lateinit var settingsRepository: FakeSettingsRepository
     private lateinit var viewModel: CreateEntryViewModel
 
     @Before
@@ -33,7 +35,8 @@ class CreateEntryViewModelTest {
         activityRepository = FakeActivityRepository()
         noteRepository = FakeNoteRepository()
         scheduler = FakeScheduler()
-        viewModel = CreateEntryViewModel(activityRepository, noteRepository, scheduler)
+        settingsRepository = FakeSettingsRepository()
+        viewModel = CreateEntryViewModel(activityRepository, noteRepository, scheduler, settingsRepository)
     }
 
     @After
@@ -96,5 +99,27 @@ class CreateEntryViewModelTest {
             assertEquals(EntryType.REMINDER, saved.entryType)
             assertEquals("Submit Assignment", saved.title)
         }
+    }
+
+    @Test
+    fun `test appending emoji updates title and state`() = runTest(testDispatcher) {
+        assertTrue(viewModel.state.value.recentEmojis.isEmpty())
+
+        viewModel.appendEmojiToTitle("🎂")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("🎂", viewModel.state.value.title)
+        assertEquals("🎂", viewModel.state.value.emoji)
+        assertEquals(listOf("🎂"), viewModel.state.value.recentEmojis)
+        assertEquals(listOf("🎂"), settingsRepository.settingsFlow.value.recentEmojis)
+
+        viewModel.updateTitle("Birthday Party")
+        viewModel.appendEmojiToTitle("🎉")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("🎉 Birthday Party", viewModel.state.value.title)
+        assertEquals("🎉", viewModel.state.value.emoji)
+        assertEquals(listOf("🎉", "🎂"), viewModel.state.value.recentEmojis)
+        assertEquals(listOf("🎉", "🎂"), settingsRepository.settingsFlow.value.recentEmojis)
     }
 }

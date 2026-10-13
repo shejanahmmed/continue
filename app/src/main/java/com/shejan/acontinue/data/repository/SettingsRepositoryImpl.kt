@@ -42,6 +42,14 @@ class SettingsRepositoryImpl(
         _settings.update { it.copy(notificationsEnabled = enabled) }
     }
 
+    override suspend fun addRecentEmoji(emoji: String) {
+        if (emoji.isBlank()) return
+        val current = _settings.value.recentEmojis
+        val updated = (listOf(emoji) + current).distinct().take(30)
+        prefs.edit().putString(KEY_RECENT_EMOJIS, updated.joinToString(DELIMITER)).apply()
+        _settings.update { it.copy(recentEmojis = updated) }
+    }
+
     private fun loadSettings(): UserSettings {
         val themeStr = prefs.getString(KEY_THEME_MODE, ThemeMode.DARK.name)
         val themeMode = try {
@@ -59,12 +67,19 @@ class SettingsRepositoryImpl(
 
         val haptic = prefs.getBoolean(KEY_HAPTIC, true)
         val notifs = prefs.getBoolean(KEY_NOTIFICATIONS, true)
+        val recentEmojisRaw = prefs.getString(KEY_RECENT_EMOJIS, "") ?: ""
+        val recentEmojis = if (recentEmojisRaw.isBlank()) {
+            emptyList()
+        } else {
+            recentEmojisRaw.split(DELIMITER).filter { it.isNotBlank() }
+        }
 
         return UserSettings(
             themeMode = themeMode,
             accentPalette = accentPalette,
             hapticFeedbackEnabled = haptic,
-            notificationsEnabled = notifs
+            notificationsEnabled = notifs,
+            recentEmojis = recentEmojis
         )
     }
 
@@ -74,5 +89,7 @@ class SettingsRepositoryImpl(
         private const val KEY_ACCENT_PALETTE = "accent_palette"
         private const val KEY_HAPTIC = "haptic_enabled"
         private const val KEY_NOTIFICATIONS = "notifications_enabled"
+        private const val KEY_RECENT_EMOJIS = "recent_emojis"
+        private const val DELIMITER = "|||"
     }
 }

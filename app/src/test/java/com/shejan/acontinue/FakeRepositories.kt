@@ -193,5 +193,10 @@ class FakeSettingsRepository : com.shejan.acontinue.domain.repository.SettingsRe
     override suspend fun setNotificationsEnabled(enabled: Boolean) {
         settingsFlow.value = settingsFlow.value.copy(notificationsEnabled = enabled)
     }
+
+    override suspend fun addRecentEmoji(emoji: String) {
+        val updated = (listOf(emoji) + settingsFlow.value.recentEmojis).distinct().take(30)
+        settingsFlow.value = settingsFlow.value.copy(recentEmojis = updated)
+    }
 }
 

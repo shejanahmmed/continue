@@ -21,5 +21,6 @@ data class UserSettings(
     val themeMode: ThemeMode = ThemeMode.DARK,
     val accentPalette: AccentPalette = AccentPalette.MONOCHROME_RED,
     val hapticFeedbackEnabled: Boolean = true,
-    val notificationsEnabled: Boolean = true
+    val notificationsEnabled: Boolean = true,
+    val recentEmojis: List<String> = emptyList()
 )

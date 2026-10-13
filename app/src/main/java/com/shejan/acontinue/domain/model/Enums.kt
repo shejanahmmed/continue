@@ -6,12 +6,26 @@ enum class EntryType {
 }
 
 enum class ActivityCategory(val displayName: String, val colorHex: Long) {
-    CLASS("Class", 0xFFE5A93C),     // Amber / Gold (matches reference image event accent)
-    LAB("Lab", 0xFF00BFA5),         // Mint / Teal
-    MEETING("Meeting", 0xFF7E57C2), // Royal Purple
-    PROJECT("Project", 0xFFD71921), // Utilitarian Accent Red
-    PERSONAL("Personal", 0xFF3D82F6), // Azure Blue
-    OTHER("Other", 0xFF4CAF50)      // Emerald Green
+    PERSONAL("Personal", 0xFF00A9F4), // Sky Blue (Row 1, #1 - matches selected in screenshot)
+    PROJECT("Project", 0xFFE53935),   // Coral / Red (Row 1, #2)
+    ROSE("Rose", 0xFFEC407A),         // Pink / Rose (Row 1, #3)
+    ORANGE("Orange", 0xFFFF9800),     // Orange (Row 1, #4)
+    CLASS("Class", 0xFFFFC107),       // Amber / Yellow (Row 1, #5)
+    MINT("Mint", 0xFF00C853),         // Emerald / Mint (Row 1, #6)
+
+    LIME("Lime", 0xFF7CB342),         // Lime Green (Row 2, #1)
+    LAB("Lab", 0xFF00BCD4),           // Aqua / Cyan (Row 2, #2)
+    INDIGO("Indigo", 0xFF5C6BC0),     // Cornflower Blue (Row 2, #3)
+    COBALT("Cobalt", 0xFF1E88E5),     // Royal Blue (Row 2, #4)
+    MEETING("Meeting", 0xFF9C27B0),   // Purple / Violet (Row 2, #5)
+    OTHER("Other", 0xFF9E9E9E);       // Graphite / Gray (Row 2, #6)
+
+    companion object {
+        val EVENT_PALETTE_COLORS: List<ActivityCategory> = listOf(
+            PERSONAL, PROJECT, ROSE, ORANGE, CLASS, MINT,
+            LIME, LAB, INDIGO, COBALT, MEETING, OTHER
+        )
+    }
 }
 
 enum class ActivityPriority(val displayName: String) {

@@ -81,7 +81,8 @@ class AppContainer(context: Context) {
                 return CreateEntryViewModel(
                     activityRepository,
                     noteRepository,
-                    alarmScheduler
+                    alarmScheduler,
+                    settingsRepository
                 ) as T
             }
         }

@@ -11,4 +11,5 @@ interface SettingsRepository {
     suspend fun setAccentPalette(palette: AccentPalette)
     suspend fun setHapticFeedbackEnabled(enabled: Boolean)
     suspend fun setNotificationsEnabled(enabled: Boolean)
+    suspend fun addRecentEmoji(emoji: String)
 }

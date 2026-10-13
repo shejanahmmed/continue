@@ -12,12 +12,15 @@ import com.shejan.acontinue.domain.model.RecurrenceMode
 import com.shejan.acontinue.domain.model.ReminderOffset
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.repository.NoteRepository
+import com.shejan.acontinue.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import java.util.Calendar
@@ -25,7 +28,9 @@ import java.util.Calendar
 data class CreateEntryState(
     val entryType: EntryType = EntryType.ACTIVITY,
     val title: String = "",
-    val category: ActivityCategory = ActivityCategory.CLASS,
+    val emoji: String = "",
+    val recentEmojis: List<String> = emptyList(),
+    val category: ActivityCategory = ActivityCategory.PERSONAL,
     val isAllDay: Boolean = false,
     val startMillis: Long = System.currentTimeMillis() + 3600000L,
     val endMillis: Long = System.currentTimeMillis() + 7200000L,
@@ -46,7 +51,8 @@ sealed interface CreateEntryEvent {
 class CreateEntryViewModel(
     private val activityRepository: ActivityRepository,
     private val noteRepository: NoteRepository,
-    private val scheduler: ActivityScheduler
+    private val scheduler: ActivityScheduler,
+    private val settingsRepository: SettingsRepository? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CreateEntryState())
@@ -55,8 +61,32 @@ class CreateEntryViewModel(
     private val _events = MutableSharedFlow<CreateEntryEvent>()
     val events: SharedFlow<CreateEntryEvent> = _events.asSharedFlow()
 
+    init {
+        settingsRepository?.getUserSettings()
+            ?.onEach { userSettings ->
+                _state.update { it.copy(recentEmojis = userSettings.recentEmojis) }
+            }
+            ?.launchIn(viewModelScope)
+    }
+
     fun updateEntryType(type: EntryType) = _state.update { it.copy(entryType = type) }
     fun updateTitle(title: String) = _state.update { it.copy(title = title) }
+    fun updateEmoji(emoji: String) = _state.update { it.copy(emoji = emoji) }
+    fun appendEmojiToTitle(emoji: String) {
+        if (emoji.isBlank()) return
+        _state.update { current ->
+            val updatedTitle = if (current.title.isBlank()) {
+                emoji
+            } else {
+                "$emoji ${current.title.trim()}"
+            }
+            val updatedRecents = (listOf(emoji) + current.recentEmojis).distinct().take(30)
+            current.copy(title = updatedTitle, emoji = emoji, recentEmojis = updatedRecents)
+        }
+        viewModelScope.launch {
+            settingsRepository?.addRecentEmoji(emoji)
+        }
+    }
     fun updateCategory(category: ActivityCategory) = _state.update { it.copy(category = category) }
     fun updateAllDay(isAllDay: Boolean) = _state.update { it.copy(isAllDay = isAllDay) }
     fun updateStartMillis(millis: Long) = _state.update { it.copy(startMillis = millis) }
