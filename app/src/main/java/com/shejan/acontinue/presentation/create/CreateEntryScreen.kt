@@ -61,11 +61,9 @@ import androidx.compose.material.icons.outlined.Language
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.PersonOutline
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.SentimentSatisfied
 import androidx.compose.material.icons.outlined.Tune
-import androidx.compose.material.icons.outlined.Videocam
 import androidx.compose.material3.HorizontalDivider
 import com.shejan.acontinue.core.util.LinkHelper
 import com.shejan.acontinue.core.util.LocationHelper
@@ -654,32 +652,12 @@ fun CreateEntryScreen(
 
                         HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
 
-                        // Video Conference Row
-                        FormOptionRow(
-                            icon = Icons.Outlined.Videocam,
-                            label = "Video conference",
-                            isPlaceholder = true,
-                            onClick = { /* Toggle video conference integration */ }
-                        )
-
-                        HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
-
                         // Attachment Row (Singular label matching screenshot)
                         FormOptionRow(
                             icon = Icons.Outlined.AttachFile,
                             label = if (state.attachmentPath.isEmpty()) "Attachment" else "1 File Attached",
                             isPlaceholder = state.attachmentPath.isEmpty(),
                             onClick = { /* File picker integration */ }
-                        )
-
-                        HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
-
-                        // Invitees Row
-                        FormOptionRow(
-                            icon = Icons.Outlined.PersonOutline,
-                            label = "Invitees",
-                            isPlaceholder = true,
-                            onClick = { /* Add invitees */ }
                         )
 
                         HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
