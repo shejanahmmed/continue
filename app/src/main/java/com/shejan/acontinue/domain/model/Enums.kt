@@ -36,6 +36,8 @@ enum class ActivityPriority(val displayName: String) {
 
 enum class RecurrenceMode(val displayName: String) {
     NONE("Don't repeat"),
+    MINUTELY("Every 1 minute"),
+    HOURLY("Every 1 hour"),
     DAILY("Every 1 day"),
     WEEKDAYS("Every weekday"),
     WEEKLY("Every 1 week"),

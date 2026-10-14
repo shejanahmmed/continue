@@ -59,6 +59,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.MonthlyRepeatType
 import com.shejan.acontinue.domain.model.RecurrenceEndType
 import com.shejan.acontinue.domain.model.RecurrenceMode
@@ -183,167 +184,376 @@ fun RepeatSelectionScreen(
                     .clip(RoundedCornerShape(28.dp))
                     .background(CardBackground)
             ) {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // 1. Don't repeat
-                    RepeatRow(
-                        isSelected = state.recurrenceMode == RecurrenceMode.NONE,
-                        onClick = { onSelectRecurrence(RecurrenceMode.NONE, 1) },
-                        content = {
-                            Text(
-                                text = "Don't repeat",
-                                color = Color.White,
-                                fontSize = 17.sp,
-                                fontWeight = FontWeight.Normal
-                            )
-                        }
-                    )
-
-                    HorizontalDivider(
-                        color = CardDividerColor,
-                        thickness = 0.5.dp,
-                        modifier = Modifier.padding(start = 60.dp, end = 20.dp)
-                    )
-
-                    // 2. Every [1] day
-                    val isDaily = state.recurrenceMode == RecurrenceMode.DAILY
-                    RepeatRow(
-                        isSelected = isDaily,
-                        onClick = { onSelectRecurrence(RecurrenceMode.DAILY, state.recurrenceInterval) },
-                        content = {
-                            IntervalUnitRow(
-                                interval = state.recurrenceInterval,
-                                unitSingular = "day",
-                                isSelected = isDaily,
-                                onIntervalChange = onUpdateInterval
-                            )
-                        }
-                    )
-
-                    HorizontalDivider(
-                        color = CardDividerColor,
-                        thickness = 0.5.dp,
-                        modifier = Modifier.padding(start = 60.dp, end = 20.dp)
-                    )
-
-                    // 3. Every [1] week
-                    val isWeekly = state.recurrenceMode == RecurrenceMode.WEEKLY
+                if (state.entryType == EntryType.REMINDER) {
                     Column(modifier = Modifier.fillMaxWidth()) {
+                        // 1. Don't repeat
                         RepeatRow(
-                            isSelected = isWeekly,
-                            onClick = { onSelectRecurrence(RecurrenceMode.WEEKLY, state.recurrenceInterval) },
+                            isSelected = state.recurrenceMode == RecurrenceMode.NONE,
+                            onClick = { onSelectRecurrence(RecurrenceMode.NONE, 1) },
+                            content = {
+                                Text(
+                                    text = "Don't repeat",
+                                    color = Color.White,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                        )
+
+                        HorizontalDivider(
+                            color = CardDividerColor,
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(start = 60.dp, end = 20.dp)
+                        )
+
+                        // 2. Every [1] minute
+                        val isMinutely = state.recurrenceMode == RecurrenceMode.MINUTELY
+                        RepeatRow(
+                            isSelected = isMinutely,
+                            onClick = { onSelectRecurrence(RecurrenceMode.MINUTELY, if (isMinutely) state.recurrenceInterval else 1) },
                             content = {
                                 IntervalUnitRow(
-                                    interval = state.recurrenceInterval,
-                                    unitSingular = "week",
-                                    isSelected = isWeekly,
+                                    interval = if (isMinutely) state.recurrenceInterval else 1,
+                                    unitSingular = "minute",
+                                    isSelected = isMinutely,
                                     onIntervalChange = onUpdateInterval
                                 )
                             }
                         )
 
-                        // Weekday Multi-Selector Row: S S M T W T F
-                        AnimatedVisibility(
-                            visible = isWeekly,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut()
-                        ) {
-                            WeeklyDaySelectorRow(
-                                selectedDays = state.recurrenceDaysOfWeek,
-                                onToggleDay = onToggleRecurrenceDay,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp)
-                                    .padding(bottom = 18.dp)
+                        HorizontalDivider(
+                            color = CardDividerColor,
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(start = 60.dp, end = 20.dp)
+                        )
+
+                        // 3. Every [1] hour
+                        val isHourly = state.recurrenceMode == RecurrenceMode.HOURLY
+                        RepeatRow(
+                            isSelected = isHourly,
+                            onClick = { onSelectRecurrence(RecurrenceMode.HOURLY, if (isHourly) state.recurrenceInterval else 1) },
+                            content = {
+                                IntervalUnitRow(
+                                    interval = if (isHourly) state.recurrenceInterval else 1,
+                                    unitSingular = "hour",
+                                    isSelected = isHourly,
+                                    onIntervalChange = onUpdateInterval
+                                )
+                            }
+                        )
+
+                        HorizontalDivider(
+                            color = CardDividerColor,
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(start = 60.dp, end = 20.dp)
+                        )
+
+                        // 4. Every [1] day
+                        val isDaily = state.recurrenceMode == RecurrenceMode.DAILY
+                        RepeatRow(
+                            isSelected = isDaily,
+                            onClick = { onSelectRecurrence(RecurrenceMode.DAILY, if (isDaily) state.recurrenceInterval else 1) },
+                            content = {
+                                IntervalUnitRow(
+                                    interval = if (isDaily) state.recurrenceInterval else 1,
+                                    unitSingular = "day",
+                                    isSelected = isDaily,
+                                    onIntervalChange = onUpdateInterval
+                                )
+                            }
+                        )
+
+                        HorizontalDivider(
+                            color = CardDividerColor,
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(start = 60.dp, end = 20.dp)
+                        )
+
+                        // 5. Every [1] week
+                        val isWeekly = state.recurrenceMode == RecurrenceMode.WEEKLY
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            RepeatRow(
+                                isSelected = isWeekly,
+                                onClick = { onSelectRecurrence(RecurrenceMode.WEEKLY, if (isWeekly) state.recurrenceInterval else 1) },
+                                content = {
+                                    IntervalUnitRow(
+                                        interval = if (isWeekly) state.recurrenceInterval else 1,
+                                        unitSingular = "week",
+                                        isSelected = isWeekly,
+                                        onIntervalChange = onUpdateInterval
+                                    )
+                                }
                             )
+
+                            // Weekday Multi-Selector Row: S S M T W T F
+                            AnimatedVisibility(
+                                visible = isWeekly,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut()
+                            ) {
+                                WeeklyDaySelectorRow(
+                                    selectedDays = state.recurrenceDaysOfWeek,
+                                    onToggleDay = onToggleRecurrenceDay,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp)
+                                        .padding(bottom = 18.dp)
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            color = CardDividerColor,
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(start = 60.dp, end = 20.dp)
+                        )
+
+                        // 6. Every [1] month
+                        val isMonthly = state.recurrenceMode == RecurrenceMode.MONTHLY
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            RepeatRow(
+                                isSelected = isMonthly,
+                                onClick = { onSelectRecurrence(RecurrenceMode.MONTHLY, if (isMonthly) state.recurrenceInterval else 1) },
+                                content = {
+                                    IntervalUnitRow(
+                                        interval = if (isMonthly) state.recurrenceInterval else 1,
+                                        unitSingular = "month",
+                                        isSelected = isMonthly,
+                                        onIntervalChange = onUpdateInterval
+                                    )
+                                }
+                            )
+
+                            // Monthly Sub-Options (3 Capsule Pills + 31-Day Grid)
+                            AnimatedVisibility(
+                                visible = isMonthly,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut()
+                            ) {
+                                MonthlyOptionsSection(
+                                    dayOfMonth = dayOfMonth,
+                                    dayOfWeekName = getDayOfWeekName(dayOfWeek),
+                                    nthOrdinal = getOrdinal(dayOfWeekInMonth),
+                                    activeType = state.monthlyRepeatType,
+                                    selectedDays = state.monthlySelectedDays,
+                                    onSelectType = onUpdateMonthlyType,
+                                    onToggleDay = onToggleMonthlyDay,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp)
+                                        .padding(bottom = 18.dp)
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            color = CardDividerColor,
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(start = 60.dp, end = 20.dp)
+                        )
+
+                        // 7. Every [1] year
+                        val isYearly = state.recurrenceMode == RecurrenceMode.YEARLY
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            RepeatRow(
+                                isSelected = isYearly,
+                                onClick = { onSelectRecurrence(RecurrenceMode.YEARLY, if (isYearly) state.recurrenceInterval else 1) },
+                                content = {
+                                    IntervalUnitRow(
+                                        interval = if (isYearly) state.recurrenceInterval else 1,
+                                        unitSingular = "year",
+                                        isSelected = isYearly,
+                                        onIntervalChange = onUpdateInterval
+                                    )
+                                }
+                            )
+
+                            // Yearly Sub-Options (3 Capsule Pills + 12-Month Grid)
+                            AnimatedVisibility(
+                                visible = isYearly,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut()
+                            ) {
+                                YearlyOptionsSection(
+                                    dayOfMonthOrdinal = getOrdinal(dayOfMonth),
+                                    monthShortName = getMonthShortName(monthIndex),
+                                    dayOfWeekName = getDayOfWeekName(dayOfWeek),
+                                    nthOrdinal = getOrdinal(dayOfWeekInMonth),
+                                    activeType = state.yearlyRepeatType,
+                                    selectedMonths = state.yearlySelectedMonths,
+                                    onSelectType = onUpdateYearlyType,
+                                    onToggleMonth = onToggleYearlyMonth,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp)
+                                        .padding(bottom = 18.dp)
+                                )
+                            }
                         }
                     }
-
-                    HorizontalDivider(
-                        color = CardDividerColor,
-                        thickness = 0.5.dp,
-                        modifier = Modifier.padding(start = 60.dp, end = 20.dp)
-                    )
-
-                    // 4. Every [1] month
-                    val isMonthly = state.recurrenceMode == RecurrenceMode.MONTHLY
+                } else {
                     Column(modifier = Modifier.fillMaxWidth()) {
+                        // 1. Don't repeat
                         RepeatRow(
-                            isSelected = isMonthly,
-                            onClick = { onSelectRecurrence(RecurrenceMode.MONTHLY, state.recurrenceInterval) },
+                            isSelected = state.recurrenceMode == RecurrenceMode.NONE,
+                            onClick = { onSelectRecurrence(RecurrenceMode.NONE, 1) },
+                            content = {
+                                Text(
+                                    text = "Don't repeat",
+                                    color = Color.White,
+                                    fontSize = 17.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                        )
+
+                        HorizontalDivider(
+                            color = CardDividerColor,
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(start = 60.dp, end = 20.dp)
+                        )
+
+                        // 2. Every [1] day
+                        val isDaily = state.recurrenceMode == RecurrenceMode.DAILY
+                        RepeatRow(
+                            isSelected = isDaily,
+                            onClick = { onSelectRecurrence(RecurrenceMode.DAILY, state.recurrenceInterval) },
                             content = {
                                 IntervalUnitRow(
                                     interval = state.recurrenceInterval,
-                                    unitSingular = "month",
-                                    isSelected = isMonthly,
+                                    unitSingular = "day",
+                                    isSelected = isDaily,
                                     onIntervalChange = onUpdateInterval
                                 )
                             }
                         )
 
-                        // Monthly Sub-Options (3 Capsule Pills + 31-Day Grid)
-                        AnimatedVisibility(
-                            visible = isMonthly,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut()
-                        ) {
-                            MonthlyOptionsSection(
-                                dayOfMonth = dayOfMonth,
-                                dayOfWeekName = getDayOfWeekName(dayOfWeek),
-                                nthOrdinal = getOrdinal(dayOfWeekInMonth),
-                                activeType = state.monthlyRepeatType,
-                                selectedDays = state.monthlySelectedDays,
-                                onSelectType = onUpdateMonthlyType,
-                                onToggleDay = onToggleMonthlyDay,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp)
-                                    .padding(bottom = 18.dp)
+                        HorizontalDivider(
+                            color = CardDividerColor,
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(start = 60.dp, end = 20.dp)
+                        )
+
+                        // 3. Every [1] week
+                        val isWeekly = state.recurrenceMode == RecurrenceMode.WEEKLY
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            RepeatRow(
+                                isSelected = isWeekly,
+                                onClick = { onSelectRecurrence(RecurrenceMode.WEEKLY, state.recurrenceInterval) },
+                                content = {
+                                    IntervalUnitRow(
+                                        interval = state.recurrenceInterval,
+                                        unitSingular = "week",
+                                        isSelected = isWeekly,
+                                        onIntervalChange = onUpdateInterval
+                                    )
+                                }
                             )
+
+                            // Weekday Multi-Selector Row: S S M T W T F
+                            AnimatedVisibility(
+                                visible = isWeekly,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut()
+                            ) {
+                                WeeklyDaySelectorRow(
+                                    selectedDays = state.recurrenceDaysOfWeek,
+                                    onToggleDay = onToggleRecurrenceDay,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp)
+                                        .padding(bottom = 18.dp)
+                                )
+                            }
                         }
-                    }
 
-                    HorizontalDivider(
-                        color = CardDividerColor,
-                        thickness = 0.5.dp,
-                        modifier = Modifier.padding(start = 60.dp, end = 20.dp)
-                    )
-
-                    // 5. Every [1] year
-                    val isYearly = state.recurrenceMode == RecurrenceMode.YEARLY
-                    Column(modifier = Modifier.fillMaxWidth()) {
-                        RepeatRow(
-                            isSelected = isYearly,
-                            onClick = { onSelectRecurrence(RecurrenceMode.YEARLY, state.recurrenceInterval) },
-                            content = {
-                                IntervalUnitRow(
-                                    interval = state.recurrenceInterval,
-                                    unitSingular = "year",
-                                    isSelected = isYearly,
-                                    onIntervalChange = onUpdateInterval
-                                )
-                            }
+                        HorizontalDivider(
+                            color = CardDividerColor,
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(start = 60.dp, end = 20.dp)
                         )
 
-                        // Yearly Sub-Options (3 Capsule Pills + 12-Month Grid)
-                        AnimatedVisibility(
-                            visible = isYearly,
-                            enter = expandVertically() + fadeIn(),
-                            exit = shrinkVertically() + fadeOut()
-                        ) {
-                            YearlyOptionsSection(
-                                dayOfMonthOrdinal = getOrdinal(dayOfMonth),
-                                monthShortName = getMonthShortName(monthIndex),
-                                dayOfWeekName = getDayOfWeekName(dayOfWeek),
-                                nthOrdinal = getOrdinal(dayOfWeekInMonth),
-                                activeType = state.yearlyRepeatType,
-                                selectedMonths = state.yearlySelectedMonths,
-                                onSelectType = onUpdateYearlyType,
-                                onToggleMonth = onToggleYearlyMonth,
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 20.dp)
-                                    .padding(bottom = 18.dp)
+                        // 4. Every [1] month
+                        val isMonthly = state.recurrenceMode == RecurrenceMode.MONTHLY
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            RepeatRow(
+                                isSelected = isMonthly,
+                                onClick = { onSelectRecurrence(RecurrenceMode.MONTHLY, state.recurrenceInterval) },
+                                content = {
+                                    IntervalUnitRow(
+                                        interval = state.recurrenceInterval,
+                                        unitSingular = "month",
+                                        isSelected = isMonthly,
+                                        onIntervalChange = onUpdateInterval
+                                    )
+                                }
                             )
+
+                            // Monthly Sub-Options (3 Capsule Pills + 31-Day Grid)
+                            AnimatedVisibility(
+                                visible = isMonthly,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut()
+                            ) {
+                                MonthlyOptionsSection(
+                                    dayOfMonth = dayOfMonth,
+                                    dayOfWeekName = getDayOfWeekName(dayOfWeek),
+                                    nthOrdinal = getOrdinal(dayOfWeekInMonth),
+                                    activeType = state.monthlyRepeatType,
+                                    selectedDays = state.monthlySelectedDays,
+                                    onSelectType = onUpdateMonthlyType,
+                                    onToggleDay = onToggleMonthlyDay,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp)
+                                        .padding(bottom = 18.dp)
+                                )
+                            }
+                        }
+
+                        HorizontalDivider(
+                            color = CardDividerColor,
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(start = 60.dp, end = 20.dp)
+                        )
+
+                        // 5. Every [1] year
+                        val isYearly = state.recurrenceMode == RecurrenceMode.YEARLY
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            RepeatRow(
+                                isSelected = isYearly,
+                                onClick = { onSelectRecurrence(RecurrenceMode.YEARLY, state.recurrenceInterval) },
+                                content = {
+                                    IntervalUnitRow(
+                                        interval = state.recurrenceInterval,
+                                        unitSingular = "year",
+                                        isSelected = isYearly,
+                                        onIntervalChange = onUpdateInterval
+                                    )
+                                }
+                            )
+
+                            // Yearly Sub-Options (3 Capsule Pills + 12-Month Grid)
+                            AnimatedVisibility(
+                                visible = isYearly,
+                                enter = expandVertically() + fadeIn(),
+                                exit = shrinkVertically() + fadeOut()
+                            ) {
+                                YearlyOptionsSection(
+                                    dayOfMonthOrdinal = getOrdinal(dayOfMonth),
+                                    monthShortName = getMonthShortName(monthIndex),
+                                    dayOfWeekName = getDayOfWeekName(dayOfWeek),
+                                    nthOrdinal = getOrdinal(dayOfWeekInMonth),
+                                    activeType = state.yearlyRepeatType,
+                                    selectedMonths = state.yearlySelectedMonths,
+                                    onSelectType = onUpdateYearlyType,
+                                    onToggleMonth = onToggleYearlyMonth,
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 20.dp)
+                                        .padding(bottom = 18.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -893,19 +1103,30 @@ private fun buildDynamicSubtitle(
     dayOfWeekInMonth: Int,
     monthIndex: Int
 ): String {
+    val subject = if (state.entryType == EntryType.REMINDER) "This reminder" else "This event"
+
     if (state.recurrenceMode == RecurrenceMode.NONE) {
-        return "This event doesn't repeat."
+        return "$subject doesn't repeat."
     }
 
     val base = when (state.recurrenceMode) {
-        RecurrenceMode.NONE -> "This event doesn't repeat"
+        RecurrenceMode.NONE -> "$subject doesn't repeat"
+        RecurrenceMode.MINUTELY -> {
+            val unit = if (state.recurrenceInterval == 1) "minute" else "minutes"
+            "$subject will repeat every ${state.recurrenceInterval} $unit"
+        }
+        RecurrenceMode.HOURLY -> {
+            val unit = if (state.recurrenceInterval == 1) "hour" else "hours"
+            "$subject will repeat every ${state.recurrenceInterval} $unit"
+        }
         RecurrenceMode.DAILY -> {
             if (state.recurrenceInterval == 1) {
-                "This event will repeat every day"
+                "$subject will repeat every day"
             } else {
-                "This event will repeat every ${state.recurrenceInterval} days"
+                "$subject will repeat every ${state.recurrenceInterval} days"
             }
         }
+        RecurrenceMode.WEEKDAYS -> "$subject will repeat every weekday"
         RecurrenceMode.WEEKLY -> {
             val daysList = state.recurrenceDaysOfWeek.sorted()
             val dayNames = if (daysList.isEmpty()) {
@@ -914,25 +1135,24 @@ private fun buildDynamicSubtitle(
                 daysList.joinToString(", ") { getDayOfWeekName(it) }
             }
             if (state.recurrenceInterval == 1) {
-                "This event will repeat every $dayNames"
+                "$subject will repeat every $dayNames"
             } else {
-                "This event will repeat every ${state.recurrenceInterval} weeks on $dayNames"
+                "$subject will repeat every ${state.recurrenceInterval} weeks on $dayNames"
             }
         }
-        RecurrenceMode.WEEKDAYS -> "This event will repeat every weekday"
         RecurrenceMode.MONTHLY -> {
             val intervalClause = if (state.recurrenceInterval == 1) "every month" else "every ${state.recurrenceInterval} months"
             when (state.monthlyRepeatType) {
                 MonthlyRepeatType.SAME_DAY_OF_MONTH -> {
-                    "This event will repeat on the ${getOrdinal(dayOfMonth)} day of $intervalClause"
+                    "$subject will repeat on the ${getOrdinal(dayOfMonth)} day of $intervalClause"
                 }
                 MonthlyRepeatType.DAY_OF_WEEK_OF_MONTH -> {
-                    "This event will repeat on the ${getOrdinal(dayOfWeekInMonth)} ${getDayOfWeekName(dayOfWeek)} of $intervalClause"
+                    "$subject will repeat on the ${getOrdinal(dayOfWeekInMonth)} ${getDayOfWeekName(dayOfWeek)} of $intervalClause"
                 }
                 MonthlyRepeatType.SPECIFIC_DATES -> {
                     val days = state.monthlySelectedDays.sorted()
                     val daysStr = if (days.isEmpty()) "${getOrdinal(dayOfMonth)} day" else days.joinToString(", ") { getOrdinal(it) } + " day"
-                    "This event will repeat on the $daysStr of $intervalClause"
+                    "$subject will repeat on the $daysStr of $intervalClause"
                 }
             }
         }
@@ -940,15 +1160,15 @@ private fun buildDynamicSubtitle(
             val intervalClause = if (state.recurrenceInterval == 1) "every year" else "every ${state.recurrenceInterval} years"
             when (state.yearlyRepeatType) {
                 YearlyRepeatType.SAME_DATE -> {
-                    "This event will repeat $intervalClause on ${getOrdinal(dayOfMonth)} ${getMonthShortName(monthIndex)}"
+                    "$subject will repeat $intervalClause on ${getOrdinal(dayOfMonth)} ${getMonthShortName(monthIndex)}"
                 }
                 YearlyRepeatType.DAY_OF_WEEK_OF_MONTH -> {
-                    "This event will repeat on the ${getOrdinal(dayOfWeekInMonth)} ${getDayOfWeekName(dayOfWeek)} of ${getMonthShortName(monthIndex)} $intervalClause"
+                    "$subject will repeat on the ${getOrdinal(dayOfWeekInMonth)} ${getDayOfWeekName(dayOfWeek)} of ${getMonthShortName(monthIndex)} $intervalClause"
                 }
                 YearlyRepeatType.SPECIFIC_MONTHS -> {
                     val months = state.yearlySelectedMonths.sorted()
                     val monthsStr = if (months.isEmpty()) getMonthShortName(monthIndex) else months.joinToString(", ") { getMonthShortName(it) }
-                    "This event will repeat on the ${getOrdinal(dayOfMonth)} day of $monthsStr $intervalClause"
+                    "$subject will repeat on the ${getOrdinal(dayOfMonth)} day of $monthsStr $intervalClause"
                 }
             }
         }

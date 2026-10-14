@@ -8,6 +8,7 @@ import com.shejan.acontinue.FakeScheduler
 import com.shejan.acontinue.FakeSettingsRepository
 import com.shejan.acontinue.domain.model.ActivityCategory
 import com.shejan.acontinue.domain.model.EntryType
+import com.shejan.acontinue.domain.model.RecurrenceMode
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -392,6 +393,35 @@ class CreateEntryViewModelTest {
             assertEquals(listOf(15), saved.reminderMinutesList)
             assertEquals("", saved.location)
             assertEquals("", saved.description)
+        }
+    }
+
+    @Test
+    fun `test reminder mode with minutely and hourly recurrence`() = runTest(testDispatcher) {
+        viewModel.updateEntryType(EntryType.REMINDER)
+        viewModel.updateTitle("Take medicine")
+        viewModel.updateRecurrence(RecurrenceMode.HOURLY, 2)
+
+        assertEquals(RecurrenceMode.HOURLY, viewModel.state.value.recurrenceMode)
+        assertEquals(2, viewModel.state.value.recurrenceInterval)
+
+        viewModel.updateRecurrence(RecurrenceMode.MINUTELY, 30)
+        assertEquals(RecurrenceMode.MINUTELY, viewModel.state.value.recurrenceMode)
+        assertEquals(30, viewModel.state.value.recurrenceInterval)
+
+        viewModel.events.test {
+            viewModel.saveEntry()
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+
+            val activities = activityRepository.activitiesFlow.value
+            assertEquals(1, activities.size)
+            val saved = activities.first()
+            assertEquals("Take medicine", saved.title)
+            assertEquals(EntryType.REMINDER, saved.entryType)
+            assertEquals(RecurrenceMode.MINUTELY, saved.recurrenceMode)
+            assertEquals(30, saved.recurrenceInterval)
         }
     }
 }

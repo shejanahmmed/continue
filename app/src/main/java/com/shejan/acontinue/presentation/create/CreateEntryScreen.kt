@@ -2179,6 +2179,8 @@ private fun formatRecurrenceLabel(state: CreateEntryState): String {
 
     val base = when (state.recurrenceMode) {
         RecurrenceMode.NONE -> "Don't repeat"
+        RecurrenceMode.MINUTELY -> if (state.recurrenceInterval == 1) "Every minute" else "Every ${state.recurrenceInterval} minutes"
+        RecurrenceMode.HOURLY -> if (state.recurrenceInterval == 1) "Hourly" else "Every ${state.recurrenceInterval} hours"
         RecurrenceMode.DAILY -> if (state.recurrenceInterval == 1) "Daily" else "Every ${state.recurrenceInterval} days"
         RecurrenceMode.WEEKDAYS -> "Every weekday"
         RecurrenceMode.WEEKLY -> {
