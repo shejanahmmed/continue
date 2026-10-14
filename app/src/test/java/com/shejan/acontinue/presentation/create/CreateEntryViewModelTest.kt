@@ -7,6 +7,7 @@ import com.shejan.acontinue.FakeNoteRepository
 import com.shejan.acontinue.FakeScheduler
 import com.shejan.acontinue.FakeSettingsRepository
 import com.shejan.acontinue.domain.model.ActivityCategory
+import com.shejan.acontinue.domain.model.ActivityPriority
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.RecurrenceMode
 import kotlinx.coroutines.Dispatchers
@@ -422,6 +423,41 @@ class CreateEntryViewModelTest {
             assertEquals(EntryType.REMINDER, saved.entryType)
             assertEquals(RecurrenceMode.MINUTELY, saved.recurrenceMode)
             assertEquals(30, saved.recurrenceInterval)
+        }
+    }
+
+    @Test
+    fun `test reminder intensity update and persistence`() = runTest(testDispatcher) {
+        viewModel.updateEntryType(EntryType.REMINDER)
+        viewModel.updateTitle("Water plants")
+
+        // Initial priority should be MEDIUM
+        assertEquals(ActivityPriority.MEDIUM, viewModel.state.value.priority)
+        assertEquals("Medium", viewModel.state.value.priority.reminderTitle)
+
+        // Update to HIGH (Strong)
+        viewModel.updatePriority(ActivityPriority.HIGH)
+        assertEquals(ActivityPriority.HIGH, viewModel.state.value.priority)
+        assertEquals("Strong", viewModel.state.value.priority.reminderTitle)
+        assertEquals("Full screen alert and long sound", viewModel.state.value.priority.reminderDescription)
+
+        // Update to LOW (Light)
+        viewModel.updatePriority(ActivityPriority.LOW)
+        assertEquals(ActivityPriority.LOW, viewModel.state.value.priority)
+        assertEquals("Light", viewModel.state.value.priority.reminderTitle)
+        assertEquals("Notification and short sound", viewModel.state.value.priority.reminderDescription)
+
+        viewModel.events.test {
+            viewModel.saveEntry()
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+
+            val activities = activityRepository.activitiesFlow.value
+            assertEquals(1, activities.size)
+            val saved = activities.first()
+            assertEquals("Water plants", saved.title)
+            assertEquals(ActivityPriority.LOW, saved.priority)
         }
     }
 }

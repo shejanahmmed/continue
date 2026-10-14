@@ -36,6 +36,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -59,6 +60,7 @@ import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.NotificationAdd
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
@@ -176,9 +178,11 @@ fun CreateEntryScreen(
     var isAlertScreenVisible by remember { mutableStateOf(false) }
     var isRepeatScreenVisible by remember { mutableStateOf(false) }
     var isEarlyAlertScreenVisible by remember { mutableStateOf(false) }
+    var showIntensityPopup by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = isAlertScreenVisible || isRepeatScreenVisible || isEarlyAlertScreenVisible) {
-        if (isEarlyAlertScreenVisible) isEarlyAlertScreenVisible = false
+    BackHandler(enabled = isAlertScreenVisible || isRepeatScreenVisible || isEarlyAlertScreenVisible || showIntensityPopup) {
+        if (showIntensityPopup) showIntensityPopup = false
+        else if (isEarlyAlertScreenVisible) isEarlyAlertScreenVisible = false
         else if (isAlertScreenVisible) isAlertScreenVisible = false
         else if (isRepeatScreenVisible) isRepeatScreenVisible = false
     }
@@ -620,20 +624,41 @@ fun CreateEntryScreen(
                             HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
 
                             // Priority / Sound Row (Speaker icon)
-                            FormOptionRow(
-                                icon = Icons.AutoMirrored.Outlined.VolumeUp,
-                                label = state.priority.displayName,
-                                textColor = colors.textPrimary,
-                                fontSize = 17.sp,
-                                onClick = {
-                                    val next = when (state.priority) {
-                                        ActivityPriority.LOW -> ActivityPriority.MEDIUM
-                                        ActivityPriority.MEDIUM -> ActivityPriority.HIGH
-                                        ActivityPriority.HIGH -> ActivityPriority.LOW
+                            Box(modifier = Modifier.fillMaxWidth()) {
+                                FormOptionRow(
+                                    icon = Icons.AutoMirrored.Outlined.VolumeUp,
+                                    label = state.priority.reminderTitle,
+                                    textColor = colors.textPrimary,
+                                    fontSize = 17.sp,
+                                    onClick = {
+                                        showColorPicker = false
+                                        showEmojiKeyboard = false
+                                        activePickerField = ActivePickerField.NONE
+                                        showIntensityPopup = !showIntensityPopup
                                     }
-                                    viewModel.updatePriority(next)
+                                )
+
+                                if (showIntensityPopup) {
+                                    val density = LocalDensity.current
+                                    val yOffsetPx = with(density) { 48.dp.roundToPx() }
+                                    val xOffsetPx = with(density) { 8.dp.roundToPx() }
+
+                                    Popup(
+                                        alignment = Alignment.TopEnd,
+                                        offset = IntOffset(x = xOffsetPx, y = yOffsetPx),
+                                        onDismissRequest = { showIntensityPopup = false },
+                                        properties = PopupProperties(focusable = true, dismissOnClickOutside = true)
+                                    ) {
+                                        ReminderIntensityPopup(
+                                            selectedPriority = state.priority,
+                                            onSelectPriority = { priority ->
+                                                viewModel.updatePriority(priority)
+                                                showIntensityPopup = false
+                                            }
+                                        )
+                                    }
                                 }
-                            )
+                            }
 
                             HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
 
@@ -2334,6 +2359,70 @@ private fun AttachmentItemCard(
                     tint = colors.textSecondary,
                     modifier = Modifier.size(16.dp)
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ReminderIntensityPopup(
+    selectedPriority: ActivityPriority,
+    onSelectPriority: (ActivityPriority) -> Unit
+) {
+    Surface(
+        shape = RoundedCornerShape(22.dp),
+        color = Color(0xFF252528),
+        border = BorderStroke(1.dp, Color(0xFF38383A)),
+        shadowElevation = 14.dp,
+        modifier = Modifier.width(248.dp)
+    ) {
+        Column(
+            modifier = Modifier.padding(vertical = 12.dp)
+        ) {
+            ActivityPriority.entries.forEach { priority ->
+                val isSelected = priority == selectedPriority
+                val activeBlue = Color(0xFF3897F0)
+                val titleColor = if (isSelected) activeBlue else Color.White
+                val subtitleColor = if (isSelected) activeBlue else Color(0xFF8E8E93)
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onSelectPriority(priority) }
+                        .padding(horizontal = 16.dp, vertical = 10.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp)
+                    ) {
+                        Text(
+                            text = priority.reminderTitle,
+                            color = titleColor,
+                            fontSize = 16.sp,
+                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal
+                        )
+                        Spacer(modifier = Modifier.height(2.dp))
+                        Text(
+                            text = priority.reminderDescription,
+                            color = subtitleColor,
+                            fontSize = 12.5.sp,
+                            fontWeight = FontWeight.Normal,
+                            lineHeight = 16.sp
+                        )
+                    }
+
+                    if (isSelected) {
+                        Icon(
+                            imageVector = Icons.Outlined.Check,
+                            contentDescription = "Selected",
+                            tint = activeBlue,
+                            modifier = Modifier.size(18.dp)
+                        )
+                    }
+                }
             }
         }
     }

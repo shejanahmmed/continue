@@ -28,10 +28,14 @@ enum class ActivityCategory(val displayName: String, val colorHex: Long) {
     }
 }
 
-enum class ActivityPriority(val displayName: String) {
-    LOW("Low"),
-    MEDIUM("Medium"),
-    HIGH("High")
+enum class ActivityPriority(
+    val displayName: String,
+    val reminderTitle: String = displayName,
+    val reminderDescription: String = ""
+) {
+    LOW("Low", "Light", "Notification and short sound"),
+    MEDIUM("Medium", "Medium", "Full screen alert and short sound"),
+    HIGH("High", "Strong", "Full screen alert and long sound")
 }
 
 enum class RecurrenceMode(val displayName: String) {

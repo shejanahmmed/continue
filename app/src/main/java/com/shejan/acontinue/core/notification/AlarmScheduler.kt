@@ -37,6 +37,7 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
                 putExtra(EXTRA_ACTIVITY_TITLE, activity.title)
                 putExtra(EXTRA_ACTIVITY_LOCATION, activity.location)
                 putExtra(EXTRA_ACTIVITY_START_TIME, activity.startTimeMillis)
+                putExtra(EXTRA_ACTIVITY_PRIORITY, activity.priority.name)
             }
 
             val requestCode = getRequestCode(activity.id, minutes)
@@ -113,6 +114,10 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
         const val EXTRA_ACTIVITY_TITLE = "extra_activity_title"
         const val EXTRA_ACTIVITY_LOCATION = "extra_activity_location"
         const val EXTRA_ACTIVITY_START_TIME = "extra_activity_start_time"
+        const val EXTRA_ACTIVITY_PRIORITY = "extra_activity_priority"
         const val CHANNEL_ID = "activity_reminders_channel"
+        const val CHANNEL_ID_LIGHT = "activity_reminders_light"
+        const val CHANNEL_ID_MEDIUM = "activity_reminders_medium"
+        const val CHANNEL_ID_STRONG = "activity_reminders_strong"
     }
 }
