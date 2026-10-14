@@ -178,13 +178,43 @@ fun CreateEntryScreen(
     var isAlertScreenVisible by remember { mutableStateOf(false) }
     var isRepeatScreenVisible by remember { mutableStateOf(false) }
     var isEarlyAlertScreenVisible by remember { mutableStateOf(false) }
+    var isCategoryScreenVisible by remember { mutableStateOf(false) }
+    var isAddCategoryScreenVisible by remember { mutableStateOf(false) }
     var showIntensityPopup by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = isAlertScreenVisible || isRepeatScreenVisible || isEarlyAlertScreenVisible || showIntensityPopup) {
+    BackHandler(enabled = isAlertScreenVisible || isRepeatScreenVisible || isEarlyAlertScreenVisible || showIntensityPopup || isCategoryScreenVisible || isAddCategoryScreenVisible) {
         if (showIntensityPopup) showIntensityPopup = false
+        else if (isAddCategoryScreenVisible) isAddCategoryScreenVisible = false
+        else if (isCategoryScreenVisible) isCategoryScreenVisible = false
         else if (isEarlyAlertScreenVisible) isEarlyAlertScreenVisible = false
         else if (isAlertScreenVisible) isAlertScreenVisible = false
         else if (isRepeatScreenVisible) isRepeatScreenVisible = false
+    }
+
+    if (isAddCategoryScreenVisible) {
+        AddCategoryScreen(
+            onSaveCategory = { name, colorHex, iconName ->
+                viewModel.addReminderCategory(name, colorHex, iconName)
+                isAddCategoryScreenVisible = false
+            },
+            onNavigateBack = { isAddCategoryScreenVisible = false }
+        )
+        return
+    }
+
+    if (isCategoryScreenVisible) {
+        CategorySelectionScreen(
+            selectedCategory = state.selectedReminderCategory,
+            categories = state.savedReminderCategories,
+            reminderCounts = state.categoryReminderCounts,
+            onSelectCategory = { category ->
+                viewModel.selectReminderCategory(category)
+                isCategoryScreenVisible = false
+            },
+            onAddCategoryClick = { isAddCategoryScreenVisible = true },
+            onNavigateBack = { isCategoryScreenVisible = false }
+        )
+        return
     }
 
     if (isEarlyAlertScreenVisible) {
@@ -662,14 +692,14 @@ fun CreateEntryScreen(
 
                             HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
 
-                            // Reminder List / Collection Row (Purple bell)
+                            // Reminder Category Row
                             FormOptionRow(
-                                icon = Icons.Filled.Notifications,
-                                iconTint = Color(0xFF9D7BFC),
-                                label = state.reminderList,
+                                icon = getCategoryIcon(state.selectedReminderCategory.iconName),
+                                iconTint = Color(state.selectedReminderCategory.colorHex),
+                                label = state.selectedReminderCategory.name,
                                 textColor = colors.textPrimary,
                                 fontSize = 17.sp,
-                                onClick = { /* Reserved for future reminder list selection */ }
+                                onClick = { isCategoryScreenVisible = true }
                             )
 
                         } else {

@@ -45,11 +45,30 @@ data class CustomAlert(
     }
 }
 
+data class ReminderCategory(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String,
+    val colorHex: Long,
+    val iconName: String,
+    val isDefault: Boolean = false
+) {
+    companion object {
+        val DEFAULT = ReminderCategory(
+            id = "default_my_reminders",
+            name = "My reminders",
+            colorHex = 0xFF9D7BFC,
+            iconName = "bell",
+            isDefault = true
+        )
+    }
+}
+
 data class UserSettings(
     val themeMode: ThemeMode = ThemeMode.DARK,
     val accentPalette: AccentPalette = AccentPalette.MONOCHROME_RED,
     val hapticFeedbackEnabled: Boolean = true,
     val notificationsEnabled: Boolean = true,
     val recentEmojis: List<String> = emptyList(),
-    val customAlerts: List<CustomAlert> = emptyList()
+    val customAlerts: List<CustomAlert> = emptyList(),
+    val reminderCategories: List<ReminderCategory> = listOf(ReminderCategory.DEFAULT)
 )

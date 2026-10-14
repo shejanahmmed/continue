@@ -22,7 +22,7 @@ import com.shejan.acontinue.data.local.entity.TaskEntity
         LinkEntity::class,
         AttachmentEntity::class
     ],
-    version = 3,
+    version = 4,
     exportSchema = false
 )
 abstract class ContinueDatabase : RoomDatabase() {

@@ -44,4 +44,10 @@ interface ActivityDao {
 
     @Query("SELECT * FROM activities WHERE startTimeMillis > :now AND isCompleted = 0")
     suspend fun getUpcomingIncompleteActivities(now: Long): List<ActivityEntity>
+
+    @Query("UPDATE activities SET reminderCategoryColorHex = :colorHex, reminderCategoryIcon = :icon WHERE reminderCategory = :categoryName")
+    suspend fun updateReminderCategoryDetails(categoryName: String, colorHex: Long, icon: String)
+
+    @Query("UPDATE activities SET reminderCategory = :newCategory, reminderCategoryColorHex = :newColorHex, reminderCategoryIcon = :newIcon WHERE id = :activityId")
+    suspend fun updateActivityReminderCategory(activityId: Long, newCategory: String, newColorHex: Long, newIcon: String)
 }

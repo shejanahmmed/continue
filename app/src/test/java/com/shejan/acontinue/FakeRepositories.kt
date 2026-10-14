@@ -55,6 +55,18 @@ class FakeActivityRepository : ActivityRepository {
             list.filter { it.title.contains(query, ignoreCase = true) || it.description.contains(query, ignoreCase = true) }
         }
     }
+
+    override suspend fun updateReminderCategoryDetails(categoryName: String, colorHex: Long, icon: String) {
+        activitiesFlow.value = activitiesFlow.value.map {
+            if (it.reminderCategory == categoryName) it.copy(reminderCategoryColorHex = colorHex, reminderCategoryIcon = icon) else it
+        }
+    }
+
+    override suspend fun updateActivityReminderCategory(activityId: Long, newCategory: String, newColorHex: Long, newIcon: String) {
+        activitiesFlow.value = activitiesFlow.value.map {
+            if (it.id == activityId) it.copy(reminderCategory = newCategory, reminderCategoryColorHex = newColorHex, reminderCategoryIcon = newIcon) else it
+        }
+    }
 }
 
 class FakeTaskRepository : TaskRepository {
@@ -216,6 +228,22 @@ class FakeSettingsRepository : com.shejan.acontinue.domain.repository.SettingsRe
     override suspend fun deleteCustomAlert(id: String) {
         val updated = settingsFlow.value.customAlerts.filterNot { it.id == id }
         settingsFlow.value = settingsFlow.value.copy(customAlerts = updated)
+    }
+
+    override suspend fun addReminderCategory(
+        name: String,
+        colorHex: Long,
+        iconName: String
+    ): com.shejan.acontinue.domain.model.ReminderCategory {
+        val category = com.shejan.acontinue.domain.model.ReminderCategory(
+            name = name,
+            colorHex = colorHex,
+            iconName = iconName,
+            isDefault = false
+        )
+        val updated = settingsFlow.value.reminderCategories + category
+        settingsFlow.value = settingsFlow.value.copy(reminderCategories = updated)
+        return category
     }
 }
 

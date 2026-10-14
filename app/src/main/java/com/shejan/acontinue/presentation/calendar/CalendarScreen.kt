@@ -372,13 +372,18 @@ private fun MonthDayCell(
                 verticalArrangement = Arrangement.spacedBy(1.5.dp)
             ) {
                 visibleActivities.forEach { activity ->
+                    val dotColor = if (activity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER) {
+                        Color(activity.reminderCategoryColorHex)
+                    } else {
+                        Color(activity.category.colorHex)
+                    }
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(2.5.dp)
                             .padding(horizontal = 2.dp)
                             .background(
-                                color = Color(activity.category.colorHex),
+                                color = dotColor,
                                 shape = RoundedCornerShape(1.dp)
                             )
                     )
@@ -417,13 +422,16 @@ private fun AgendaActivityRow(
                 modifier = Modifier.width(44.dp)
             )
 
+            val isReminder = activity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER
+            val accentColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
+
             // Category Vertical Accent Stroke
             Box(
                 modifier = Modifier
                     .width(3.dp)
                     .height(30.dp)
                     .background(
-                        color = Color(activity.category.colorHex),
+                        color = accentColor,
                         shape = RoundedCornerShape(1.5.dp)
                     )
             )
@@ -442,7 +450,13 @@ private fun AgendaActivityRow(
                     textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
                 )
                 Spacer(modifier = Modifier.height(1.dp))
-                val subtitle = if (activity.location.isNotBlank()) "$timeSpan  ${activity.location}" else timeSpan
+                val subtitle = if (isReminder) {
+                    "${activity.reminderCategory} • $timeSpan"
+                } else if (activity.location.isNotBlank()) {
+                    "$timeSpan  ${activity.location}"
+                } else {
+                    timeSpan
+                }
                 Text(
                     text = subtitle,
                     color = UtilitarianTextSecondary,

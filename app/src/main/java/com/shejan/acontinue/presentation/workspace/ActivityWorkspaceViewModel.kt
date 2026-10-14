@@ -6,19 +6,28 @@ import com.shejan.acontinue.domain.model.ActivityLink
 import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.ActivityTask
 import com.shejan.acontinue.domain.model.ActivityWorkspaceAggregate
+import com.shejan.acontinue.domain.model.EntryType
+import com.shejan.acontinue.domain.model.ReminderCategory
+import com.shejan.acontinue.domain.model.UserSettings
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.repository.LinkRepository
 import com.shejan.acontinue.domain.repository.NoteRepository
+import com.shejan.acontinue.domain.repository.SettingsRepository
 import com.shejan.acontinue.domain.repository.TaskRepository
 import com.shejan.acontinue.domain.usecase.GetActivityWorkspaceUseCase
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
 data class WorkspaceUiState(
@@ -44,7 +53,8 @@ class ActivityWorkspaceViewModel(
     private val activityRepository: ActivityRepository,
     private val taskRepository: TaskRepository,
     private val noteRepository: NoteRepository,
-    private val linkRepository: LinkRepository
+    private val linkRepository: LinkRepository,
+    private val settingsRepository: SettingsRepository? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(WorkspaceUiState())
@@ -52,6 +62,35 @@ class ActivityWorkspaceViewModel(
 
     private val _events = MutableSharedFlow<WorkspaceEvent>()
     val events: SharedFlow<WorkspaceEvent> = _events.asSharedFlow()
+
+    val availableReminderCategories: StateFlow<List<ReminderCategory>> = combine(
+        settingsRepository?.getUserSettings() ?: flowOf(UserSettings()),
+        activityRepository.getAllActivities()
+    ) { settings, activities ->
+        val reminderActivities = activities.filter { it.entryType == EntryType.REMINDER }
+        val fromReminders = reminderActivities
+            .map {
+                ReminderCategory(
+                    name = it.reminderCategory,
+                    colorHex = it.reminderCategoryColorHex,
+                    iconName = it.reminderCategoryIcon
+                )
+            }
+            .distinctBy { it.name }
+        val merged = (settings.reminderCategories + fromReminders).distinctBy { it.name }
+        if (merged.none { it.name.equals(ReminderCategory.DEFAULT.name, ignoreCase = true) }) {
+            listOf(ReminderCategory.DEFAULT) + merged
+        } else {
+            merged
+        }
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), listOf(ReminderCategory.DEFAULT))
+
+    val categoryReminderCounts: StateFlow<Map<String, Int>> = activityRepository.getAllActivities()
+        .map { activities ->
+            activities.filter { it.entryType == EntryType.REMINDER }
+                .groupingBy { it.reminderCategory }
+                .eachCount()
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5000), emptyMap())
 
     init {
         loadWorkspace()
@@ -145,6 +184,26 @@ class ActivityWorkspaceViewModel(
         viewModelScope.launch {
             activityRepository.deleteActivity(activityId)
             _events.emit(WorkspaceEvent.ActivityDeleted)
+        }
+    }
+
+    fun updateReminderCategory(category: ReminderCategory) {
+        viewModelScope.launch {
+            activityRepository.updateActivityReminderCategory(
+                activityId = activityId,
+                newCategory = category.name,
+                newColorHex = category.colorHex,
+                newIcon = category.iconName
+            )
+        }
+    }
+
+    fun addReminderCategory(name: String, colorHex: Long, iconName: String) {
+        viewModelScope.launch {
+            val created = settingsRepository?.addReminderCategory(name, colorHex, iconName)
+                ?: ReminderCategory(name = name, colorHex = colorHex, iconName = iconName)
+            activityRepository.updateReminderCategoryDetails(name, colorHex, iconName)
+            updateReminderCategory(created)
         }
     }
 }

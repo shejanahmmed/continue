@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.shejan.acontinue.domain.model.AccentPalette
 import com.shejan.acontinue.domain.model.CustomAlert
+import com.shejan.acontinue.domain.model.ReminderCategory
 import com.shejan.acontinue.domain.model.ThemeMode
 import com.shejan.acontinue.domain.model.UserSettings
 import com.shejan.acontinue.domain.repository.SettingsRepository
@@ -77,6 +78,20 @@ class SettingsRepositoryImpl(
         _settings.update { it.copy(customAlerts = updated) }
     }
 
+    override suspend fun addReminderCategory(name: String, colorHex: Long, iconName: String): ReminderCategory {
+        val newCategory = ReminderCategory(
+            name = name,
+            colorHex = colorHex,
+            iconName = iconName,
+            isDefault = false
+        )
+        val current = _settings.value.reminderCategories
+        val updated = current + newCategory
+        saveReminderCategories(updated)
+        _settings.update { it.copy(reminderCategories = updated) }
+        return newCategory
+    }
+
     private fun saveCustomAlerts(alerts: List<CustomAlert>) {
         val serialized = alerts.joinToString(DELIMITER) { "${it.id}:::${it.value}:::${it.unit}" }
         prefs.edit().putString(KEY_CUSTOM_ALERTS, serialized).apply()
@@ -90,6 +105,36 @@ class SettingsRepositoryImpl(
                 val value = parts[1].toIntOrNull() ?: return@mapNotNull null
                 CustomAlert(id = parts[0], value = value, unit = parts[2])
             } else null
+        }
+    }
+
+    private fun saveReminderCategories(categories: List<ReminderCategory>) {
+        val serialized = categories.joinToString(DELIMITER) {
+            "${it.id}:::${it.name}:::${it.colorHex}:::${it.iconName}:::${it.isDefault}"
+        }
+        prefs.edit().putString(KEY_REMINDER_CATEGORIES, serialized).apply()
+    }
+
+    private fun parseReminderCategories(raw: String): List<ReminderCategory> {
+        if (raw.isBlank()) return listOf(ReminderCategory.DEFAULT)
+        val list = raw.split(DELIMITER).mapNotNull { item ->
+            val parts = item.split(":::")
+            if (parts.size >= 5) {
+                val color = parts[2].toLongOrNull() ?: ReminderCategory.DEFAULT.colorHex
+                val isDefault = parts[4].toBooleanStrictOrNull() ?: false
+                ReminderCategory(
+                    id = parts[0],
+                    name = parts[1],
+                    colorHex = color,
+                    iconName = parts[3],
+                    isDefault = isDefault
+                )
+            } else null
+        }
+        return if (list.none { it.isDefault || it.name == ReminderCategory.DEFAULT.name }) {
+            listOf(ReminderCategory.DEFAULT) + list
+        } else {
+            list
         }
     }
 
@@ -120,13 +165,17 @@ class SettingsRepositoryImpl(
         val customAlertsRaw = prefs.getString(KEY_CUSTOM_ALERTS, "") ?: ""
         val customAlerts = parseCustomAlerts(customAlertsRaw)
 
+        val reminderCategoriesRaw = prefs.getString(KEY_REMINDER_CATEGORIES, "") ?: ""
+        val reminderCategories = parseReminderCategories(reminderCategoriesRaw)
+
         return UserSettings(
             themeMode = themeMode,
             accentPalette = accentPalette,
             hapticFeedbackEnabled = haptic,
             notificationsEnabled = notifs,
             recentEmojis = recentEmojis,
-            customAlerts = customAlerts
+            customAlerts = customAlerts,
+            reminderCategories = reminderCategories
         )
     }
 
@@ -138,6 +187,7 @@ class SettingsRepositoryImpl(
         private const val KEY_NOTIFICATIONS = "notifications_enabled"
         private const val KEY_RECENT_EMOJIS = "recent_emojis"
         private const val KEY_CUSTOM_ALERTS = "custom_alerts"
+        private const val KEY_REMINDER_CATEGORIES = "reminder_categories"
         private const val DELIMITER = "|||"
     }
 }

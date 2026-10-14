@@ -10,6 +10,7 @@ import com.shejan.acontinue.domain.model.ActivityCategory
 import com.shejan.acontinue.domain.model.ActivityPriority
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.RecurrenceMode
+import com.shejan.acontinue.domain.model.ReminderCategory
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -459,6 +460,83 @@ class CreateEntryViewModelTest {
             assertEquals("Water plants", saved.title)
             assertEquals(ActivityPriority.LOW, saved.priority)
         }
+    }
+
+    @Test
+    fun `test reminder category selection, addition, and persistence`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        // Default category should be "My reminders"
+        assertEquals(ReminderCategory.DEFAULT.name, viewModel.state.value.selectedReminderCategory.name)
+        assertEquals(ReminderCategory.DEFAULT.iconName, viewModel.state.value.selectedReminderCategory.iconName)
+
+        // Add custom category "Work"
+        viewModel.addReminderCategory("Work", 0xFF4FC3F7, "business")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("Work", viewModel.state.value.selectedReminderCategory.name)
+        assertEquals(0xFF4FC3F7, viewModel.state.value.selectedReminderCategory.colorHex)
+        assertEquals("business", viewModel.state.value.selectedReminderCategory.iconName)
+        assertEquals(2, viewModel.state.value.savedReminderCategories.size)
+
+        // Create a reminder with the selected category
+        viewModel.updateEntryType(EntryType.REMINDER)
+        viewModel.updateTitle("Team Standup")
+
+        viewModel.events.test {
+            viewModel.saveEntry()
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+
+            val activities = activityRepository.activitiesFlow.value
+            assertEquals(1, activities.size)
+            val saved = activities.first()
+            assertEquals("Team Standup", saved.title)
+            assertEquals(EntryType.REMINDER, saved.entryType)
+            assertEquals("Work", saved.reminderCategory)
+            assertEquals(0xFF4FC3F7, saved.reminderCategoryColorHex)
+            assertEquals("business", saved.reminderCategoryIcon)
+        }
+    }
+
+    @Test
+    fun `test reminder category bidirectional sync and updates across reminders`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        // 1. Create a reminder with custom category "Groceries"
+        viewModel.addReminderCategory("Groceries", 0xFFAED581, "shopping_cart")
+        testScheduler.advanceUntilIdle()
+        viewModel.updateEntryType(EntryType.REMINDER)
+        viewModel.updateTitle("Buy Milk")
+        viewModel.events.test {
+            viewModel.saveEntry()
+            testScheduler.advanceUntilIdle()
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+        }
+
+        // 2. Instantiate a second ViewModel (simulating user opening the screen to create another reminder)
+        val secondViewModel = CreateEntryViewModel(
+            activityRepository,
+            noteRepository,
+            scheduler,
+            settingsRepository,
+            linkRepository
+        )
+        testScheduler.advanceUntilIdle()
+
+        // Verify "Groceries" is synced and available in the categories list for other reminders
+        val syncedCategories = secondViewModel.state.value.savedReminderCategories
+        assertTrue(syncedCategories.any { it.name == "Groceries" })
+        assertEquals(1, secondViewModel.state.value.categoryReminderCounts["Groceries"])
+
+        // 3. Update category details (new color/icon) and verify existing reminders in repository are updated
+        secondViewModel.addReminderCategory("Groceries", 0xFFFFA726, "local_grocery_store")
+        testScheduler.advanceUntilIdle()
+
+        val updatedActivity = activityRepository.activitiesFlow.value.first()
+        assertEquals(0xFFFFA726, updatedActivity.reminderCategoryColorHex)
+        assertEquals("local_grocery_store", updatedActivity.reminderCategoryIcon)
     }
 }
 

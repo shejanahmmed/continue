@@ -68,6 +68,10 @@ import com.shejan.acontinue.domain.model.ActivityLink
 import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.ActivityTask
 import com.shejan.acontinue.domain.model.ActivityWorkspaceAggregate
+import com.shejan.acontinue.domain.model.EntryType
+import com.shejan.acontinue.domain.model.ReminderCategory
+import com.shejan.acontinue.presentation.create.AddCategoryScreen
+import com.shejan.acontinue.presentation.create.CategorySelectionScreen
 import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
 import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
@@ -87,6 +91,10 @@ fun ActivityWorkspaceScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val categories by viewModel.availableReminderCategories.collectAsState()
+    val reminderCounts by viewModel.categoryReminderCounts.collectAsState()
+    var isCategoryScreenVisible by remember { mutableStateOf(false) }
+    var isAddCategoryScreenVisible by remember { mutableStateOf(false) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
@@ -94,6 +102,46 @@ fun ActivityWorkspaceScreen(
                 is WorkspaceEvent.ActivityDeleted -> onNavigateBack()
             }
         }
+    }
+
+    if (isCategoryScreenVisible && uiState.aggregate != null) {
+        val currentActivity = uiState.aggregate!!.activity
+        val currentCat = categories.find { it.name.equals(currentActivity.reminderCategory, ignoreCase = true) }
+            ?: ReminderCategory(
+                name = currentActivity.reminderCategory,
+                colorHex = currentActivity.reminderCategoryColorHex,
+                iconName = currentActivity.reminderCategoryIcon
+            )
+        CategorySelectionScreen(
+            selectedCategory = currentCat,
+            categories = categories,
+            reminderCounts = reminderCounts,
+            onSelectCategory = { selected ->
+                viewModel.updateReminderCategory(selected)
+                isCategoryScreenVisible = false
+            },
+            onAddCategoryClick = {
+                isAddCategoryScreenVisible = true
+            },
+            onNavigateBack = {
+                isCategoryScreenVisible = false
+            }
+        )
+        return
+    }
+
+    if (isAddCategoryScreenVisible) {
+        AddCategoryScreen(
+            onSaveCategory = { name, colorHex, iconName ->
+                viewModel.addReminderCategory(name, colorHex, iconName)
+                isAddCategoryScreenVisible = false
+                isCategoryScreenVisible = false
+            },
+            onNavigateBack = {
+                isAddCategoryScreenVisible = false
+            }
+        )
+        return
     }
 
     if (uiState.isLoading || uiState.aggregate == null) {
@@ -174,6 +222,10 @@ fun ActivityWorkspaceScreen(
             modifier = Modifier.padding(vertical = 4.dp)
         )
 
+        val isReminder = activity.entryType == EntryType.REMINDER
+        val categoryText = if (isReminder) activity.reminderCategory.uppercase() else activity.category.displayName.uppercase()
+        val categoryColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
+
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -181,9 +233,10 @@ fun ActivityWorkspaceScreen(
             verticalAlignment = Alignment.CenterVertically
         ) {
             UtilitarianBadge(
-                text = activity.category.displayName.uppercase(),
-                backgroundColor = Color(activity.category.colorHex).copy(alpha = 0.2f),
-                textColor = UtilitarianTextPrimary
+                text = categoryText,
+                backgroundColor = categoryColor.copy(alpha = 0.2f),
+                textColor = UtilitarianTextPrimary,
+                modifier = if (isReminder) Modifier.clickable { isCategoryScreenVisible = true } else Modifier
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(

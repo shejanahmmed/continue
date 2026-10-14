@@ -1,6 +1,7 @@
 package com.shejan.acontinue.presentation.home
 
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -106,9 +107,12 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            val isReminder = focalActivity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER
+                            val catBadgeText = if (isReminder) focalActivity.reminderCategory.uppercase() else focalActivity.category.displayName.uppercase()
+                            val catBadgeColor = if (isReminder) Color(focalActivity.reminderCategoryColorHex) else Color(focalActivity.category.colorHex)
                             UtilitarianBadge(
-                                text = focalActivity.category.displayName.uppercase(),
-                                backgroundColor = Color(focalActivity.category.colorHex).copy(alpha = 0.2f),
+                                text = catBadgeText,
+                                backgroundColor = catBadgeColor.copy(alpha = 0.2f),
                                 textColor = UtilitarianTextPrimary
                             )
 
@@ -279,6 +283,18 @@ private fun TimelineActivityItem(
                 )
             }
 
+            val isReminder = activity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER
+            val catColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            Box(
+                modifier = Modifier
+                    .width(3.dp)
+                    .height(28.dp)
+                    .background(catColor, RoundedCornerShape(1.5.dp))
+            )
+
             Spacer(modifier = Modifier.width(8.dp))
 
             Column(modifier = Modifier.weight(1f)) {
@@ -289,7 +305,14 @@ private fun TimelineActivityItem(
                     fontWeight = FontWeight.Medium,
                     textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
                 )
-                if (activity.location.isNotEmpty()) {
+                if (isReminder) {
+                    Text(
+                        text = activity.reminderCategory,
+                        color = catColor,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                } else if (activity.location.isNotEmpty()) {
                     Text(
                         text = activity.location,
                         color = UtilitarianTextSecondary,

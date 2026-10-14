@@ -49,4 +49,12 @@ class ActivityRepositoryImpl(
             list.map { it.toDomain() }
         }
     }
+
+    override suspend fun updateReminderCategoryDetails(categoryName: String, colorHex: Long, icon: String) {
+        activityDao.updateReminderCategoryDetails(categoryName, colorHex, icon)
+    }
+
+    override suspend fun updateActivityReminderCategory(activityId: Long, newCategory: String, newColorHex: Long, newIcon: String) {
+        activityDao.updateActivityReminderCategory(activityId, newCategory, newColorHex, newIcon)
+    }
 }

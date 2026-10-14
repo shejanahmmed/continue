@@ -15,6 +15,7 @@ import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.MonthlyRepeatType
 import com.shejan.acontinue.domain.model.RecurrenceEndType
 import com.shejan.acontinue.domain.model.RecurrenceMode
+import com.shejan.acontinue.domain.model.ReminderCategory
 import com.shejan.acontinue.domain.model.ReminderOffset
 import com.shejan.acontinue.domain.model.YearlyRepeatType
 import com.shejan.acontinue.domain.repository.ActivityRepository
@@ -27,6 +28,8 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
@@ -89,6 +92,9 @@ data class CreateEntryState(
     val priority: ActivityPriority = ActivityPriority.MEDIUM,
     val earlyAlertMinutes: Int = -1,
     val reminderList: String = "My reminders",
+    val selectedReminderCategory: ReminderCategory = ReminderCategory.DEFAULT,
+    val savedReminderCategories: List<ReminderCategory> = listOf(ReminderCategory.DEFAULT),
+    val categoryReminderCounts: Map<String, Int> = emptyMap(),
     val isSaving: Boolean = false
 )
 
@@ -112,16 +118,49 @@ class CreateEntryViewModel(
     val events: SharedFlow<CreateEntryEvent> = _events.asSharedFlow()
 
     init {
-        settingsRepository?.getUserSettings()
-            ?.onEach { userSettings ->
-                _state.update { current ->
-                    current.copy(
-                        recentEmojis = userSettings.recentEmojis,
-                        savedCustomAlerts = userSettings.customAlerts
+        val settingsFlow = settingsRepository?.getUserSettings() ?: flowOf(com.shejan.acontinue.domain.model.UserSettings())
+        combine(
+            settingsFlow,
+            activityRepository.getAllActivities()
+        ) { userSettings, activities ->
+            val reminderActivities = activities.filter { it.entryType == EntryType.REMINDER }
+            val counts = reminderActivities
+                .groupingBy { it.reminderCategory }
+                .eachCount()
+
+            val fromReminders = reminderActivities
+                .map {
+                    ReminderCategory(
+                        name = it.reminderCategory,
+                        colorHex = it.reminderCategoryColorHex,
+                        iconName = it.reminderCategoryIcon
                     )
                 }
+                .distinctBy { it.name }
+
+            val merged = (userSettings.reminderCategories + fromReminders)
+                .distinctBy { it.name }
+
+            val finalCategories = if (merged.none { it.name.equals(ReminderCategory.DEFAULT.name, ignoreCase = true) }) {
+                listOf(ReminderCategory.DEFAULT) + merged
+            } else {
+                merged
             }
-            ?.launchIn(viewModelScope)
+
+            Triple(userSettings, finalCategories, counts)
+        }.onEach { (userSettings, categories, counts) ->
+            _state.update { current ->
+                val currentSelected = current.selectedReminderCategory
+                val updatedSelected = categories.find { it.name.equals(currentSelected.name, ignoreCase = true) } ?: currentSelected
+                current.copy(
+                    recentEmojis = userSettings.recentEmojis,
+                    savedCustomAlerts = userSettings.customAlerts,
+                    savedReminderCategories = categories,
+                    categoryReminderCounts = counts,
+                    selectedReminderCategory = updatedSelected
+                )
+            }
+        }.launchIn(viewModelScope)
     }
 
     fun updateEntryType(type: EntryType) = _state.update { it.copy(entryType = type) }
@@ -363,6 +402,24 @@ class CreateEntryViewModel(
 
     fun updateNotes(notes: String) = _state.update { it.copy(notes = notes) }
     fun updatePriority(priority: ActivityPriority) = _state.update { it.copy(priority = priority) }
+
+    fun selectReminderCategory(category: ReminderCategory) {
+        _state.update {
+            it.copy(
+                selectedReminderCategory = category,
+                reminderList = category.name
+            )
+        }
+    }
+
+    fun addReminderCategory(name: String, colorHex: Long, iconName: String) {
+        viewModelScope.launch {
+            val created = settingsRepository?.addReminderCategory(name, colorHex, iconName)
+                ?: ReminderCategory(name = name, colorHex = colorHex, iconName = iconName)
+            activityRepository.updateReminderCategoryDetails(name, colorHex, iconName)
+            selectReminderCategory(created)
+        }
+    }
     fun updateEarlyAlertMinutes(minutes: Int) = _state.update { it.copy(earlyAlertMinutes = minutes) }
     fun updateReminderList(name: String) = _state.update { it.copy(reminderList = name) }
 
@@ -423,7 +480,10 @@ class CreateEntryViewModel(
                 recurrenceEndType = current.recurrenceEndType,
                 recurrenceEndCount = current.recurrenceEndCount,
                 recurrenceEndDateMillis = current.recurrenceEndDateMillis,
-                isCompleted = false
+                isCompleted = false,
+                reminderCategory = if (isReminder) current.selectedReminderCategory.name else "My reminders",
+                reminderCategoryColorHex = if (isReminder) current.selectedReminderCategory.colorHex else 0xFF9D7BFC,
+                reminderCategoryIcon = if (isReminder) current.selectedReminderCategory.iconName else "bell"
             )
 
             val newId = activityRepository.insertActivity(activity)

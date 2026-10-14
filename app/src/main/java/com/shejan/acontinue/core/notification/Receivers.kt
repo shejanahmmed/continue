@@ -125,12 +125,17 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
+        val reminderCategory = intent.getStringExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY) ?: ""
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
             .setContentTitle(title)
             .setContentText(contentText)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
+
+        if (reminderCategory.isNotBlank()) {
+            notificationBuilder.setSubText(reminderCategory)
+        }
 
         when (priority) {
             ActivityPriority.LOW -> {

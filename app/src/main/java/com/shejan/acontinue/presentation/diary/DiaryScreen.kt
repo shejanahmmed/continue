@@ -257,9 +257,12 @@ private fun DiaryActivityRow(
                     )
                 }
             }
+            val isReminder = activity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER
+            val badgeText = if (isReminder) activity.reminderCategory.uppercase() else activity.category.displayName.uppercase()
+            val badgeColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
             UtilitarianBadge(
-                text = activity.category.displayName.uppercase(),
-                backgroundColor = Color(activity.category.colorHex).copy(alpha = 0.2f),
+                text = badgeText,
+                backgroundColor = badgeColor.copy(alpha = 0.2f),
                 textColor = UtilitarianTextPrimary
             )
         }

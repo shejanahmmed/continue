@@ -66,6 +66,9 @@ fun ActivityEntity.toDomain(): ActivityItem {
         recurrenceEndCount = recurrenceEndCount,
         recurrenceEndDateMillis = recurrenceEndDateMillis,
         isCompleted = isCompleted,
+        reminderCategory = reminderCategory,
+        reminderCategoryColorHex = reminderCategoryColorHex,
+        reminderCategoryIcon = reminderCategoryIcon,
         createdAtMillis = createdAtMillis
     )
 }
@@ -96,6 +99,9 @@ fun ActivityItem.toEntity(): ActivityEntity {
         recurrenceEndCount = recurrenceEndCount,
         recurrenceEndDateMillis = recurrenceEndDateMillis,
         isCompleted = isCompleted,
+        reminderCategory = reminderCategory,
+        reminderCategoryColorHex = reminderCategoryColorHex,
+        reminderCategoryIcon = reminderCategoryIcon,
         createdAtMillis = createdAtMillis
     )
 }

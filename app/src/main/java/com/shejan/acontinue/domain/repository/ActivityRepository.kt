@@ -12,4 +12,6 @@ interface ActivityRepository {
     suspend fun deleteActivity(id: Long)
     suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean)
     fun searchActivities(query: String): Flow<List<ActivityItem>>
+    suspend fun updateReminderCategoryDetails(categoryName: String, colorHex: Long, icon: String)
+    suspend fun updateActivityReminderCategory(activityId: Long, newCategory: String, newColorHex: Long, newIcon: String)
 }
