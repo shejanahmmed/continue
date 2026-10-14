@@ -366,5 +366,33 @@ class CreateEntryViewModelTest {
             assertEquals("/fake/syllabus.pdf", savedAttachments.first().uriString)
         }
     }
+
+    @Test
+    fun `test reminder mode with early alert and reminder list`() = runTest(testDispatcher) {
+        viewModel.updateEntryType(EntryType.REMINDER)
+        viewModel.updateTitle("Pick up dry cleaning")
+        viewModel.updateEarlyAlertMinutes(15)
+        viewModel.updateReminderList("Personal Reminders")
+
+        assertEquals(15, viewModel.state.value.earlyAlertMinutes)
+        assertEquals("Personal Reminders", viewModel.state.value.reminderList)
+
+        viewModel.events.test {
+            viewModel.saveEntry()
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+
+            val activities = activityRepository.activitiesFlow.value
+            assertEquals(1, activities.size)
+            val saved = activities.first()
+            assertEquals("Pick up dry cleaning", saved.title)
+            assertEquals(EntryType.REMINDER, saved.entryType)
+            assertEquals(15, saved.reminderMinutesBefore)
+            assertEquals(listOf(15), saved.reminderMinutesList)
+            assertEquals("", saved.location)
+            assertEquals("", saved.description)
+        }
+    }
 }
 

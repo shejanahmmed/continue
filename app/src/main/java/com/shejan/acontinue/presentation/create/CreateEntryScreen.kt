@@ -54,9 +54,11 @@ import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.automirrored.outlined.VolumeUp
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.NotificationAdd
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
@@ -70,11 +72,13 @@ import com.shejan.acontinue.core.util.AttachmentHelper
 import com.shejan.acontinue.core.util.ProcessedAttachment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.SentimentSatisfied
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.HorizontalDivider
 import com.shejan.acontinue.core.util.LinkHelper
@@ -171,10 +175,25 @@ fun CreateEntryScreen(
 
     var isAlertScreenVisible by remember { mutableStateOf(false) }
     var isRepeatScreenVisible by remember { mutableStateOf(false) }
+    var isEarlyAlertScreenVisible by remember { mutableStateOf(false) }
 
-    BackHandler(enabled = isAlertScreenVisible || isRepeatScreenVisible) {
-        if (isAlertScreenVisible) isAlertScreenVisible = false
+    BackHandler(enabled = isAlertScreenVisible || isRepeatScreenVisible || isEarlyAlertScreenVisible) {
+        if (isEarlyAlertScreenVisible) isEarlyAlertScreenVisible = false
+        else if (isAlertScreenVisible) isAlertScreenVisible = false
         else if (isRepeatScreenVisible) isRepeatScreenVisible = false
+    }
+
+    if (isEarlyAlertScreenVisible) {
+        EarlyAlertSelectionScreen(
+            selectedMinutes = state.earlyAlertMinutes,
+            savedCustomAlerts = state.savedCustomAlerts,
+            onSelectAlert = { viewModel.updateEarlyAlertMinutes(it) },
+            onAddCustomAlert = { value, unit -> viewModel.addCustomAlert(value, unit) },
+            onUpdateCustomAlert = { id, value, unit -> viewModel.updateCustomAlert(id, value, unit) },
+            onDeleteCustomAlert = { id -> viewModel.deleteCustomAlert(id) },
+            onNavigateBack = { isEarlyAlertScreenVisible = false }
+        )
+        return
     }
 
     if (isAlertScreenVisible) {
@@ -301,51 +320,53 @@ fun CreateEntryScreen(
                                 }
                             )
 
-                            // Emoji / Sticker Button (Opens Bottom Emoji Keyboard)
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .clickable {
-                                        showColorPicker = false
-                                        showEmojiKeyboard = !showEmojiKeyboard
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (state.emoji.isNotBlank()) {
-                                    Text(
-                                        text = state.emoji,
-                                        fontSize = 18.sp
-                                    )
-                                } else {
-                                    Icon(
-                                        imageVector = Icons.Outlined.SentimentSatisfied,
-                                        contentDescription = "Emoji",
-                                        tint = if (showEmojiKeyboard) colors.accent else colors.textSecondary,
-                                        modifier = Modifier.size(22.dp)
-                                    )
-                                }
-                            }
-
-                            Spacer(modifier = Modifier.width(10.dp))
-
-                            // Color Circle Anchor (Opens 12-Color Popup)
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .clickable {
-                                        showEmojiKeyboard = false
-                                        showColorPicker = !showColorPicker
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
+                            if (state.entryType == EntryType.ACTIVITY) {
+                                // Emoji / Sticker Button (Opens Bottom Emoji Keyboard)
                                 Box(
                                     modifier = Modifier
-                                        .size(22.dp)
+                                        .size(28.dp)
                                         .clip(CircleShape)
-                                        .background(Color(state.category.colorHex))
-                                )
+                                        .clickable {
+                                            showColorPicker = false
+                                            showEmojiKeyboard = !showEmojiKeyboard
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (state.emoji.isNotBlank()) {
+                                        Text(
+                                            text = state.emoji,
+                                            fontSize = 18.sp
+                                        )
+                                    } else {
+                                        Icon(
+                                            imageVector = Icons.Outlined.SentimentSatisfied,
+                                            contentDescription = "Emoji",
+                                            tint = if (showEmojiKeyboard) colors.accent else colors.textSecondary,
+                                            modifier = Modifier.size(22.dp)
+                                        )
+                                    }
+                                }
+
+                                Spacer(modifier = Modifier.width(10.dp))
+
+                                // Color Circle Anchor (Opens 12-Color Popup)
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            showEmojiKeyboard = false
+                                            showColorPicker = !showColorPicker
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Box(
+                                        modifier = Modifier
+                                            .size(22.dp)
+                                            .clip(CircleShape)
+                                            .background(Color(state.category.colorHex))
+                                    )
+                                }
                             }
                         }
 
@@ -360,17 +381,22 @@ fun CreateEntryScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Outlined.AccessTime,
-                                    contentDescription = "All day",
-                                    tint = colors.textSecondary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                                Spacer(modifier = Modifier.width(16.dp))
+                                Box(
+                                    modifier = Modifier.size(22.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.AccessTime,
+                                        contentDescription = "All day",
+                                        tint = colors.textSecondary,
+                                        modifier = Modifier.size(22.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(20.dp))
                                 Text(
                                     text = "All day",
                                     color = colors.textPrimary,
-                                    fontSize = 15.sp,
+                                    fontSize = 17.sp,
                                     fontWeight = FontWeight.Normal
                                 )
                             }
@@ -385,38 +411,84 @@ fun CreateEntryScreen(
                                 colors = SwitchDefaults.colors(
                                     checkedThumbColor = colors.textPrimary,
                                     checkedTrackColor = colors.accent,
-                                    uncheckedThumbColor = colors.textSecondary,
-                                    uncheckedTrackColor = colors.background,
-                                    uncheckedBorderColor = colors.borderStroke
+                                    uncheckedThumbColor = Color.White,
+                                    uncheckedTrackColor = Color(0xFF3A3A3C),
+                                    uncheckedBorderColor = Color.Transparent
                                 )
                             )
                         }
 
-                        // Date & Time Multi-Column Range Row
-                        DateTimeRow(
-                            isReminder = state.entryType == EntryType.REMINDER,
-                            isAllDay = state.isAllDay,
-                            startMillis = state.startMillis,
-                            endMillis = state.endMillis,
-                            activePickerField = activePickerField,
-                            onDateFieldClick = { clickedField ->
-                                showColorPicker = false
-                                showEmojiKeyboard = false
-                                val newActive = if (activePickerField == clickedField) ActivePickerField.NONE else clickedField
-                                activePickerField = newActive
-                                if (newActive == ActivePickerField.START_DATE || newActive == ActivePickerField.END_DATE) {
-                                    val targetMillis = if (newActive == ActivePickerField.START_DATE) state.startMillis else state.endMillis
-                                    val cal = Calendar.getInstance().apply { timeInMillis = targetMillis }
-                                    displayedYear = cal.get(Calendar.YEAR)
-                                    displayedMonth = cal.get(Calendar.MONTH)
+                        if (state.entryType == EntryType.REMINDER) {
+                            // Reminder mode: Indented single date & time line directly under All day
+                            val dateFormat = remember { SimpleDateFormat("EEE, d MMM", Locale.ENGLISH) }
+                            val timeFormat = remember { SimpleDateFormat("h:mm a", Locale.ENGLISH) }
+
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(start = 42.dp, top = 0.dp, bottom = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = dateFormat.format(Date(state.startMillis)),
+                                    color = if (activePickerField == ActivePickerField.START_DATE) colors.accent else colors.textPrimary,
+                                    fontSize = 17.sp,
+                                    fontWeight = if (activePickerField == ActivePickerField.START_DATE) FontWeight.SemiBold else FontWeight.Normal,
+                                    modifier = Modifier.clickable {
+                                        showColorPicker = false
+                                        showEmojiKeyboard = false
+                                        activePickerField = if (activePickerField == ActivePickerField.START_DATE) ActivePickerField.NONE else ActivePickerField.START_DATE
+                                        val cal = Calendar.getInstance().apply { timeInMillis = state.startMillis }
+                                        displayedYear = cal.get(Calendar.YEAR)
+                                        displayedMonth = cal.get(Calendar.MONTH)
+                                    }
+                                )
+                                if (!state.isAllDay) {
+                                    Text(
+                                        text = "  |  ",
+                                        color = colors.textSecondary.copy(alpha = 0.5f),
+                                        fontSize = 16.sp
+                                    )
+                                    Text(
+                                        text = timeFormat.format(Date(state.startMillis)).lowercase(Locale.ENGLISH),
+                                        color = if (activePickerField == ActivePickerField.START_TIME) colors.accent else colors.textPrimary,
+                                        fontSize = 17.sp,
+                                        fontWeight = if (activePickerField == ActivePickerField.START_TIME) FontWeight.SemiBold else FontWeight.Normal,
+                                        modifier = Modifier.clickable {
+                                            showColorPicker = false
+                                            showEmojiKeyboard = false
+                                            activePickerField = if (activePickerField == ActivePickerField.START_TIME) ActivePickerField.NONE else ActivePickerField.START_TIME
+                                        }
+                                    )
                                 }
-                            },
-                            onTimeFieldClick = { clickedField ->
-                                showColorPicker = false
-                                showEmojiKeyboard = false
-                                activePickerField = if (activePickerField == clickedField) ActivePickerField.NONE else clickedField
                             }
-                        )
+                        } else {
+                            // Event mode: Date & Time Multi-Column Range Row
+                            DateTimeRow(
+                                isReminder = false,
+                                isAllDay = state.isAllDay,
+                                startMillis = state.startMillis,
+                                endMillis = state.endMillis,
+                                activePickerField = activePickerField,
+                                onDateFieldClick = { clickedField ->
+                                    showColorPicker = false
+                                    showEmojiKeyboard = false
+                                    val newActive = if (activePickerField == clickedField) ActivePickerField.NONE else clickedField
+                                    activePickerField = newActive
+                                    if (newActive == ActivePickerField.START_DATE || newActive == ActivePickerField.END_DATE) {
+                                        val targetMillis = if (newActive == ActivePickerField.START_DATE) state.startMillis else state.endMillis
+                                        val cal = Calendar.getInstance().apply { timeInMillis = targetMillis }
+                                        displayedYear = cal.get(Calendar.YEAR)
+                                        displayedMonth = cal.get(Calendar.MONTH)
+                                    }
+                                },
+                                onTimeFieldClick = { clickedField ->
+                                    showColorPicker = false
+                                    showEmojiKeyboard = false
+                                    activePickerField = if (activePickerField == clickedField) ActivePickerField.NONE else clickedField
+                                }
+                            )
+                        }
 
                         // Inline Expandable Calendar & Roller Date Picker
                         AnimatedVisibility(
@@ -477,258 +549,82 @@ fun CreateEntryScreen(
                             }
                         }
 
-                        HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                        if (state.entryType == EntryType.REMINDER) {
+                            // --- REMINDER OPTIONS ---
+                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
 
-                        // Location Row with free typing, clear button & "Open map" when a map link is entered
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.LocationOn,
-                                contentDescription = "Location",
-                                tint = colors.textSecondary,
-                                modifier = Modifier.size(20.dp)
-                            )
+                            // Early alert Row
+                            val earlyAlertLabel = when (state.earlyAlertMinutes) {
+                                -1 -> "No early alert"
+                                10 -> "10 mins before"
+                                15 -> "15 mins before"
+                                60 -> "1 hour before"
+                                1440 -> "1 day before"
+                                else -> {
+                                    val custom = state.savedCustomAlerts.firstOrNull { it.minutesBefore == state.earlyAlertMinutes }
+                                    custom?.displayName ?: when {
+                                        state.earlyAlertMinutes % 10080 == 0 -> "${state.earlyAlertMinutes / 10080} weeks before"
+                                        state.earlyAlertMinutes % 1440 == 0 -> "${state.earlyAlertMinutes / 1440} days before"
+                                        state.earlyAlertMinutes % 60 == 0 -> "${state.earlyAlertMinutes / 60} hours before"
+                                        else -> "${state.earlyAlertMinutes} mins before"
+                                    }
+                                }
+                            }
 
-                            Spacer(modifier = Modifier.width(16.dp))
-
-                            BasicTextField(
-                                value = state.location,
-                                onValueChange = { viewModel.updateLocation(it) },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .padding(vertical = 4.dp),
-                                textStyle = TextStyle(
-                                    color = colors.textPrimary,
-                                    fontSize = 15.sp,
-                                    fontWeight = FontWeight.Normal
-                                ),
-                                cursorBrush = SolidColor(colors.accent),
-                                singleLine = true,
-                                decorationBox = { innerTextField ->
-                                    if (state.location.isEmpty()) {
-                                        Text(
-                                            text = "Location",
-                                            color = colors.textSecondary,
-                                            fontSize = 15.sp,
-                                            fontWeight = FontWeight.Normal
+                            FormOptionRow(
+                                customLeadingIcon = {
+                                    Box(
+                                        modifier = Modifier.size(22.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Notifications,
+                                            contentDescription = "Early alert",
+                                            tint = colors.textSecondary,
+                                            modifier = Modifier.size(22.dp)
                                         )
-                                    }
-                                    innerTextField()
-                                }
-                            )
-
-                            // Quick clear button if location is not empty
-                            if (state.location.isNotEmpty()) {
-                                IconButton(
-                                    onClick = { viewModel.updateLocation("") },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Close,
-                                        contentDescription = "Clear location",
-                                        tint = colors.textSecondary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-
-                            // Open map icon button only appears if user pastes/enters a map location link
-                            if (LocationHelper.isMapLocationLink(state.location)) {
-                                Spacer(modifier = Modifier.width(4.dp))
-                                IconButton(
-                                    onClick = { LocationHelper.openLocationInMapApp(context, state.location) },
-                                    modifier = Modifier.size(24.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                                        contentDescription = "Open map",
-                                        tint = Color(0xFF3897F0),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                }
-                            }
-                        }
-
-                        HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
-
-                        // Alert / Reminder Offset Row
-                        val alertLabel = if (!state.alertsEnabled || state.selectedAlertMinutes.isEmpty()) {
-                            "Alert"
-                        } else {
-                            val labels = state.selectedAlertMinutes.sorted().map { minutes ->
-                                when (minutes) {
-                                    0 -> "At time of event"
-                                    10 -> "10 mins before"
-                                    60 -> "1 hour before"
-                                    1440 -> "1 day before"
-                                    else -> {
-                                        val custom = state.savedCustomAlerts.firstOrNull { it.minutesBefore == minutes }
-                                        custom?.displayName ?: "$minutes mins before"
-                                    }
-                                }
-                            }
-                            if (labels.size == 1) labels.first() else "${labels.size} alerts"
-                        }
-
-                        FormOptionRow(
-                            icon = Icons.Outlined.Notifications,
-                            label = alertLabel,
-                            isPlaceholder = !state.alertsEnabled || state.selectedAlertMinutes.isEmpty(),
-                            onClick = { isAlertScreenVisible = true }
-                        )
-
-                        HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
-
-                        // Repeat Row
-                        FormOptionRow(
-                            icon = Icons.Outlined.Repeat,
-                            label = formatRecurrenceLabel(state),
-                            isPlaceholder = state.recurrenceMode == RecurrenceMode.NONE,
-                            onClick = { isRepeatScreenVisible = true }
-                        )
-
-                        HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
-
-                        // Notes Field Row
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 12.dp),
-                            verticalAlignment = Alignment.Top
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Description,
-                                contentDescription = "Notes",
-                                tint = colors.textSecondary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                            Spacer(modifier = Modifier.width(16.dp))
-                            Column(modifier = Modifier.fillMaxWidth()) {
-                                BasicTextField(
-                                    value = state.notes,
-                                    onValueChange = { viewModel.updateNotes(it) },
-                                    modifier = Modifier.fillMaxWidth(),
-                                    textStyle = TextStyle(
-                                        color = colors.textPrimary,
-                                        fontSize = 15.sp
-                                    ),
-                                    cursorBrush = SolidColor(colors.accent),
-                                    decorationBox = { innerTextField ->
-                                        if (state.notes.isEmpty()) {
-                                            Text(
-                                                text = "Notes",
-                                                color = colors.textSecondary,
-                                                fontSize = 15.sp
+                                        Box(
+                                            modifier = Modifier
+                                                .align(Alignment.BottomEnd)
+                                                .size(10.dp)
+                                                .background(colors.cardBackground, CircleShape),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.AccessTime,
+                                                contentDescription = null,
+                                                tint = colors.textSecondary,
+                                                modifier = Modifier.size(8.dp)
                                             )
                                         }
-                                        innerTextField()
                                     }
-                                )
+                                },
+                                label = earlyAlertLabel,
+                                textColor = colors.textPrimary,
+                                fontSize = 17.sp,
+                                onClick = { isEarlyAlertScreenVisible = true }
+                            )
 
-                                val detectedUrls = remember(state.notes) { LinkHelper.extractUrls(state.notes) }
-                                if (detectedUrls.isNotEmpty()) {
-                                    Spacer(modifier = Modifier.height(8.dp))
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .horizontalScroll(rememberScrollState()),
-                                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                    ) {
-                                        detectedUrls.forEach { url ->
-                                            Box(
-                                                modifier = Modifier
-                                                    .clip(RoundedCornerShape(12.dp))
-                                                    .background(Color(0xFF1E3A5F).copy(alpha = 0.4f))
-                                                    .border(1.dp, Color(0xFF3897F0), RoundedCornerShape(12.dp))
-                                                    .clickable { LinkHelper.openUrl(context, url) }
-                                                    .padding(horizontal = 10.dp, vertical = 5.dp),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                Row(
-                                                    verticalAlignment = Alignment.CenterVertically,
-                                                    horizontalArrangement = Arrangement.spacedBy(4.dp)
-                                                ) {
-                                                    Icon(
-                                                        imageVector = Icons.Outlined.Link,
-                                                        contentDescription = "Open Link",
-                                                        tint = Color(0xFF3897F0),
-                                                        modifier = Modifier.size(13.dp)
-                                                    )
-                                                    Text(
-                                                        text = url.removePrefix("https://").removePrefix("http://").take(30) + if (url.length > 36) "…" else "",
-                                                        color = Color(0xFF3897F0),
-                                                        fontSize = 12.sp,
-                                                        fontWeight = FontWeight.Medium,
-                                                        maxLines = 1
-                                                    )
-                                                    Icon(
-                                                        imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                                                        contentDescription = null,
-                                                        tint = Color(0xFF3897F0),
-                                                        modifier = Modifier.size(11.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-
-                        HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
-
-                        // Attachment Row
-                        FormOptionRow(
-                            icon = Icons.Outlined.AttachFile,
-                            label = if (state.attachments.isEmpty()) "Attachment" else "${state.attachments.size} ${if (state.attachments.size == 1) "File" else "Files"} Attached",
-                            isPlaceholder = state.attachments.isEmpty(),
-                            onClick = {
-                                filePickerLauncher.launch(AttachmentHelper.SUPPORTED_MIME_TYPES)
-                            }
-                        )
-
-                        if (state.attachments.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Column(
-                                modifier = Modifier.fillMaxWidth(),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                state.attachments.forEach { attachment ->
-                                    AttachmentItemCard(
-                                        attachment = attachment,
-                                        onOpen = {
-                                            AttachmentHelper.openAttachmentInDefaultApp(
-                                                context = context,
-                                                filePath = attachment.filePath,
-                                                mimeType = attachment.mimeType
-                                            ).onFailure { error ->
-                                                Toast.makeText(
-                                                    context,
-                                                    error.message ?: "Cannot open file",
-                                                    Toast.LENGTH_SHORT
-                                                ).show()
-                                            }
-                                        },
-                                        onRemove = {
-                                            viewModel.removeAttachment(attachment.id)
-                                        }
-                                    )
-                                }
-                            }
-                            Spacer(modifier = Modifier.height(4.dp))
-                        }
-
-                        // Priority Row (Reminder mode)
-                        if (state.entryType == EntryType.REMINDER) {
                             HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+
+                            // Repeat Row
+                            val repeatLabel = if (state.recurrenceMode == RecurrenceMode.NONE) "Don't repeat" else formatRecurrenceLabel(state)
                             FormOptionRow(
-                                icon = Icons.Outlined.Tune,
-                                label = "Priority: ${state.priority.displayName}",
-                                isPlaceholder = false,
+                                icon = Icons.Outlined.Repeat,
+                                label = repeatLabel,
+                                textColor = colors.textPrimary,
+                                fontSize = 17.sp,
+                                onClick = { isRepeatScreenVisible = true }
+                            )
+
+                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+
+                            // Priority / Sound Row (Speaker icon)
+                            FormOptionRow(
+                                icon = Icons.AutoMirrored.Outlined.VolumeUp,
+                                label = state.priority.displayName,
+                                textColor = colors.textPrimary,
+                                fontSize = 17.sp,
                                 onClick = {
                                     val next = when (state.priority) {
                                         ActivityPriority.LOW -> ActivityPriority.MEDIUM
@@ -738,6 +634,265 @@ fun CreateEntryScreen(
                                     viewModel.updatePriority(next)
                                 }
                             )
+
+                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+
+                            // Reminder List / Collection Row (Purple bell)
+                            FormOptionRow(
+                                icon = Icons.Filled.Notifications,
+                                iconTint = Color(0xFF9D7BFC),
+                                label = state.reminderList,
+                                textColor = colors.textPrimary,
+                                fontSize = 17.sp,
+                                onClick = { /* Reserved for future reminder list selection */ }
+                            )
+
+                        } else {
+                            // --- EVENT (ACTIVITY) OPTIONS ---
+                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+
+                            // Location Row with free typing, clear button & "Open map" when a map link is entered
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.LocationOn,
+                                    contentDescription = "Location",
+                                    tint = colors.textSecondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+
+                                Spacer(modifier = Modifier.width(16.dp))
+
+                                BasicTextField(
+                                    value = state.location,
+                                    onValueChange = { viewModel.updateLocation(it) },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .padding(vertical = 4.dp),
+                                    textStyle = TextStyle(
+                                        color = colors.textPrimary,
+                                        fontSize = 15.sp,
+                                        fontWeight = FontWeight.Normal
+                                    ),
+                                    cursorBrush = SolidColor(colors.accent),
+                                    singleLine = true,
+                                    decorationBox = { innerTextField ->
+                                        if (state.location.isEmpty()) {
+                                            Text(
+                                                text = "Location",
+                                                color = colors.textSecondary,
+                                                fontSize = 15.sp,
+                                                fontWeight = FontWeight.Normal
+                                            )
+                                        }
+                                        innerTextField()
+                                    }
+                                )
+
+                                // Quick clear button if location is not empty
+                                if (state.location.isNotEmpty()) {
+                                    IconButton(
+                                        onClick = { viewModel.updateLocation("") },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Close,
+                                            contentDescription = "Clear location",
+                                            tint = colors.textSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+
+                                // Open map icon button only appears if user pastes/enters a map location link
+                                if (LocationHelper.isMapLocationLink(state.location)) {
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    IconButton(
+                                        onClick = { LocationHelper.openLocationInMapApp(context, state.location) },
+                                        modifier = Modifier.size(24.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                                            contentDescription = "Open map",
+                                            tint = Color(0xFF3897F0),
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                }
+                            }
+
+                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+
+                            // Alert / Reminder Offset Row
+                            val alertLabel = if (!state.alertsEnabled || state.selectedAlertMinutes.isEmpty()) {
+                                "Alert"
+                            } else {
+                                val labels = state.selectedAlertMinutes.sorted().map { minutes ->
+                                    when (minutes) {
+                                        0 -> "At time of event"
+                                        10 -> "10 mins before"
+                                        60 -> "1 hour before"
+                                        1440 -> "1 day before"
+                                        else -> {
+                                            val custom = state.savedCustomAlerts.firstOrNull { it.minutesBefore == minutes }
+                                            custom?.displayName ?: "$minutes mins before"
+                                        }
+                                    }
+                                }
+                                if (labels.size == 1) labels.first() else "${labels.size} alerts"
+                            }
+
+                            FormOptionRow(
+                                icon = Icons.Outlined.Notifications,
+                                label = alertLabel,
+                                isPlaceholder = !state.alertsEnabled || state.selectedAlertMinutes.isEmpty(),
+                                onClick = { isAlertScreenVisible = true }
+                            )
+
+                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+
+                            // Repeat Row
+                            FormOptionRow(
+                                icon = Icons.Outlined.Repeat,
+                                label = formatRecurrenceLabel(state),
+                                isPlaceholder = state.recurrenceMode == RecurrenceMode.NONE,
+                                onClick = { isRepeatScreenVisible = true }
+                            )
+
+                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+
+                            // Notes Field Row
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 12.dp),
+                                verticalAlignment = Alignment.Top
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Description,
+                                    contentDescription = "Notes",
+                                    tint = colors.textSecondary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.fillMaxWidth()) {
+                                    BasicTextField(
+                                        value = state.notes,
+                                        onValueChange = { viewModel.updateNotes(it) },
+                                        modifier = Modifier.fillMaxWidth(),
+                                        textStyle = TextStyle(
+                                            color = colors.textPrimary,
+                                            fontSize = 15.sp,
+                                        ),
+                                        cursorBrush = SolidColor(colors.accent),
+                                        decorationBox = { innerTextField ->
+                                            if (state.notes.isEmpty()) {
+                                                Text(
+                                                    text = "Notes",
+                                                    color = colors.textSecondary,
+                                                    fontSize = 15.sp
+                                                )
+                                            }
+                                            innerTextField()
+                                        }
+                                    )
+
+                                    val detectedUrls = remember(state.notes) { LinkHelper.extractUrls(state.notes) }
+                                    if (detectedUrls.isNotEmpty()) {
+                                        Spacer(modifier = Modifier.height(8.dp))
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .horizontalScroll(rememberScrollState()),
+                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                        ) {
+                                            detectedUrls.forEach { url ->
+                                                Box(
+                                                    modifier = Modifier
+                                                        .clip(RoundedCornerShape(12.dp))
+                                                        .background(Color(0xFF1E3A5F).copy(alpha = 0.4f))
+                                                        .border(1.dp, Color(0xFF3897F0), RoundedCornerShape(12.dp))
+                                                        .clickable { LinkHelper.openUrl(context, url) }
+                                                        .padding(horizontal = 10.dp, vertical = 5.dp),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    Row(
+                                                        verticalAlignment = Alignment.CenterVertically,
+                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                    ) {
+                                                        Icon(
+                                                            imageVector = Icons.Outlined.Link,
+                                                            contentDescription = "Open Link",
+                                                            tint = Color(0xFF3897F0),
+                                                            modifier = Modifier.size(13.dp)
+                                                        )
+                                                        Text(
+                                                            text = url.removePrefix("https://").removePrefix("http://").take(30) + if (url.length > 36) "…" else "",
+                                                            color = Color(0xFF3897F0),
+                                                            fontSize = 12.sp,
+                                                            fontWeight = FontWeight.Medium,
+                                                            maxLines = 1
+                                                        )
+                                                        Icon(
+                                                            imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                                                            contentDescription = null,
+                                                            tint = Color(0xFF3897F0),
+                                                            modifier = Modifier.size(11.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+
+                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+
+                            // Attachment Row
+                            FormOptionRow(
+                                icon = Icons.Outlined.AttachFile,
+                                label = if (state.attachments.isEmpty()) "Attachment" else "${state.attachments.size} ${if (state.attachments.size == 1) "File" else "Files"} Attached",
+                                isPlaceholder = state.attachments.isEmpty(),
+                                onClick = {
+                                    filePickerLauncher.launch(AttachmentHelper.SUPPORTED_MIME_TYPES)
+                                }
+                            )
+
+                            if (state.attachments.isNotEmpty()) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    state.attachments.forEach { attachment ->
+                                        AttachmentItemCard(
+                                            attachment = attachment,
+                                            onOpen = {
+                                                AttachmentHelper.openAttachmentInDefaultApp(
+                                                    context = context,
+                                                    filePath = attachment.filePath,
+                                                    mimeType = attachment.mimeType
+                                                ).onFailure { error ->
+                                                    Toast.makeText(
+                                                        context,
+                                                        error.message ?: "Cannot open file",
+                                                        Toast.LENGTH_SHORT
+                                                    ).show()
+                                                }
+                                            },
+                                            onRemove = {
+                                                viewModel.removeAttachment(attachment.id)
+                                            }
+                                        )
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(4.dp))
+                            }
                         }
                     }
 
@@ -1891,10 +2046,14 @@ private fun generate42Days(year: Int, month: Int): List<CalendarDay> {
 
 @Composable
 private fun FormOptionRow(
-    icon: ImageVector,
+    icon: ImageVector? = null,
     label: String,
-    isPlaceholder: Boolean,
+    isPlaceholder: Boolean = false,
+    fontSize: TextUnit = 17.sp,
+    textColor: Color? = null,
     leadingDotColor: Color? = null,
+    iconTint: Color? = null,
+    customLeadingIcon: (@Composable () -> Unit)? = null,
     onClick: () -> Unit
 ) {
     val colors = LocalUtilitarianColors.current
@@ -1906,29 +2065,38 @@ private fun FormOptionRow(
             .padding(vertical = 13.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        Box(contentAlignment = Alignment.BottomEnd) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = colors.textSecondary,
-                modifier = Modifier.size(20.dp)
-            )
-            if (leadingDotColor != null) {
-                Box(
-                    modifier = Modifier
-                        .size(6.dp)
-                        .clip(CircleShape)
-                        .background(leadingDotColor)
-                )
+        Box(
+            modifier = Modifier.size(22.dp),
+            contentAlignment = Alignment.Center
+        ) {
+            if (customLeadingIcon != null) {
+                customLeadingIcon()
+            } else if (icon != null) {
+                Box(contentAlignment = Alignment.BottomEnd) {
+                    Icon(
+                        imageVector = icon,
+                        contentDescription = null,
+                        tint = iconTint ?: colors.textSecondary,
+                        modifier = Modifier.size(22.dp)
+                    )
+                    if (leadingDotColor != null) {
+                        Box(
+                            modifier = Modifier
+                                .size(6.dp)
+                                .clip(CircleShape)
+                                .background(leadingDotColor)
+                        )
+                    }
+                }
             }
         }
 
-        Spacer(modifier = Modifier.width(16.dp))
+        Spacer(modifier = Modifier.width(20.dp))
 
         Text(
             text = label,
-            color = if (isPlaceholder) colors.textSecondary else colors.textPrimary,
-            fontSize = 15.sp,
+            color = textColor ?: if (isPlaceholder) colors.textSecondary else colors.textPrimary,
+            fontSize = fontSize,
             fontWeight = FontWeight.Normal
         )
     }

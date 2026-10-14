@@ -87,6 +87,8 @@ data class CreateEntryState(
     val attachmentPath: String = "",
     val attachments: List<ProcessedAttachment> = emptyList(),
     val priority: ActivityPriority = ActivityPriority.MEDIUM,
+    val earlyAlertMinutes: Int = -1,
+    val reminderList: String = "My reminders",
     val isSaving: Boolean = false
 )
 
@@ -361,6 +363,8 @@ class CreateEntryViewModel(
 
     fun updateNotes(notes: String) = _state.update { it.copy(notes = notes) }
     fun updatePriority(priority: ActivityPriority) = _state.update { it.copy(priority = priority) }
+    fun updateEarlyAlertMinutes(minutes: Int) = _state.update { it.copy(earlyAlertMinutes = minutes) }
+    fun updateReminderList(name: String) = _state.update { it.copy(reminderList = name) }
 
     fun addAttachment(attachment: ProcessedAttachment) {
         _state.update { it.copy(attachments = it.attachments + attachment) }
@@ -384,23 +388,28 @@ class CreateEntryViewModel(
         viewModelScope.launch {
             _state.update { it.copy(isSaving = true) }
 
-            val minutesList = if (current.alertsEnabled) {
-                current.selectedAlertMinutes.toList().sorted()
+            val isReminder = current.entryType == EntryType.REMINDER
+            val minutesList = if (isReminder) {
+                if (current.earlyAlertMinutes >= 0) listOf(current.earlyAlertMinutes) else emptyList()
             } else {
-                emptyList()
+                if (current.alertsEnabled) current.selectedAlertMinutes.toList().sorted() else emptyList()
             }
 
-            val primaryOffset = if (minutesList.isNotEmpty()) minutesList.first() else -1
+            val primaryOffset = if (isReminder) {
+                current.earlyAlertMinutes
+            } else {
+                if (minutesList.isNotEmpty()) minutesList.first() else -1
+            }
 
             val activity = ActivityItem(
                 title = current.title.trim(),
-                description = current.notes.trim(),
+                description = if (isReminder) "" else current.notes.trim(),
                 entryType = current.entryType,
-                category = current.category,
+                category = if (isReminder) ActivityCategory.OTHER else current.category,
                 isAllDay = current.isAllDay,
                 startTimeMillis = current.startMillis,
-                endTimeMillis = if (current.entryType == EntryType.REMINDER) current.startMillis + 1800000L else current.endMillis,
-                location = current.location.trim(),
+                endTimeMillis = if (isReminder) current.startMillis + 1800000L else current.endMillis,
+                location = if (isReminder) "" else current.location.trim(),
                 priority = current.priority,
                 reminderMinutesBefore = primaryOffset,
                 reminderMinutesList = minutesList,
@@ -420,7 +429,7 @@ class CreateEntryViewModel(
             val newId = activityRepository.insertActivity(activity)
             val savedActivity = activity.copy(id = newId)
 
-            if (current.notes.isNotBlank()) {
+            if (!isReminder && current.notes.isNotBlank()) {
                 noteRepository.insertNote(
                     ActivityNote(
                         activityId = newId,
@@ -430,16 +439,18 @@ class CreateEntryViewModel(
                 )
             }
 
-            current.attachments.forEach { att ->
-                linkRepository?.insertAttachment(
-                    ActivityAttachment(
-                        activityId = newId,
-                        fileName = att.fileName,
-                        uriString = att.filePath,
-                        mimeType = att.mimeType,
-                        sizeBytes = att.sizeBytes
+            if (!isReminder) {
+                current.attachments.forEach { att ->
+                    linkRepository?.insertAttachment(
+                        ActivityAttachment(
+                            activityId = newId,
+                            fileName = att.fileName,
+                            uriString = att.filePath,
+                            mimeType = att.mimeType,
+                            sizeBytes = att.sizeBytes
+                        )
                     )
-                )
+                }
             }
 
             scheduler.schedule(savedActivity)
