@@ -82,7 +82,8 @@ class AppContainer(context: Context) {
                     activityRepository,
                     noteRepository,
                     alarmScheduler,
-                    settingsRepository
+                    settingsRepository,
+                    linkRepository
                 ) as T
             }
         }

@@ -3,6 +3,9 @@ package com.shejan.acontinue.presentation.create
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shejan.acontinue.core.notification.ActivityScheduler
+import com.shejan.acontinue.core.util.AttachmentHelper
+import com.shejan.acontinue.core.util.ProcessedAttachment
+import com.shejan.acontinue.domain.model.ActivityAttachment
 import com.shejan.acontinue.domain.model.ActivityCategory
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityNote
@@ -15,6 +18,7 @@ import com.shejan.acontinue.domain.model.RecurrenceMode
 import com.shejan.acontinue.domain.model.ReminderOffset
 import com.shejan.acontinue.domain.model.YearlyRepeatType
 import com.shejan.acontinue.domain.repository.ActivityRepository
+import com.shejan.acontinue.domain.repository.LinkRepository
 import com.shejan.acontinue.domain.repository.NoteRepository
 import com.shejan.acontinue.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -81,6 +85,7 @@ data class CreateEntryState(
     val recurrenceEndDateMillis: Long = defaultRecurrenceEndDateMillis(defaultStartMillis()),
     val notes: String = "",
     val attachmentPath: String = "",
+    val attachments: List<ProcessedAttachment> = emptyList(),
     val priority: ActivityPriority = ActivityPriority.MEDIUM,
     val isSaving: Boolean = false
 )
@@ -94,7 +99,8 @@ class CreateEntryViewModel(
     private val activityRepository: ActivityRepository,
     private val noteRepository: NoteRepository,
     private val scheduler: ActivityScheduler,
-    private val settingsRepository: SettingsRepository? = null
+    private val settingsRepository: SettingsRepository? = null,
+    private val linkRepository: LinkRepository? = null
 ) : ViewModel() {
 
     private val _state = MutableStateFlow(CreateEntryState())
@@ -356,6 +362,18 @@ class CreateEntryViewModel(
     fun updateNotes(notes: String) = _state.update { it.copy(notes = notes) }
     fun updatePriority(priority: ActivityPriority) = _state.update { it.copy(priority = priority) }
 
+    fun addAttachment(attachment: ProcessedAttachment) {
+        _state.update { it.copy(attachments = it.attachments + attachment) }
+    }
+
+    fun removeAttachment(attachmentId: String) {
+        _state.update { current ->
+            val item = current.attachments.find { it.id == attachmentId }
+            item?.let { AttachmentHelper.deleteLocalFile(it.filePath) }
+            current.copy(attachments = current.attachments.filter { it.id != attachmentId })
+        }
+    }
+
     fun saveEntry() {
         val current = _state.value
         if (current.title.isBlank()) {
@@ -408,6 +426,18 @@ class CreateEntryViewModel(
                         activityId = newId,
                         title = current.title.trim().ifBlank { "Notes" },
                         content = current.notes.trim()
+                    )
+                )
+            }
+
+            current.attachments.forEach { att ->
+                linkRepository?.insertAttachment(
+                    ActivityAttachment(
+                        activityId = newId,
+                        fileName = att.fileName,
+                        uriString = att.filePath,
+                        mimeType = att.mimeType,
+                        sizeBytes = att.sizeBytes
                     )
                 )
             }

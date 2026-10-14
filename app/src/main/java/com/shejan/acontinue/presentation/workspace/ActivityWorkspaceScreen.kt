@@ -23,11 +23,13 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import com.shejan.acontinue.core.util.AttachmentHelper
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -350,7 +352,86 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                     Text(text = "• Notes recorded: ${aggregate.notes.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     Text(text = "• Checklist tasks: ${aggregate.tasks.size} (${aggregate.tasks.count { it.isCompleted }} done)", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     Text(text = "• Resource links: ${aggregate.links.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
+                    Text(text = "• Attachments: ${aggregate.attachments.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     Text(text = "• Reminder: ${if (activity.reminderMinutesBefore >= 0) "${activity.reminderMinutesBefore}m prior" else "None"}", color = UtilitarianTextPrimary, fontSize = 13.sp)
+                }
+            }
+        }
+
+        if (aggregate.attachments.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(12.dp))
+                MonochromeCard {
+                    Column {
+                        Text(
+                            text = "ATTACHMENTS (${aggregate.attachments.size})",
+                            color = UtilitarianTextSecondary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                        val context = LocalContext.current
+                        aggregate.attachments.forEach { att ->
+                            Surface(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .clickable {
+                                        AttachmentHelper.openAttachmentInDefaultApp(
+                                            context = context,
+                                            filePath = att.uriString,
+                                            mimeType = att.mimeType
+                                        ).onFailure { error ->
+                                            android.widget.Toast.makeText(
+                                                context,
+                                                error.message ?: "Cannot open file",
+                                                android.widget.Toast.LENGTH_SHORT
+                                            ).show()
+                                        }
+                                    },
+                                color = Color(0xFF1E1E20),
+                                border = BorderStroke(1.dp, Color(0xFF2C2C2E))
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.AttachFile,
+                                        contentDescription = null,
+                                        tint = UtilitarianTextPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(10.dp))
+                                    Column(modifier = Modifier.weight(1f)) {
+                                        Text(
+                                            text = att.fileName,
+                                            color = UtilitarianTextPrimary,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium,
+                                            maxLines = 1
+                                        )
+                                        Text(
+                                            text = AttachmentHelper.formatFileSize(att.sizeBytes),
+                                            color = UtilitarianTextSecondary,
+                                            fontSize = 11.sp
+                                        )
+                                    }
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                                        contentDescription = "Open",
+                                        tint = Color(0xFF3897F0),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }

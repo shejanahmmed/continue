@@ -2,6 +2,7 @@ package com.shejan.acontinue.presentation.create
 
 import app.cash.turbine.test
 import com.shejan.acontinue.FakeActivityRepository
+import com.shejan.acontinue.FakeLinkRepository
 import com.shejan.acontinue.FakeNoteRepository
 import com.shejan.acontinue.FakeScheduler
 import com.shejan.acontinue.FakeSettingsRepository
@@ -28,6 +29,7 @@ class CreateEntryViewModelTest {
     private lateinit var noteRepository: FakeNoteRepository
     private lateinit var scheduler: FakeScheduler
     private lateinit var settingsRepository: FakeSettingsRepository
+    private lateinit var linkRepository: FakeLinkRepository
     private lateinit var viewModel: CreateEntryViewModel
 
     @Before
@@ -37,7 +39,14 @@ class CreateEntryViewModelTest {
         noteRepository = FakeNoteRepository()
         scheduler = FakeScheduler()
         settingsRepository = FakeSettingsRepository()
-        viewModel = CreateEntryViewModel(activityRepository, noteRepository, scheduler, settingsRepository)
+        linkRepository = FakeLinkRepository()
+        viewModel = CreateEntryViewModel(
+            activityRepository,
+            noteRepository,
+            scheduler,
+            settingsRepository,
+            linkRepository
+        )
     }
 
     @After
@@ -315,6 +324,46 @@ class CreateEntryViewModelTest {
             assertTrue(saved.recurrenceDaysOfWeek.contains(java.util.Calendar.WEDNESDAY))
             assertEquals(com.shejan.acontinue.domain.model.RecurrenceEndType.COUNT, saved.recurrenceEndType)
             assertEquals(8, saved.recurrenceEndCount)
+        }
+    }
+
+    @Test
+    fun `test adding, removing and saving attachments`() = runTest(testDispatcher) {
+        val att1 = com.shejan.acontinue.core.util.ProcessedAttachment(
+            id = "att-1",
+            fileName = "diagram.png",
+            filePath = "/fake/diagram.png",
+            mimeType = "image/png",
+            sizeBytes = 204800L
+        )
+        val att2 = com.shejan.acontinue.core.util.ProcessedAttachment(
+            id = "att-2",
+            fileName = "syllabus.pdf",
+            filePath = "/fake/syllabus.pdf",
+            mimeType = "application/pdf",
+            sizeBytes = 1048576L
+        )
+
+        viewModel.addAttachment(att1)
+        viewModel.addAttachment(att2)
+        assertEquals(2, viewModel.state.value.attachments.size)
+
+        // Remove one attachment
+        viewModel.removeAttachment("att-1")
+        assertEquals(1, viewModel.state.value.attachments.size)
+        assertEquals("att-2", viewModel.state.value.attachments.first().id)
+
+        // Save entry and verify attachment is persisted in linkRepository
+        viewModel.updateTitle("Class Prep")
+        viewModel.events.test {
+            viewModel.saveEntry()
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+            val savedAttachments = linkRepository.attachmentsFlow.value
+            assertEquals(1, savedAttachments.size)
+            assertEquals("syllabus.pdf", savedAttachments.first().fileName)
+            assertEquals("/fake/syllabus.pdf", savedAttachments.first().uriString)
         }
     }
 }

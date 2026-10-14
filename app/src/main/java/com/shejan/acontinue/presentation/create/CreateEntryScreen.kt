@@ -2,6 +2,8 @@ package com.shejan.acontinue.presentation.create
 
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.tween
@@ -48,7 +50,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Add
@@ -57,6 +61,15 @@ import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Description
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.PictureAsPdf
+import androidx.compose.material.icons.outlined.TableChart
+import androidx.compose.ui.text.style.TextOverflow
+import com.shejan.acontinue.core.util.AttachmentCategory
+import com.shejan.acontinue.core.util.AttachmentHelper
+import com.shejan.acontinue.core.util.ProcessedAttachment
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
@@ -130,6 +143,31 @@ fun CreateEntryScreen(
     val state by viewModel.state.collectAsState()
     val colors = LocalUtilitarianColors.current
     val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            coroutineScope.launch(Dispatchers.IO) {
+                uris.forEach { uri ->
+                    AttachmentHelper.processAndCopyUri(context, uri)
+                        .onSuccess { attachment ->
+                            viewModel.addAttachment(attachment)
+                        }
+                        .onFailure { error ->
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context,
+                                    error.message ?: "Failed to process attachment",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                }
+            }
+        }
+    }
 
     var isAlertScreenVisible by remember { mutableStateOf(false) }
     var isRepeatScreenVisible by remember { mutableStateOf(false) }
@@ -643,13 +681,46 @@ fun CreateEntryScreen(
 
                         HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
 
-                        // Attachment Row (Singular label matching screenshot)
+                        // Attachment Row
                         FormOptionRow(
                             icon = Icons.Outlined.AttachFile,
-                            label = if (state.attachmentPath.isEmpty()) "Attachment" else "1 File Attached",
-                            isPlaceholder = state.attachmentPath.isEmpty(),
-                            onClick = { /* File picker integration */ }
+                            label = if (state.attachments.isEmpty()) "Attachment" else "${state.attachments.size} ${if (state.attachments.size == 1) "File" else "Files"} Attached",
+                            isPlaceholder = state.attachments.isEmpty(),
+                            onClick = {
+                                filePickerLauncher.launch(AttachmentHelper.SUPPORTED_MIME_TYPES)
+                            }
                         )
+
+                        if (state.attachments.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                state.attachments.forEach { attachment ->
+                                    AttachmentItemCard(
+                                        attachment = attachment,
+                                        onOpen = {
+                                            AttachmentHelper.openAttachmentInDefaultApp(
+                                                context = context,
+                                                filePath = attachment.filePath,
+                                                mimeType = attachment.mimeType
+                                            ).onFailure { error ->
+                                                Toast.makeText(
+                                                    context,
+                                                    error.message ?: "Cannot open file",
+                                                    Toast.LENGTH_SHORT
+                                                ).show()
+                                            }
+                                        },
+                                        onRemove = {
+                                            viewModel.removeAttachment(attachment.id)
+                                        }
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
 
                         // Priority Row (Reminder mode)
                         if (state.entryType == EntryType.REMINDER) {
@@ -2008,5 +2079,93 @@ private fun formatRecurrenceLabel(state: CreateEntryState): String {
     }
 
     return "$base$durationSuffix"
+}
+
+@Composable
+private fun AttachmentItemCard(
+    attachment: ProcessedAttachment,
+    onOpen: () -> Unit,
+    onRemove: () -> Unit
+) {
+    val colors = LocalUtilitarianColors.current
+    val category = remember(attachment.fileName, attachment.mimeType) {
+        AttachmentHelper.getCategory(attachment.fileName, attachment.mimeType)
+    }
+
+    val icon = when (category) {
+        AttachmentCategory.IMAGE -> Icons.Outlined.Image
+        AttachmentCategory.PDF -> Icons.Outlined.PictureAsPdf
+        AttachmentCategory.DOCUMENT -> Icons.Outlined.Description
+        AttachmentCategory.SPREADSHEET -> Icons.Outlined.TableChart
+        AttachmentCategory.TEXT -> Icons.AutoMirrored.Outlined.Article
+        AttachmentCategory.OTHER -> Icons.AutoMirrored.Outlined.InsertDriveFile
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onOpen() },
+        color = Color(0xFF1E1E20),
+        border = BorderStroke(1.dp, colors.borderStroke)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .background(Color(0xFF2C2C2E)),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = icon,
+                    contentDescription = null,
+                    tint = colors.textPrimary,
+                    modifier = Modifier.size(20.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = attachment.fileName,
+                    color = colors.textPrimary,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = AttachmentHelper.formatFileSize(attachment.sizeBytes),
+                    color = colors.textSecondary,
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Normal
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            IconButton(
+                onClick = onRemove,
+                modifier = Modifier.size(28.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = "Remove attachment",
+                    tint = colors.textSecondary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
 }
 
