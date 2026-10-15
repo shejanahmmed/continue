@@ -34,6 +34,8 @@ import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Redo
+import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.AddBox
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckBox
@@ -45,6 +47,7 @@ import androidx.compose.material.icons.outlined.FormatColorText
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -147,6 +150,49 @@ fun CreateNoteScreen(
     var showColorSheet by remember { mutableStateOf(false) }
     var showFormattingBar by remember { mutableStateOf(false) }
 
+    val initialSnapshot = remember {
+        NoteEditorSnapshot(
+            title = "",
+            noteTextState = TextFieldValue(""),
+            formatState = NoteFormatState(),
+            checklistItems = emptyList(),
+            isChecklistMode = false,
+            attachedImageUris = emptyList(),
+            selectedColorHex = 0xFF121212L
+        )
+    }
+    val undoManager = remember { NoteUndoManager(initialSnapshot = initialSnapshot) }
+
+    fun takeSnapshot(
+        newTitle: String = title,
+        newNoteTextState: TextFieldValue = noteTextState,
+        newFormatState: NoteFormatState = formatState,
+        newChecklistItems: List<ChecklistItem> = checklistItems,
+        newIsChecklistMode: Boolean = isChecklistMode,
+        newAttachedImageUris: List<Uri> = attachedImageUris,
+        newSelectedColorHex: Long = selectedColorHex
+    ): NoteEditorSnapshot {
+        return NoteEditorSnapshot(
+            title = newTitle,
+            noteTextState = newNoteTextState,
+            formatState = newFormatState,
+            checklistItems = newChecklistItems,
+            isChecklistMode = newIsChecklistMode,
+            attachedImageUris = newAttachedImageUris,
+            selectedColorHex = newSelectedColorHex
+        )
+    }
+
+    val restoreSnapshot: (NoteEditorSnapshot) -> Unit = { restored ->
+        title = restored.title
+        noteTextState = restored.noteTextState
+        formatState = restored.formatState
+        checklistItems = restored.checklistItems
+        isChecklistMode = restored.isChecklistMode
+        attachedImageUris = restored.attachedImageUris
+        selectedColorHex = restored.selectedColorHex
+    }
+
     LaunchedEffect(isTitleFocused) {
         if (isTitleFocused) {
             showFormattingBar = false
@@ -195,7 +241,9 @@ fun CreateNoteScreen(
         contract = ActivityResultContracts.GetContent()
     ) { uri: Uri? ->
         if (uri != null) {
-            attachedImageUris = attachedImageUris + uri
+            val updated = attachedImageUris + uri
+            attachedImageUris = updated
+            undoManager.recordAction(takeSnapshot(newAttachedImageUris = updated))
         }
     }
 
@@ -286,7 +334,10 @@ fun CreateNoteScreen(
             // Title Input
             BasicTextField(
                 value = title,
-                onValueChange = { title = it },
+                onValueChange = { newTitle ->
+                    title = newTitle
+                    undoManager.recordTyping(takeSnapshot(newTitle = newTitle))
+                },
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(titleFocusRequester)
@@ -334,7 +385,9 @@ fun CreateNoteScreen(
                                     .clip(CircleShape)
                                     .background(Color.Black.copy(alpha = 0.6f))
                                     .clickable {
-                                        attachedImageUris = attachedImageUris - uri
+                                        val updated = attachedImageUris - uri
+                                        attachedImageUris = updated
+                                        undoManager.recordAction(takeSnapshot(newAttachedImageUris = updated))
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
@@ -357,13 +410,15 @@ fun CreateNoteScreen(
                 BasicTextField(
                     value = noteTextState,
                     onValueChange = { newTfv ->
-                        formatState = NoteTextFormatter.onTextChange(
+                        val newFormatState = NoteTextFormatter.onTextChange(
                             oldText = noteTextState.text,
                             newText = newTfv.text,
                             selection = newTfv.selection,
                             state = formatState
                         )
+                        formatState = newFormatState
                         noteTextState = newTfv
+                        undoManager.recordTyping(takeSnapshot(newNoteTextState = newTfv, newFormatState = newFormatState))
                     },
                     visualTransformation = remember(formatState, colors.textPrimary) {
                         NoteVisualTransformation(formatState, colors.textPrimary)
@@ -412,9 +467,11 @@ fun CreateNoteScreen(
                                 modifier = Modifier
                                     .size(22.dp)
                                     .clickable {
-                                        checklistItems = checklistItems.toMutableList().also {
+                                        val updated = checklistItems.toMutableList().also {
                                             it[index] = item.copy(isChecked = !item.isChecked)
                                         }
+                                        checklistItems = updated
+                                        undoManager.recordAction(takeSnapshot(newChecklistItems = updated))
                                     }
                             )
 
@@ -423,9 +480,11 @@ fun CreateNoteScreen(
                             BasicTextField(
                                 value = item.text,
                                 onValueChange = { newText ->
-                                    checklistItems = checklistItems.toMutableList().also {
+                                    val updated = checklistItems.toMutableList().also {
                                         it[index] = item.copy(text = newText)
                                     }
+                                    checklistItems = updated
+                                    undoManager.recordTyping(takeSnapshot(newChecklistItems = updated))
                                 },
                                 modifier = Modifier.weight(1f),
                                 textStyle = TextStyle(
@@ -453,7 +512,9 @@ fun CreateNoteScreen(
                                     .size(28.dp)
                                     .clip(CircleShape)
                                     .clickable {
-                                        checklistItems = checklistItems.filterIndexed { i, _ -> i != index }
+                                        val updated = checklistItems.filterIndexed { i, _ -> i != index }
+                                        checklistItems = updated
+                                        undoManager.recordAction(takeSnapshot(newChecklistItems = updated))
                                     },
                                 contentAlignment = Alignment.Center
                             ) {
@@ -473,7 +534,9 @@ fun CreateNoteScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .clickable {
-                                checklistItems = checklistItems + ChecklistItem(text = "")
+                                val updated = checklistItems + ChecklistItem(text = "")
+                                checklistItems = updated
+                                undoManager.recordAction(takeSnapshot(newChecklistItems = updated))
                             }
                             .padding(vertical = 6.dp)
                     ) {
@@ -518,12 +581,14 @@ fun CreateNoteScreen(
                     label = "H1",
                     isSelected = currentHeading == HeadingType.H1,
                     onClick = {
-                        formatState = NoteTextFormatter.setHeadingForLine(
+                        val updated = NoteTextFormatter.setHeadingForLine(
                             noteTextState.text,
                             noteTextState.selection.min,
                             HeadingType.H1,
                             formatState
                         )
+                        formatState = updated
+                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
                     }
                 )
 
@@ -532,12 +597,14 @@ fun CreateNoteScreen(
                     label = "H2",
                     isSelected = currentHeading == HeadingType.H2,
                     onClick = {
-                        formatState = NoteTextFormatter.setHeadingForLine(
+                        val updated = NoteTextFormatter.setHeadingForLine(
                             noteTextState.text,
                             noteTextState.selection.min,
                             HeadingType.H2,
                             formatState
                         )
+                        formatState = updated
+                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
                     }
                 )
 
@@ -546,12 +613,14 @@ fun CreateNoteScreen(
                     label = "Aa",
                     isSelected = currentHeading == HeadingType.BODY,
                     onClick = {
-                        formatState = NoteTextFormatter.setHeadingForLine(
+                        val updated = NoteTextFormatter.setHeadingForLine(
                             noteTextState.text,
                             noteTextState.selection.min,
                             HeadingType.BODY,
                             formatState
                         )
+                        formatState = updated
+                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
                     }
                 )
 
@@ -570,7 +639,9 @@ fun CreateNoteScreen(
                     isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.BOLD, noteTextState.selection, formatState),
                     fontWeight = FontWeight.Bold,
                     onClick = {
-                        formatState = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.BOLD, formatState)
+                        val updated = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.BOLD, formatState)
+                        formatState = updated
+                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
                     }
                 )
 
@@ -580,7 +651,9 @@ fun CreateNoteScreen(
                     isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.ITALIC, noteTextState.selection, formatState),
                     fontStyle = FontStyle.Italic,
                     onClick = {
-                        formatState = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.ITALIC, formatState)
+                        val updated = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.ITALIC, formatState)
+                        formatState = updated
+                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
                     }
                 )
 
@@ -590,7 +663,9 @@ fun CreateNoteScreen(
                     isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.UNDERLINE, noteTextState.selection, formatState),
                     textDecoration = TextDecoration.Underline,
                     onClick = {
-                        formatState = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.UNDERLINE, formatState)
+                        val updated = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.UNDERLINE, formatState)
+                        formatState = updated
+                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
                     }
                 )
 
@@ -600,7 +675,9 @@ fun CreateNoteScreen(
                     contentDescription = "Strikethrough",
                     isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.STRIKETHROUGH, noteTextState.selection, formatState),
                     onClick = {
-                        formatState = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.STRIKETHROUGH, formatState)
+                        val updated = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.STRIKETHROUGH, formatState)
+                        formatState = updated
+                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
                     }
                 )
 
@@ -630,90 +707,90 @@ fun CreateNoteScreen(
                 }
             }
         } else {
-            // Standard Bottom Bar: [+] | Colorize | Format A on the left; 3-dots on the right
+            // Standard Bottom Bar matching reference screenshot:
+            // Left: [+] | Palette | Format A
+            // Right: Undo | Redo | 3-dots
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(horizontal = 14.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // [+] Icon button inside outlined rounded container
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(RoundedCornerShape(8.dp))
-                        .clickable {
+                // Left group: [+] | Palette | Format A
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    BottomBarIconButton(
+                        icon = Icons.Outlined.AddBox,
+                        contentDescription = "Add options",
+                        isEnabled = true,
+                        onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             showBottomSheet = true
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.AddBox,
-                        contentDescription = "Add options",
-                        tint = colors.textPrimary,
-                        modifier = Modifier.size(26.dp)
+                        }
                     )
-                }
 
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Color picker icon (distinct eyedropper tool, opens color sheet)
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .clickable {
+                    BottomBarIconButton(
+                        icon = Icons.Outlined.Palette,
+                        contentDescription = "Background color",
+                        isEnabled = true,
+                        onClick = {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             showColorSheet = true
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Colorize,
-                        contentDescription = "Background color",
-                        tint = colors.textPrimary,
-                        modifier = Modifier.size(24.dp)
+                        }
                     )
-                }
 
-                Spacer(modifier = Modifier.width(12.dp))
-
-                // Format "A" icon (faded & disabled when Title is focused or in checklist mode)
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .clickable(enabled = isFormattingEnabled) {
-                            showFormattingBar = true
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.FormatColorText,
+                    BottomBarIconButton(
+                        icon = Icons.Outlined.FormatColorText,
                         contentDescription = "Text style",
-                        tint = if (isFormattingEnabled) colors.textPrimary else colors.textPrimary.copy(alpha = 0.35f),
-                        modifier = Modifier.size(24.dp)
+                        isEnabled = isFormattingEnabled,
+                        onClick = {
+                            showFormattingBar = true
+                        }
                     )
                 }
 
                 Spacer(modifier = Modifier.weight(1f))
 
-                // 3-dots menu icon on the right
-                Box(
-                    modifier = Modifier
-                        .size(42.dp)
-                        .clip(CircleShape)
-                        .clickable {
-                            Toast.makeText(context, "More options", Toast.LENGTH_SHORT).show()
-                        },
-                    contentAlignment = Alignment.Center
+                // Right group: Undo | Redo | 3-dots
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.MoreVert,
+                    BottomBarIconButton(
+                        icon = Icons.AutoMirrored.Outlined.Undo,
+                        contentDescription = "Undo",
+                        isEnabled = undoManager.canUndo,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            val restored = undoManager.undo()
+                            if (restored != null) {
+                                restoreSnapshot(restored)
+                            }
+                        }
+                    )
+
+                    BottomBarIconButton(
+                        icon = Icons.AutoMirrored.Outlined.Redo,
+                        contentDescription = "Redo",
+                        isEnabled = undoManager.canRedo,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            val restored = undoManager.redo()
+                            if (restored != null) {
+                                restoreSnapshot(restored)
+                            }
+                        }
+                    )
+
+                    BottomBarIconButton(
+                        icon = Icons.Outlined.MoreVert,
                         contentDescription = "More options",
-                        tint = colors.textPrimary,
-                        modifier = Modifier.size(24.dp)
+                        isEnabled = true,
+                        onClick = {
+                            Toast.makeText(context, "More options", Toast.LENGTH_SHORT).show()
+                        }
                     )
                 }
             }
@@ -761,14 +838,18 @@ fun CreateNoteScreen(
                     if (!isChecklistMode) {
                         isChecklistMode = true
                         val existingLines = noteTextState.text.split("\n").filter { it.isNotBlank() }
-                        checklistItems = if (existingLines.isNotEmpty()) {
+                        val items = if (existingLines.isNotEmpty()) {
                             existingLines.map { ChecklistItem(text = it) }
                         } else {
                             listOf(ChecklistItem(text = ""))
                         }
+                        checklistItems = items
+                        undoManager.recordAction(takeSnapshot(newIsChecklistMode = true, newChecklistItems = items))
                     } else {
                         isChecklistMode = false
-                        noteTextState = TextFieldValue(checklistItems.joinToString("\n") { it.text })
+                        val restoredTfv = TextFieldValue(checklistItems.joinToString("\n") { it.text })
+                        noteTextState = restoredTfv
+                        undoManager.recordAction(takeSnapshot(newIsChecklistMode = false, newNoteTextState = restoredTfv))
                     }
                 }
             }
@@ -867,6 +948,7 @@ fun CreateNoteScreen(
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     selectedColorHex = colorHex
+                                    undoManager.recordAction(takeSnapshot(newSelectedColorHex = colorHex))
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -947,3 +1029,29 @@ private fun FormatToolbarIconItem(
         )
     }
 }
+
+@Composable
+private fun BottomBarIconButton(
+    icon: ImageVector,
+    contentDescription: String,
+    isEnabled: Boolean = true,
+    onClick: () -> Unit
+) {
+    val colors = LocalUtilitarianColors.current
+    Box(
+        modifier = Modifier
+            .size(42.dp)
+            .clip(CircleShape)
+            .background(Color(0xFF24282C))
+            .clickable(enabled = isEnabled) { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = if (isEnabled) colors.textPrimary else colors.textPrimary.copy(alpha = 0.35f),
+            modifier = Modifier.size(24.dp)
+        )
+    }
+}
+
