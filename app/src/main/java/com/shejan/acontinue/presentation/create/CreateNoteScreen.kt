@@ -495,7 +495,7 @@ fun CreateNoteScreen(
                 Icon(
                     imageVector = Icons.Outlined.Colorize,
                     contentDescription = "Background color",
-                    tint = if (selectedColorHex != 0xFF121212L) Color(0xFF76D1FF) else colors.textPrimary,
+                    tint = colors.textPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
