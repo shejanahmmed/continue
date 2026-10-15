@@ -11,20 +11,27 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -88,7 +95,9 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -141,6 +150,7 @@ fun CreateNoteScreen(
     val view = LocalView.current
     val activity = remember(context) { context.findActivity() }
     val haptic = LocalHapticFeedback.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
@@ -319,7 +329,7 @@ fun CreateNoteScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .navigationBarsPadding()
+                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
         ) {
         // Top Bar: Back button on the left (pin & archive intentionally excluded)
         Row(
@@ -350,6 +360,16 @@ fun CreateNoteScreen(
                 .weight(1f)
                 .fillMaxWidth()
                 .verticalScroll(scrollState)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null
+                ) {
+                    if (!isChecklistMode) {
+                        contentFocusRequester.requestFocus()
+                        noteTextState = noteTextState.copy(selection = TextRange(noteTextState.text.length))
+                        keyboardController?.show()
+                    }
+                }
                 .padding(horizontal = 20.dp, vertical = 12.dp)
         ) {
             // Title Input
@@ -401,15 +421,15 @@ fun CreateNoteScreen(
                         ) {
                             Box(
                                 modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .size(22.dp)
-                                    .clip(CircleShape)
-                                    .background(Color.Black.copy(alpha = 0.6f))
-                                    .clickable {
-                                        val updated = attachedImageUris - uri
-                                        attachedImageUris = updated
-                                        undoManager.recordAction(takeSnapshot(newAttachedImageUris = updated))
-                                    },
+                                .align(Alignment.TopEnd)
+                                .size(22.dp)
+                                .clip(CircleShape)
+                                .background(Color.Black.copy(alpha = 0.6f))
+                                .clickable {
+                                    val updated = attachedImageUris - uri
+                                    attachedImageUris = updated
+                                    undoManager.recordAction(takeSnapshot(newAttachedImageUris = updated))
+                                },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
@@ -428,48 +448,61 @@ fun CreateNoteScreen(
 
             // Note Content or Checklist Mode
             if (!isChecklistMode) {
-                BasicTextField(
-                    value = noteTextState,
-                    onValueChange = { newTfv ->
-                        val newFormatState = NoteTextFormatter.onTextChange(
-                            oldText = noteTextState.text,
-                            newText = newTfv.text,
-                            selection = newTfv.selection,
-                            state = formatState
-                        )
-                        formatState = newFormatState
-                        noteTextState = newTfv
-                        undoManager.recordTyping(takeSnapshot(newNoteTextState = newTfv, newFormatState = newFormatState))
-                    },
-                    visualTransformation = remember(formatState, colors.textPrimary) {
-                        NoteVisualTransformation(formatState, colors.textPrimary)
-                    },
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f, fill = false)
-                        .focusRequester(contentFocusRequester)
-                        .onFocusChanged { isContentFocused = it.isFocused },
-                    textStyle = TextStyle(
-                        color = colors.textPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Normal,
-                        lineHeight = 24.sp
-                    ),
-                    cursorBrush = SolidColor(colors.textPrimary),
-                    decorationBox = { innerTextField ->
-                        Box {
-                            if (noteTextState.text.isEmpty()) {
-                                Text(
-                                    text = "Note",
-                                    color = colors.textSecondary.copy(alpha = 0.6f),
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Normal
-                                )
-                            }
-                            innerTextField()
+                        .defaultMinSize(minHeight = 500.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            contentFocusRequester.requestFocus()
+                            noteTextState = noteTextState.copy(selection = TextRange(noteTextState.text.length))
+                            keyboardController?.show()
                         }
-                    }
-                )
+                ) {
+                    BasicTextField(
+                        value = noteTextState,
+                        onValueChange = { newTfv ->
+                            val newFormatState = NoteTextFormatter.onTextChange(
+                                oldText = noteTextState.text,
+                                newText = newTfv.text,
+                                selection = newTfv.selection,
+                                state = formatState
+                            )
+                            formatState = newFormatState
+                            noteTextState = newTfv
+                            undoManager.recordTyping(takeSnapshot(newNoteTextState = newTfv, newFormatState = newFormatState))
+                        },
+                        visualTransformation = remember(formatState, colors.textPrimary) {
+                            NoteVisualTransformation(formatState, colors.textPrimary)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .focusRequester(contentFocusRequester)
+                            .onFocusChanged { isContentFocused = it.isFocused },
+                        textStyle = TextStyle(
+                            color = colors.textPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Normal,
+                            lineHeight = 24.sp
+                        ),
+                        cursorBrush = SolidColor(colors.textPrimary),
+                        decorationBox = { innerTextField ->
+                            Box {
+                                if (noteTextState.text.isEmpty()) {
+                                    Text(
+                                        text = "Note",
+                                        color = colors.textSecondary.copy(alpha = 0.6f),
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Normal
+                                    )
+                                }
+                                innerTextField()
+                            }
+                        }
+                    )
+                }
             } else {
                 // Interactive Checklists
                 Column(
