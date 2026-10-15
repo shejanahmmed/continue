@@ -12,10 +12,10 @@ object NoteLastEditedFormatter {
 
     /**
      * Formats the given timestamp into a user-facing string:
-     * - Same day: "Last edited 1:46 AM"
-     * - Yesterday: "Last edited yesterday, 1:46 AM"
-     * - Earlier this year: "Last edited Oct 15, 1:46 AM"
-     * - Different year: "Last edited Oct 15, 2025, 1:46 AM"
+     * - Same day (today): "Last edited 1:46 AM (Today)"
+     * - 1 day ago: "Last edited 1:46 AM (Yesterday)"
+     * - Earlier this year: "Last edited 1:46 AM (Oct 14)"
+     * - Different year: "Last edited 1:46 AM (Oct 14, 2025)"
      */
     fun format(timestamp: Long, nowMillis: Long = System.currentTimeMillis()): String {
         val nowCal = Calendar.getInstance().apply { timeInMillis = nowMillis }
@@ -35,15 +35,15 @@ object NoteLastEditedFormatter {
                 yesterdayCal.get(Calendar.DAY_OF_YEAR) == targetCal.get(Calendar.DAY_OF_YEAR)
 
         return when {
-            isSameDay -> "Last edited $formattedTime"
-            isYesterday -> "Last edited yesterday, $formattedTime"
+            isSameDay -> "Last edited $formattedTime (Today)"
+            isYesterday -> "Last edited $formattedTime (Yesterday)"
             isSameYear -> {
                 val monthDayFormat = SimpleDateFormat("MMM d", Locale.getDefault())
-                "Last edited ${monthDayFormat.format(Date(timestamp))}, $formattedTime"
+                "Last edited $formattedTime (${monthDayFormat.format(Date(timestamp))})"
             }
             else -> {
                 val fullDateFormat = SimpleDateFormat("MMM d, yyyy", Locale.getDefault())
-                "Last edited ${fullDateFormat.format(Date(timestamp))}, $formattedTime"
+                "Last edited $formattedTime (${fullDateFormat.format(Date(timestamp))})"
             }
         }
     }
