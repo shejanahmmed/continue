@@ -2,9 +2,9 @@
 
 # continue
 
-### A high-contrast, distraction-free productivity and activity management engine for Android.
+### Minimalist, offline-first Android productivity engine for managing tasks, reminders, and daily activities.
 
-Clean Architecture &bull; Jetpack Compose &bull; 100% Offline-First &bull; GPL-3.0
+Clean Architecture &bull; Jetpack Compose &bull; Room Database &bull; GPL-3.0
 
 ---
 
@@ -180,7 +180,7 @@ You are free to view, modify, and distribute this software according to the term
 ## Author & Maintainer
 
 **Farjan Ahmmed**  
-*Senior Software Engineer*
+*Software Engineer*
 
 - **GitHub:** [@shejanahmmed](https://github.com/shejanahmmed)
 - **LinkedIn:** [Farjan Ahmmed](https://www.linkedin.com/in/farjan-ahmmed/)
