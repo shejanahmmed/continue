@@ -1,8 +1,14 @@
 package com.shejan.acontinue.presentation.create
 
+import android.net.Uri
+import android.widget.Toast
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -14,30 +20,67 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.outlined.AddBox
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
+import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.FormatColorText
+import androidx.compose.material.icons.outlined.Image
+import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Palette
+import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
+import kotlinx.coroutines.launch
 
+data class ChecklistItem(
+    val id: Long = System.currentTimeMillis() + (0..999).random(),
+    val text: String,
+    val isChecked: Boolean = false
+)
+
+private data class NoteMenuOption(
+    val title: String,
+    val icon: ImageVector,
+    val onClick: () -> Unit
+)
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateNoteScreen(
     onSaveNote: (title: String, content: String) -> Unit,
@@ -45,21 +88,62 @@ fun CreateNoteScreen(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalUtilitarianColors.current
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
+    var isChecklistMode by remember { mutableStateOf(false) }
+    var checklistItems by remember { mutableStateOf(listOf<ChecklistItem>()) }
+    var attachedImageUris by remember { mutableStateOf(listOf<Uri>()) }
+    var showBottomSheet by remember { mutableStateOf(false) }
+
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            attachedImageUris = attachedImageUris + uri
+        }
+    }
+
+    val cameraLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.TakePicturePreview()
+    ) { bitmap ->
+        if (bitmap != null) {
+            Toast.makeText(context, "Photo captured", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val buildFinalContent: () -> String = {
+        val stringBuilder = StringBuilder()
+        if (isChecklistMode) {
+            checklistItems.forEach { item ->
+                val box = if (item.isChecked) "[x]" else "[ ]"
+                stringBuilder.append("$box ${item.text}\n")
+            }
+        } else {
+            stringBuilder.append(content)
+        }
+        stringBuilder.toString().trim()
+    }
 
     val handleExit = {
-        if (title.isNotBlank() || content.isNotBlank()) {
-            onSaveNote(title, content)
+        val finalContent = buildFinalContent()
+        if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty()) {
+            onSaveNote(title, finalContent)
         } else {
             onDiscard()
         }
     }
 
     BackHandler {
-        handleExit()
+        if (showBottomSheet) {
+            showBottomSheet = false
+        } else {
+            handleExit()
+        }
     }
 
     Column(
@@ -92,7 +176,7 @@ fun CreateNoteScreen(
             }
         }
 
-        // Body: Title and Note multi-line content
+        // Body: Title, Attached Images, and Note/Checklist Content
         Column(
             modifier = Modifier
                 .weight(1f)
@@ -126,60 +210,358 @@ fun CreateNoteScreen(
                 }
             )
 
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Note Content Input
-            BasicTextField(
-                value = content,
-                onValueChange = { content = it },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .weight(1f, fill = false),
-                textStyle = TextStyle(
-                    color = colors.textPrimary,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Normal,
-                    lineHeight = 24.sp
-                ),
-                cursorBrush = SolidColor(colors.textPrimary),
-                decorationBox = { innerTextField ->
-                    Box {
-                        if (content.isEmpty()) {
-                            Text(
-                                text = "Note",
-                                color = colors.textSecondary.copy(alpha = 0.6f),
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Normal
-                            )
+            // Attached Images Row (if any)
+            if (attachedImageUris.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(14.dp))
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(attachedImageUris) { uri ->
+                        Box(
+                            modifier = Modifier
+                                .size(72.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(colors.cardBackground)
+                                .border(1.dp, colors.borderStroke, RoundedCornerShape(8.dp))
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .size(22.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.6f))
+                                    .clickable {
+                                        attachedImageUris = attachedImageUris - uri
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = "Remove image",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
                         }
-                        innerTextField()
                     }
                 }
-            )
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Note Content or Checklist Mode
+            if (!isChecklistMode) {
+                BasicTextField(
+                    value = content,
+                    onValueChange = { content = it },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .weight(1f, fill = false),
+                    textStyle = TextStyle(
+                        color = colors.textPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal,
+                        lineHeight = 24.sp
+                    ),
+                    cursorBrush = SolidColor(colors.textPrimary),
+                    decorationBox = { innerTextField ->
+                        Box {
+                            if (content.isEmpty()) {
+                                Text(
+                                    text = "Note",
+                                    color = colors.textSecondary.copy(alpha = 0.6f),
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                            innerTextField()
+                        }
+                    }
+                )
+            } else {
+                // Interactive Checklists
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    checklistItems.forEachIndexed { index, item ->
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            Icon(
+                                imageVector = if (item.isChecked) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+                                contentDescription = null,
+                                tint = if (item.isChecked) Color(0xFF3897F0) else colors.textSecondary,
+                                modifier = Modifier
+                                    .size(22.dp)
+                                    .clickable {
+                                        checklistItems = checklistItems.toMutableList().also {
+                                            it[index] = item.copy(isChecked = !item.isChecked)
+                                        }
+                                    }
+                            )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            BasicTextField(
+                                value = item.text,
+                                onValueChange = { newText ->
+                                    checklistItems = checklistItems.toMutableList().also {
+                                        it[index] = item.copy(text = newText)
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                textStyle = TextStyle(
+                                    color = if (item.isChecked) colors.textDisabled else colors.textPrimary,
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Normal
+                                ),
+                                cursorBrush = SolidColor(colors.textPrimary),
+                                decorationBox = { inner ->
+                                    Box {
+                                        if (item.text.isEmpty()) {
+                                            Text(
+                                                text = "List item",
+                                                color = colors.textSecondary.copy(alpha = 0.6f),
+                                                fontSize = 16.sp
+                                            )
+                                        }
+                                        inner()
+                                    }
+                                }
+                            )
+
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        checklistItems = checklistItems.filterIndexed { i, _ -> i != index }
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = "Remove item",
+                                    tint = colors.textSecondary.copy(alpha = 0.5f),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+
+                    // Add item row
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable {
+                                checklistItems = checklistItems + ChecklistItem(text = "")
+                            }
+                            .padding(vertical = 6.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AddBox,
+                            contentDescription = null,
+                            tint = colors.textSecondary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text(
+                            text = "List item",
+                            color = colors.textSecondary,
+                            fontSize = 16.sp
+                        )
+                    }
+                }
+            }
         }
 
-        // Bottom Bar: Minimal utilitarian bar (+, palette, A excluded as requested; 3-dots on right)
+        // Bottom Bar: [+] | Palette | Format A on the left; 3-dots on the right
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
+                .padding(horizontal = 14.dp, vertical = 6.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Spacer(modifier = Modifier.weight(1f))
-
+            // [+] Icon button inside outlined rounded container
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(42.dp)
+                    .clip(RoundedCornerShape(8.dp))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showBottomSheet = true
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AddBox,
+                    contentDescription = "Add options",
+                    tint = colors.textPrimary,
+                    modifier = Modifier.size(26.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Palette icon
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
                     .clip(CircleShape)
-                    .clickable { /* Future contextual actions */ },
+                    .clickable {
+                        Toast.makeText(context, "Color palette", Toast.LENGTH_SHORT).show()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Palette,
+                    contentDescription = "Background color",
+                    tint = colors.textSecondary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Format "A" icon
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .clickable {
+                        Toast.makeText(context, "Text formatting", Toast.LENGTH_SHORT).show()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.FormatColorText,
+                    contentDescription = "Text style",
+                    tint = colors.textSecondary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            // 3-dots menu icon on the right
+            Box(
+                modifier = Modifier
+                    .size(42.dp)
+                    .clip(CircleShape)
+                    .clickable {
+                        Toast.makeText(context, "More options", Toast.LENGTH_SHORT).show()
+                    },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Outlined.MoreVert,
                     contentDescription = "More options",
                     tint = colors.textSecondary,
-                    modifier = Modifier.size(22.dp)
+                    modifier = Modifier.size(24.dp)
                 )
+            }
+        }
+    }
+
+    // Exact Bottom Sheet matching user's reference screenshot
+    if (showBottomSheet) {
+        val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+        val menuOptions = listOf(
+            NoteMenuOption("Take photo", Icons.Outlined.PhotoCamera) {
+                coroutineScope.launch {
+                    sheetState.hide()
+                    showBottomSheet = false
+                    cameraLauncher.launch(null)
+                }
+            },
+            NoteMenuOption("Add image", Icons.Outlined.Image) {
+                coroutineScope.launch {
+                    sheetState.hide()
+                    showBottomSheet = false
+                    imagePickerLauncher.launch("image/*")
+                }
+            },
+            NoteMenuOption("Recording", Icons.Outlined.Mic) {
+                coroutineScope.launch {
+                    sheetState.hide()
+                    showBottomSheet = false
+                    Toast.makeText(context, "Recording feature", Toast.LENGTH_SHORT).show()
+                }
+            },
+            NoteMenuOption("Drawing", Icons.Outlined.Edit) {
+                coroutineScope.launch {
+                    sheetState.hide()
+                    showBottomSheet = false
+                    Toast.makeText(context, "Drawing feature", Toast.LENGTH_SHORT).show()
+                }
+            },
+            NoteMenuOption("Checkboxes", Icons.Outlined.CheckBox) {
+                coroutineScope.launch {
+                    sheetState.hide()
+                    showBottomSheet = false
+                    if (!isChecklistMode) {
+                        isChecklistMode = true
+                        val existingLines = content.split("\n").filter { it.isNotBlank() }
+                        checklistItems = if (existingLines.isNotEmpty()) {
+                            existingLines.map { ChecklistItem(text = it) }
+                        } else {
+                            listOf(ChecklistItem(text = ""))
+                        }
+                    } else {
+                        isChecklistMode = false
+                        content = checklistItems.joinToString("\n") { it.text }
+                    }
+                }
+            }
+        )
+
+        ModalBottomSheet(
+            onDismissRequest = { showBottomSheet = false },
+            sheetState = sheetState,
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            dragHandle = null
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 24.dp, bottom = 28.dp)
+                    .navigationBarsPadding()
+            ) {
+                menuOptions.forEach { option ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                option.onClick()
+                            }
+                            .padding(horizontal = 24.dp, vertical = 15.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = option.icon,
+                            contentDescription = option.title,
+                            tint = colors.textPrimary,
+                            modifier = Modifier.size(24.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(20.dp))
+
+                        Text(
+                            text = option.title,
+                            color = colors.textPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                    }
+                }
             }
         }
     }
