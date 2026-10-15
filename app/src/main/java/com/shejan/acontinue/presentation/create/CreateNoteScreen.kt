@@ -51,8 +51,12 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.layout.wrapContentWidth
+import androidx.compose.material.icons.outlined.FormatStrikethrough
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
@@ -63,6 +67,9 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.toArgb
@@ -72,7 +79,10 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.view.WindowCompat
@@ -121,14 +131,27 @@ fun CreateNoteScreen(
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
+    val titleFocusRequester = remember { FocusRequester() }
+    val contentFocusRequester = remember { FocusRequester() }
+    var isTitleFocused by remember { mutableStateOf(false) }
+    var isContentFocused by remember { mutableStateOf(false) }
+
     var title by remember { mutableStateOf("") }
-    var content by remember { mutableStateOf("") }
+    var noteTextState by remember { mutableStateOf(TextFieldValue("")) }
+    var formatState by remember { mutableStateOf(NoteFormatState()) }
     var selectedColorHex by remember { mutableLongStateOf(0xFF121212L) }
     var isChecklistMode by remember { mutableStateOf(false) }
     var checklistItems by remember { mutableStateOf(listOf<ChecklistItem>()) }
     var attachedImageUris by remember { mutableStateOf(listOf<Uri>()) }
     var showBottomSheet by remember { mutableStateOf(false) }
     var showColorSheet by remember { mutableStateOf(false) }
+    var showFormattingBar by remember { mutableStateOf(false) }
+
+    LaunchedEffect(isTitleFocused) {
+        if (isTitleFocused) {
+            showFormattingBar = false
+        }
+    }
 
     DisposableEffect(activity, selectedColorHex) {
         val window = activity?.window
@@ -192,7 +215,7 @@ fun CreateNoteScreen(
                 stringBuilder.append("$box ${item.text}\n")
             }
         } else {
-            stringBuilder.append(content)
+            stringBuilder.append(NoteTextFormatter.serializeToMarkdown(noteTextState.text, formatState))
         }
         stringBuilder.toString().trim()
     }
@@ -211,6 +234,8 @@ fun CreateNoteScreen(
             showColorSheet = false
         } else if (showBottomSheet) {
             showBottomSheet = false
+        } else if (showFormattingBar) {
+            showFormattingBar = false
         } else {
             handleExit()
         }
@@ -262,7 +287,10 @@ fun CreateNoteScreen(
             BasicTextField(
                 value = title,
                 onValueChange = { title = it },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .focusRequester(titleFocusRequester)
+                    .onFocusChanged { isTitleFocused = it.isFocused },
                 textStyle = TextStyle(
                     color = colors.textPrimary,
                     fontSize = 22.sp,
@@ -327,11 +355,24 @@ fun CreateNoteScreen(
             // Note Content or Checklist Mode
             if (!isChecklistMode) {
                 BasicTextField(
-                    value = content,
-                    onValueChange = { content = it },
+                    value = noteTextState,
+                    onValueChange = { newTfv ->
+                        formatState = NoteTextFormatter.onTextChange(
+                            oldText = noteTextState.text,
+                            newText = newTfv.text,
+                            selection = newTfv.selection,
+                            state = formatState
+                        )
+                        noteTextState = newTfv
+                    },
+                    visualTransformation = remember(formatState, colors.textPrimary) {
+                        NoteVisualTransformation(formatState, colors.textPrimary)
+                    },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .weight(1f, fill = false),
+                        .weight(1f, fill = false)
+                        .focusRequester(contentFocusRequester)
+                        .onFocusChanged { isContentFocused = it.isFocused },
                     textStyle = TextStyle(
                         color = colors.textPrimary,
                         fontSize = 16.sp,
@@ -341,7 +382,7 @@ fun CreateNoteScreen(
                     cursorBrush = SolidColor(colors.textPrimary),
                     decorationBox = { innerTextField ->
                         Box {
-                            if (content.isEmpty()) {
+                            if (noteTextState.text.isEmpty()) {
                                 Text(
                                     text = "Note",
                                     color = colors.textSecondary.copy(alpha = 0.6f),
@@ -453,91 +494,228 @@ fun CreateNoteScreen(
             }
         }
 
-        // Bottom Bar: [+] | ColorLens | Format A on the left; 3-dots on the right
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 14.dp, vertical = 6.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // [+] Icon button inside outlined rounded container
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(RoundedCornerShape(8.dp))
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        showBottomSheet = true
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.AddBox,
-                    contentDescription = "Add options",
-                    tint = colors.textPrimary,
-                    modifier = Modifier.size(26.dp)
-                )
+        val isFormattingEnabled = !isTitleFocused && !isChecklistMode
+
+        if (showFormattingBar) {
+            val currentLine = remember(noteTextState.text, noteTextState.selection.min) {
+                NoteTextFormatter.getLineIndex(noteTextState.text, noteTextState.selection.min)
+            }
+            val currentHeading = remember(formatState, currentLine) {
+                NoteTextFormatter.getHeadingForLine(formatState, currentLine)
             }
 
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Color picker icon (distinct eyedropper tool, opens color sheet)
-            Box(
+            // Rich Text Formatting Toolbar
+            Row(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        showColorSheet = true
-                    },
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                    .horizontalScroll(rememberScrollState()),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(4.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Colorize,
-                    contentDescription = "Background color",
-                    tint = colors.textPrimary,
-                    modifier = Modifier.size(24.dp)
+                // H1
+                FormatToolbarTextItem(
+                    label = "H1",
+                    isSelected = currentHeading == HeadingType.H1,
+                    onClick = {
+                        formatState = NoteTextFormatter.setHeadingForLine(
+                            noteTextState.text,
+                            noteTextState.selection.min,
+                            HeadingType.H1,
+                            formatState
+                        )
+                    }
                 )
+
+                // H2
+                FormatToolbarTextItem(
+                    label = "H2",
+                    isSelected = currentHeading == HeadingType.H2,
+                    onClick = {
+                        formatState = NoteTextFormatter.setHeadingForLine(
+                            noteTextState.text,
+                            noteTextState.selection.min,
+                            HeadingType.H2,
+                            formatState
+                        )
+                    }
+                )
+
+                // Aa (Body Text)
+                FormatToolbarTextItem(
+                    label = "Aa",
+                    isSelected = currentHeading == HeadingType.BODY,
+                    onClick = {
+                        formatState = NoteTextFormatter.setHeadingForLine(
+                            noteTextState.text,
+                            noteTextState.selection.min,
+                            HeadingType.BODY,
+                            formatState
+                        )
+                    }
+                )
+
+                // Vertical Divider
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .width(1.dp)
+                        .height(18.dp)
+                        .background(colors.borderStroke.copy(alpha = 0.5f))
+                )
+
+                // Bold
+                FormatToolbarTextItem(
+                    label = "B",
+                    isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.BOLD, noteTextState.selection, formatState),
+                    fontWeight = FontWeight.Bold,
+                    onClick = {
+                        formatState = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.BOLD, formatState)
+                    }
+                )
+
+                // Italic
+                FormatToolbarTextItem(
+                    label = "I",
+                    isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.ITALIC, noteTextState.selection, formatState),
+                    fontStyle = FontStyle.Italic,
+                    onClick = {
+                        formatState = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.ITALIC, formatState)
+                    }
+                )
+
+                // Underline
+                FormatToolbarTextItem(
+                    label = "U",
+                    isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.UNDERLINE, noteTextState.selection, formatState),
+                    textDecoration = TextDecoration.Underline,
+                    onClick = {
+                        formatState = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.UNDERLINE, formatState)
+                    }
+                )
+
+                // Strikethrough
+                FormatToolbarIconItem(
+                    icon = Icons.Outlined.FormatStrikethrough,
+                    contentDescription = "Strikethrough",
+                    isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.STRIKETHROUGH, noteTextState.selection, formatState),
+                    onClick = {
+                        formatState = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.STRIKETHROUGH, formatState)
+                    }
+                )
+
+                // Vertical Divider
+                Box(
+                    modifier = Modifier
+                        .padding(horizontal = 4.dp)
+                        .width(1.dp)
+                        .height(18.dp)
+                        .background(colors.borderStroke.copy(alpha = 0.5f))
+                )
+
+                // Close Button [X]
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .clickable { showFormattingBar = false },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = "Close formatting",
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
             }
-
-            Spacer(modifier = Modifier.width(12.dp))
-
-            // Format "A" icon
-            Box(
+        } else {
+            // Standard Bottom Bar: [+] | Colorize | Format A on the left; 3-dots on the right
+            Row(
                 modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .clickable {
-                        Toast.makeText(context, "Text formatting", Toast.LENGTH_SHORT).show()
-                    },
-                contentAlignment = Alignment.Center
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.FormatColorText,
-                    contentDescription = "Text style",
-                    tint = colors.textPrimary,
-                    modifier = Modifier.size(24.dp)
-                )
-            }
+                // [+] Icon button inside outlined rounded container
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showBottomSheet = true
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.AddBox,
+                        contentDescription = "Add options",
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(26.dp)
+                    )
+                }
 
-            Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(12.dp))
 
-            // 3-dots menu icon on the right
-            Box(
-                modifier = Modifier
-                    .size(42.dp)
-                    .clip(CircleShape)
-                    .clickable {
-                        Toast.makeText(context, "More options", Toast.LENGTH_SHORT).show()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.MoreVert,
-                    contentDescription = "More options",
-                    tint = colors.textPrimary,
-                    modifier = Modifier.size(24.dp)
-                )
+                // Color picker icon (distinct eyedropper tool, opens color sheet)
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showColorSheet = true
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Colorize,
+                        contentDescription = "Background color",
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                // Format "A" icon (faded & disabled when Title is focused or in checklist mode)
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .clickable(enabled = isFormattingEnabled) {
+                            showFormattingBar = true
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.FormatColorText,
+                        contentDescription = "Text style",
+                        tint = if (isFormattingEnabled) colors.textPrimary else colors.textPrimary.copy(alpha = 0.35f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.weight(1f))
+
+                // 3-dots menu icon on the right
+                Box(
+                    modifier = Modifier
+                        .size(42.dp)
+                        .clip(CircleShape)
+                        .clickable {
+                            Toast.makeText(context, "More options", Toast.LENGTH_SHORT).show()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.MoreVert,
+                        contentDescription = "More options",
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             }
         }
     }
@@ -582,7 +760,7 @@ fun CreateNoteScreen(
                     showBottomSheet = false
                     if (!isChecklistMode) {
                         isChecklistMode = true
-                        val existingLines = content.split("\n").filter { it.isNotBlank() }
+                        val existingLines = noteTextState.text.split("\n").filter { it.isNotBlank() }
                         checklistItems = if (existingLines.isNotEmpty()) {
                             existingLines.map { ChecklistItem(text = it) }
                         } else {
@@ -590,7 +768,7 @@ fun CreateNoteScreen(
                         }
                     } else {
                         isChecklistMode = false
-                        content = checklistItems.joinToString("\n") { it.text }
+                        noteTextState = TextFieldValue(checklistItems.joinToString("\n") { it.text })
                     }
                 }
             }
@@ -712,4 +890,60 @@ private tailrec fun Context.findActivity(): Activity? = when (this) {
     is Activity -> this
     is ContextWrapper -> baseContext.findActivity()
     else -> null
+}
+
+@Composable
+private fun FormatToolbarTextItem(
+    label: String,
+    isSelected: Boolean,
+    fontWeight: FontWeight? = null,
+    fontStyle: FontStyle? = null,
+    textDecoration: TextDecoration? = null,
+    onClick: () -> Unit
+) {
+    val colors = LocalUtilitarianColors.current
+    Box(
+        modifier = Modifier
+            .height(36.dp)
+            .wrapContentWidth()
+            .clip(RoundedCornerShape(18.dp))
+            .background(if (isSelected) Color(0xFF2B3035) else Color.Transparent)
+            .clickable(onClick = onClick)
+            .padding(horizontal = 14.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Text(
+            text = label,
+            color = if (isSelected) Color.White else colors.textPrimary.copy(alpha = 0.85f),
+            fontSize = 16.sp,
+            fontWeight = fontWeight ?: if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
+            fontStyle = fontStyle,
+            textDecoration = textDecoration
+        )
+    }
+}
+
+@Composable
+private fun FormatToolbarIconItem(
+    icon: ImageVector,
+    contentDescription: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    val colors = LocalUtilitarianColors.current
+    Box(
+        modifier = Modifier
+            .size(36.dp)
+            .clip(RoundedCornerShape(18.dp))
+            .background(if (isSelected) Color(0xFF2B3035) else Color.Transparent)
+            .clickable(onClick = onClick),
+        contentAlignment = Alignment.Center
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = contentDescription,
+            tint = if (isSelected) Color.White else colors.textPrimary.copy(alpha = 0.85f),
+            modifier = Modifier.size(20.dp)
+        )
+    }
 }
