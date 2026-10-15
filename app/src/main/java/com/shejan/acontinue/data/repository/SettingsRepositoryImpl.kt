@@ -92,6 +92,29 @@ class SettingsRepositoryImpl(
         return newCategory
     }
 
+    override suspend fun updateReminderCategory(id: String, newName: String, newColorHex: Long, newIconName: String): ReminderCategory {
+        val current = _settings.value.reminderCategories
+        var updatedItem: ReminderCategory? = null
+        val updated = current.map { item ->
+            if (item.id == id && !item.isDefault) {
+                val modified = item.copy(name = newName, colorHex = newColorHex, iconName = newIconName)
+                updatedItem = modified
+                modified
+            } else item
+        }
+        val result = updatedItem ?: ReminderCategory(id = id, name = newName, colorHex = newColorHex, iconName = newIconName)
+        saveReminderCategories(updated)
+        _settings.update { it.copy(reminderCategories = updated) }
+        return result
+    }
+
+    override suspend fun deleteReminderCategory(id: String) {
+        val current = _settings.value.reminderCategories
+        val updated = current.filterNot { it.id == id && !it.isDefault }
+        saveReminderCategories(updated)
+        _settings.update { it.copy(reminderCategories = updated) }
+    }
+
     private fun saveCustomAlerts(alerts: List<CustomAlert>) {
         val serialized = alerts.joinToString(DELIMITER) { "${it.id}:::${it.value}:::${it.unit}" }
         prefs.edit().putString(KEY_CUSTOM_ALERTS, serialized).apply()

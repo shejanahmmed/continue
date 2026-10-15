@@ -14,4 +14,6 @@ interface ActivityRepository {
     fun searchActivities(query: String): Flow<List<ActivityItem>>
     suspend fun updateReminderCategoryDetails(categoryName: String, colorHex: Long, icon: String)
     suspend fun updateActivityReminderCategory(activityId: Long, newCategory: String, newColorHex: Long, newIcon: String)
+    suspend fun renameReminderCategoryAcrossActivities(oldName: String, newName: String, newColorHex: Long, newIcon: String)
+    suspend fun resetActivitiesToDefaultCategory(deletedName: String, fallbackName: String, fallbackColorHex: Long, fallbackIcon: String)
 }

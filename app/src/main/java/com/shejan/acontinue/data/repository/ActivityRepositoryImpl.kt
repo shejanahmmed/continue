@@ -57,4 +57,12 @@ class ActivityRepositoryImpl(
     override suspend fun updateActivityReminderCategory(activityId: Long, newCategory: String, newColorHex: Long, newIcon: String) {
         activityDao.updateActivityReminderCategory(activityId, newCategory, newColorHex, newIcon)
     }
+
+    override suspend fun renameReminderCategoryAcrossActivities(oldName: String, newName: String, newColorHex: Long, newIcon: String) {
+        activityDao.renameReminderCategoryAcrossActivities(oldName, newName, newColorHex, newIcon)
+    }
+
+    override suspend fun resetActivitiesToDefaultCategory(deletedName: String, fallbackName: String, fallbackColorHex: Long, fallbackIcon: String) {
+        activityDao.resetActivitiesToDefaultCategory(deletedName, fallbackName, fallbackColorHex, fallbackIcon)
+    }
 }

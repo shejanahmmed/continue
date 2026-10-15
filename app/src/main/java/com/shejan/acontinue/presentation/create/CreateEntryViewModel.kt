@@ -420,6 +420,59 @@ class CreateEntryViewModel(
             selectReminderCategory(created)
         }
     }
+
+    fun updateReminderCategory(oldCategory: ReminderCategory, newName: String, newColorHex: Long, newIconName: String) {
+        if (oldCategory.isDefault) return
+        viewModelScope.launch {
+            val updated = settingsRepository?.updateReminderCategory(
+                id = oldCategory.id,
+                newName = newName,
+                newColorHex = newColorHex,
+                newIconName = newIconName
+            ) ?: oldCategory.copy(name = newName, colorHex = newColorHex, iconName = newIconName)
+
+            activityRepository.renameReminderCategoryAcrossActivities(
+                oldName = oldCategory.name,
+                newName = newName,
+                newColorHex = newColorHex,
+                newIcon = newIconName
+            )
+
+            _state.update { current ->
+                if (current.selectedReminderCategory.id == oldCategory.id || current.selectedReminderCategory.name == oldCategory.name) {
+                    current.copy(
+                        selectedReminderCategory = updated,
+                        reminderList = updated.name
+                    )
+                } else {
+                    current
+                }
+            }
+        }
+    }
+
+    fun deleteReminderCategory(category: ReminderCategory) {
+        if (category.isDefault) return
+        viewModelScope.launch {
+            settingsRepository?.deleteReminderCategory(category.id)
+            activityRepository.resetActivitiesToDefaultCategory(
+                deletedName = category.name,
+                fallbackName = ReminderCategory.DEFAULT.name,
+                fallbackColorHex = ReminderCategory.DEFAULT.colorHex,
+                fallbackIcon = ReminderCategory.DEFAULT.iconName
+            )
+            _state.update { current ->
+                if (current.selectedReminderCategory.id == category.id || current.selectedReminderCategory.name == category.name) {
+                    current.copy(
+                        selectedReminderCategory = ReminderCategory.DEFAULT,
+                        reminderList = ReminderCategory.DEFAULT.name
+                    )
+                } else {
+                    current
+                }
+            }
+        }
+    }
     fun updateEarlyAlertMinutes(minutes: Int) = _state.update { it.copy(earlyAlertMinutes = minutes) }
     fun updateReminderList(name: String) = _state.update { it.copy(reminderList = name) }
 

@@ -67,6 +67,18 @@ class FakeActivityRepository : ActivityRepository {
             if (it.id == activityId) it.copy(reminderCategory = newCategory, reminderCategoryColorHex = newColorHex, reminderCategoryIcon = newIcon) else it
         }
     }
+
+    override suspend fun renameReminderCategoryAcrossActivities(oldName: String, newName: String, newColorHex: Long, newIcon: String) {
+        activitiesFlow.value = activitiesFlow.value.map {
+            if (it.reminderCategory == oldName) it.copy(reminderCategory = newName, reminderCategoryColorHex = newColorHex, reminderCategoryIcon = newIcon) else it
+        }
+    }
+
+    override suspend fun resetActivitiesToDefaultCategory(deletedName: String, fallbackName: String, fallbackColorHex: Long, fallbackIcon: String) {
+        activitiesFlow.value = activitiesFlow.value.map {
+            if (it.reminderCategory == deletedName) it.copy(reminderCategory = fallbackName, reminderCategoryColorHex = fallbackColorHex, reminderCategoryIcon = fallbackIcon) else it
+        }
+    }
 }
 
 class FakeTaskRepository : TaskRepository {
@@ -244,6 +256,32 @@ class FakeSettingsRepository : com.shejan.acontinue.domain.repository.SettingsRe
         val updated = settingsFlow.value.reminderCategories + category
         settingsFlow.value = settingsFlow.value.copy(reminderCategories = updated)
         return category
+    }
+
+    override suspend fun updateReminderCategory(
+        id: String,
+        newName: String,
+        newColorHex: Long,
+        newIconName: String
+    ): com.shejan.acontinue.domain.model.ReminderCategory {
+        val current = settingsFlow.value.reminderCategories
+        var updatedItem: com.shejan.acontinue.domain.model.ReminderCategory? = null
+        val updated = current.map { item ->
+            if (item.id == id && !item.isDefault) {
+                val modified = item.copy(name = newName, colorHex = newColorHex, iconName = newIconName)
+                updatedItem = modified
+                modified
+            } else item
+        }
+        val result = updatedItem ?: com.shejan.acontinue.domain.model.ReminderCategory(id = id, name = newName, colorHex = newColorHex, iconName = newIconName)
+        settingsFlow.value = settingsFlow.value.copy(reminderCategories = updated)
+        return result
+    }
+
+    override suspend fun deleteReminderCategory(id: String) {
+        val current = settingsFlow.value.reminderCategories
+        val updated = current.filterNot { it.id == id && !it.isDefault }
+        settingsFlow.value = settingsFlow.value.copy(reminderCategories = updated)
     }
 }
 

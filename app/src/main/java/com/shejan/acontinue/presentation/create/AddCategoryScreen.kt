@@ -83,6 +83,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.shejan.acontinue.domain.model.ReminderCategory
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 
 data class CategoryIconItem(
@@ -165,6 +166,7 @@ fun getCategoryIcon(name: String): ImageVector {
 
 @Composable
 fun AddCategoryScreen(
+    initialCategory: ReminderCategory? = null,
     onSaveCategory: (name: String, colorHex: Long, iconName: String) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -172,9 +174,15 @@ fun AddCategoryScreen(
     val colors = LocalUtilitarianColors.current
     val scrollState = rememberScrollState()
 
-    var categoryName by remember { mutableStateOf("Category 1") }
-    var selectedColorHex by remember { mutableLongStateOf(0xFFB39DDB) }
-    var selectedIconName by remember { mutableStateOf("bell") }
+    var categoryName by remember(initialCategory) {
+        mutableStateOf(initialCategory?.name ?: "Category 1")
+    }
+    var selectedColorHex by remember(initialCategory) {
+        mutableLongStateOf(initialCategory?.colorHex ?: 0xFFB39DDB)
+    }
+    var selectedIconName by remember(initialCategory) {
+        mutableStateOf(initialCategory?.iconName ?: "bell")
+    }
 
     Box(
         modifier = modifier

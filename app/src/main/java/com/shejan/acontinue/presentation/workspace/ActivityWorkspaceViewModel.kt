@@ -206,4 +206,36 @@ class ActivityWorkspaceViewModel(
             updateReminderCategory(created)
         }
     }
+
+    fun editReminderCategory(oldCategory: ReminderCategory, newName: String, newColorHex: Long, newIconName: String) {
+        if (oldCategory.isDefault) return
+        viewModelScope.launch {
+            val updated = settingsRepository?.updateReminderCategory(
+                id = oldCategory.id,
+                newName = newName,
+                newColorHex = newColorHex,
+                newIconName = newIconName
+            ) ?: oldCategory.copy(name = newName, colorHex = newColorHex, iconName = newIconName)
+
+            activityRepository.renameReminderCategoryAcrossActivities(
+                oldName = oldCategory.name,
+                newName = newName,
+                newColorHex = newColorHex,
+                newIcon = newIconName
+            )
+        }
+    }
+
+    fun deleteReminderCategory(category: ReminderCategory) {
+        if (category.isDefault) return
+        viewModelScope.launch {
+            settingsRepository?.deleteReminderCategory(category.id)
+            activityRepository.resetActivitiesToDefaultCategory(
+                deletedName = category.name,
+                fallbackName = ReminderCategory.DEFAULT.name,
+                fallbackColorHex = ReminderCategory.DEFAULT.colorHex,
+                fallbackIcon = ReminderCategory.DEFAULT.iconName
+            )
+        }
+    }
 }

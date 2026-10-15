@@ -17,4 +17,6 @@ interface SettingsRepository {
     suspend fun updateCustomAlert(id: String, value: Int, unit: String)
     suspend fun deleteCustomAlert(id: String)
     suspend fun addReminderCategory(name: String, colorHex: Long, iconName: String): com.shejan.acontinue.domain.model.ReminderCategory
+    suspend fun updateReminderCategory(id: String, newName: String, newColorHex: Long, newIconName: String): com.shejan.acontinue.domain.model.ReminderCategory
+    suspend fun deleteReminderCategory(id: String)
 }

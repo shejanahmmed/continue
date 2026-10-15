@@ -124,6 +124,7 @@ import com.shejan.acontinue.domain.model.ActivityCategory
 import com.shejan.acontinue.domain.model.ActivityPriority
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.RecurrenceMode
+import com.shejan.acontinue.domain.model.ReminderCategory
 import com.shejan.acontinue.domain.model.ReminderOffset
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import kotlinx.coroutines.flow.collectLatest
@@ -180,11 +181,15 @@ fun CreateEntryScreen(
     var isEarlyAlertScreenVisible by remember { mutableStateOf(false) }
     var isCategoryScreenVisible by remember { mutableStateOf(false) }
     var isAddCategoryScreenVisible by remember { mutableStateOf(false) }
+    var editingCategory by remember { mutableStateOf<ReminderCategory?>(null) }
     var showIntensityPopup by remember { mutableStateOf(false) }
 
     BackHandler(enabled = isAlertScreenVisible || isRepeatScreenVisible || isEarlyAlertScreenVisible || showIntensityPopup || isCategoryScreenVisible || isAddCategoryScreenVisible) {
         if (showIntensityPopup) showIntensityPopup = false
-        else if (isAddCategoryScreenVisible) isAddCategoryScreenVisible = false
+        else if (isAddCategoryScreenVisible) {
+            editingCategory = null
+            isAddCategoryScreenVisible = false
+        }
         else if (isCategoryScreenVisible) isCategoryScreenVisible = false
         else if (isEarlyAlertScreenVisible) isEarlyAlertScreenVisible = false
         else if (isAlertScreenVisible) isAlertScreenVisible = false
@@ -193,11 +198,21 @@ fun CreateEntryScreen(
 
     if (isAddCategoryScreenVisible) {
         AddCategoryScreen(
+            initialCategory = editingCategory,
             onSaveCategory = { name, colorHex, iconName ->
-                viewModel.addReminderCategory(name, colorHex, iconName)
+                val currentEditing = editingCategory
+                if (currentEditing != null) {
+                    viewModel.updateReminderCategory(currentEditing, name, colorHex, iconName)
+                } else {
+                    viewModel.addReminderCategory(name, colorHex, iconName)
+                }
+                editingCategory = null
                 isAddCategoryScreenVisible = false
             },
-            onNavigateBack = { isAddCategoryScreenVisible = false }
+            onNavigateBack = {
+                editingCategory = null
+                isAddCategoryScreenVisible = false
+            }
         )
         return
     }
@@ -211,7 +226,17 @@ fun CreateEntryScreen(
                 viewModel.selectReminderCategory(category)
                 isCategoryScreenVisible = false
             },
-            onAddCategoryClick = { isAddCategoryScreenVisible = true },
+            onAddCategoryClick = {
+                editingCategory = null
+                isAddCategoryScreenVisible = true
+            },
+            onEditCategory = { category ->
+                editingCategory = category
+                isAddCategoryScreenVisible = true
+            },
+            onDeleteCategory = { category ->
+                viewModel.deleteReminderCategory(category)
+            },
             onNavigateBack = { isCategoryScreenVisible = false }
         )
         return

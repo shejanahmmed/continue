@@ -538,5 +538,90 @@ class CreateEntryViewModelTest {
         assertEquals(0xFFFFA726, updatedActivity.reminderCategoryColorHex)
         assertEquals("local_grocery_store", updatedActivity.reminderCategoryIcon)
     }
+
+    @Test
+    fun `test updateReminderCategory renames category across reminders in database and updates settings`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.addReminderCategory("Work", 0xFF4FC3F7, "badge")
+        testScheduler.advanceUntilIdle()
+
+        val workCategory = viewModel.state.value.savedReminderCategories.first { it.name == "Work" }
+
+        viewModel.updateEntryType(EntryType.REMINDER)
+        viewModel.updateTitle("Standup Meeting")
+        viewModel.events.test {
+            viewModel.saveEntry()
+            testScheduler.advanceUntilIdle()
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+        }
+
+        viewModel.updateReminderCategory(
+            oldCategory = workCategory,
+            newName = "Office",
+            newColorHex = 0xFFBA68C8,
+            newIconName = "apartment"
+        )
+        testScheduler.advanceUntilIdle()
+
+        val updatedActivity = activityRepository.activitiesFlow.value.first()
+        assertEquals("Office", updatedActivity.reminderCategory)
+        assertEquals(0xFFBA68C8, updatedActivity.reminderCategoryColorHex)
+        assertEquals("apartment", updatedActivity.reminderCategoryIcon)
+
+        assertEquals("Office", viewModel.state.value.selectedReminderCategory.name)
+        assertEquals(0xFFBA68C8, viewModel.state.value.selectedReminderCategory.colorHex)
+        assertEquals("apartment", viewModel.state.value.selectedReminderCategory.iconName)
+    }
+
+    @Test
+    fun `test deleteReminderCategory resets affected reminders to default category and removes from settings`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.addReminderCategory("Gym", 0xFFFA7268, "run")
+        testScheduler.advanceUntilIdle()
+
+        val gymCategory = viewModel.state.value.savedReminderCategories.first { it.name == "Gym" }
+
+        viewModel.updateEntryType(EntryType.REMINDER)
+        viewModel.updateTitle("Leg Day")
+        viewModel.events.test {
+            viewModel.saveEntry()
+            testScheduler.advanceUntilIdle()
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+        }
+
+        viewModel.deleteReminderCategory(gymCategory)
+        testScheduler.advanceUntilIdle()
+
+        val resetActivity = activityRepository.activitiesFlow.value.first()
+        assertEquals(ReminderCategory.DEFAULT.name, resetActivity.reminderCategory)
+        assertEquals(ReminderCategory.DEFAULT.colorHex, resetActivity.reminderCategoryColorHex)
+        assertEquals(ReminderCategory.DEFAULT.iconName, resetActivity.reminderCategoryIcon)
+
+        assertEquals(ReminderCategory.DEFAULT, viewModel.state.value.selectedReminderCategory)
+    }
+
+    @Test
+    fun `test default reminder category cannot be edited or deleted`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        val defaultCategory = ReminderCategory.DEFAULT
+
+        viewModel.updateReminderCategory(
+            oldCategory = defaultCategory,
+            newName = "Hacked Reminders",
+            newColorHex = 0xFF000000,
+            newIconName = "close"
+        )
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(ReminderCategory.DEFAULT.name, viewModel.state.value.selectedReminderCategory.name)
+
+        viewModel.deleteReminderCategory(defaultCategory)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.savedReminderCategories.any { it.isDefault })
+    }
 }
 

@@ -50,4 +50,10 @@ interface ActivityDao {
 
     @Query("UPDATE activities SET reminderCategory = :newCategory, reminderCategoryColorHex = :newColorHex, reminderCategoryIcon = :newIcon WHERE id = :activityId")
     suspend fun updateActivityReminderCategory(activityId: Long, newCategory: String, newColorHex: Long, newIcon: String)
+
+    @Query("UPDATE activities SET reminderCategory = :newName, reminderCategoryColorHex = :newColorHex, reminderCategoryIcon = :newIcon WHERE reminderCategory = :oldName")
+    suspend fun renameReminderCategoryAcrossActivities(oldName: String, newName: String, newColorHex: Long, newIcon: String)
+
+    @Query("UPDATE activities SET reminderCategory = :fallbackName, reminderCategoryColorHex = :fallbackColorHex, reminderCategoryIcon = :fallbackIcon WHERE reminderCategory = :deletedName")
+    suspend fun resetActivitiesToDefaultCategory(deletedName: String, fallbackName: String, fallbackColorHex: Long, fallbackIcon: String)
 }

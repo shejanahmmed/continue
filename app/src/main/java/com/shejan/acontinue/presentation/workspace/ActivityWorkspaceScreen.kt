@@ -95,6 +95,7 @@ fun ActivityWorkspaceScreen(
     val reminderCounts by viewModel.categoryReminderCounts.collectAsState()
     var isCategoryScreenVisible by remember { mutableStateOf(false) }
     var isAddCategoryScreenVisible by remember { mutableStateOf(false) }
+    var editingCategory by remember { mutableStateOf<ReminderCategory?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
@@ -121,7 +122,15 @@ fun ActivityWorkspaceScreen(
                 isCategoryScreenVisible = false
             },
             onAddCategoryClick = {
+                editingCategory = null
                 isAddCategoryScreenVisible = true
+            },
+            onEditCategory = { category ->
+                editingCategory = category
+                isAddCategoryScreenVisible = true
+            },
+            onDeleteCategory = { category ->
+                viewModel.deleteReminderCategory(category)
             },
             onNavigateBack = {
                 isCategoryScreenVisible = false
@@ -132,12 +141,20 @@ fun ActivityWorkspaceScreen(
 
     if (isAddCategoryScreenVisible) {
         AddCategoryScreen(
+            initialCategory = editingCategory,
             onSaveCategory = { name, colorHex, iconName ->
-                viewModel.addReminderCategory(name, colorHex, iconName)
+                val currentEditing = editingCategory
+                if (currentEditing != null) {
+                    viewModel.editReminderCategory(currentEditing, name, colorHex, iconName)
+                } else {
+                    viewModel.addReminderCategory(name, colorHex, iconName)
+                    isCategoryScreenVisible = false
+                }
+                editingCategory = null
                 isAddCategoryScreenVisible = false
-                isCategoryScreenVisible = false
             },
             onNavigateBack = {
+                editingCategory = null
                 isAddCategoryScreenVisible = false
             }
         )
