@@ -176,6 +176,17 @@ fun CreateEntryScreen(
         }
     }
 
+    LaunchedEffect(Unit) {
+        viewModel.events.collectLatest { event ->
+            when (event) {
+                is CreateEntryEvent.SavedSuccessfully -> onDismiss()
+                is CreateEntryEvent.ShowError -> {
+                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
+
     var isAlertScreenVisible by remember { mutableStateOf(false) }
     var isRepeatScreenVisible by remember { mutableStateOf(false) }
     var isEarlyAlertScreenVisible by remember { mutableStateOf(false) }
@@ -286,6 +297,19 @@ fun CreateEntryScreen(
         return
     }
 
+    if (state.entryType == EntryType.NOTE) {
+        CreateNoteScreen(
+            onSaveNote = { title, content ->
+                viewModel.saveNote(title, content)
+            },
+            onDiscard = {
+                viewModel.updateEntryType(EntryType.ACTIVITY)
+                onDismiss()
+            }
+        )
+        return
+    }
+
     var showColorPicker by remember { mutableStateOf(false) }
     var showEmojiKeyboard by remember { mutableStateOf(false) }
     var activePickerField by remember { mutableStateOf(ActivePickerField.NONE) }
@@ -299,17 +323,6 @@ fun CreateEntryScreen(
         mutableIntStateOf(cal.get(Calendar.MONTH))
     }
     var slideDirection by remember { mutableIntStateOf(1) }
-
-    LaunchedEffect(Unit) {
-        viewModel.events.collectLatest { event ->
-            when (event) {
-                is CreateEntryEvent.SavedSuccessfully -> onDismiss()
-                is CreateEntryEvent.ShowError -> {
-                    Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
-                }
-            }
-        }
-    }
 
     val scrollState = rememberScrollState()
 
@@ -1338,6 +1351,11 @@ private fun SegmentedTopToggle(
                 isSelected = selectedType == EntryType.REMINDER,
                 onClick = { onSelectType(EntryType.REMINDER) }
             )
+            SegmentItem(
+                label = "Notes",
+                isSelected = selectedType == EntryType.NOTE,
+                onClick = { onSelectType(EntryType.NOTE) }
+            )
         }
     }
 }
@@ -1364,7 +1382,7 @@ private fun SegmentItem(
             fontFamily = FontFamily.SansSerif,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
             fontSize = 14.sp,
-            modifier = Modifier.padding(horizontal = 28.dp, vertical = 8.dp)
+            modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp)
         )
     }
 }

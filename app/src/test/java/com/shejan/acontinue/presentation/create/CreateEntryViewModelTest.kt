@@ -623,5 +623,62 @@ class CreateEntryViewModelTest {
 
         assertTrue(viewModel.state.value.savedReminderCategories.any { it.isDefault })
     }
+
+    @Test
+    fun `test saveNote creates ActivityItem with EntryType NOTE and records in noteRepository`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.events.test {
+            viewModel.saveNote(title = "Meeting Notes", content = "Discuss Q4 roadmap and deliverables")
+            testScheduler.advanceUntilIdle()
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+        }
+
+        val activities = activityRepository.activitiesFlow.value
+        assertEquals(1, activities.size)
+        val savedActivity = activities.first()
+        assertEquals("Meeting Notes", savedActivity.title)
+        assertEquals("Discuss Q4 roadmap and deliverables", savedActivity.description)
+        assertEquals(EntryType.NOTE, savedActivity.entryType)
+
+        val notes = noteRepository.notesFlow.value
+        assertEquals(1, notes.size)
+        val savedNote = notes.first()
+        assertEquals(savedActivity.id, savedNote.activityId)
+        assertEquals("Meeting Notes", savedNote.title)
+        assertEquals("Discuss Q4 roadmap and deliverables", savedNote.content)
+    }
+
+    @Test
+    fun `test saveNote with blank title uses first line of content`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.events.test {
+            viewModel.saveNote(title = "", content = "Important idea\nSecond line details")
+            testScheduler.advanceUntilIdle()
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+        }
+
+        val activities = activityRepository.activitiesFlow.value
+        assertEquals(1, activities.size)
+        assertEquals("Important idea", activities.first().title)
+    }
+
+    @Test
+    fun `test saveNote with blank title and content is safely ignored`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.saveNote(title = "   ", content = "   ")
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(activityRepository.activitiesFlow.value.isEmpty())
+        assertTrue(noteRepository.notesFlow.value.isEmpty())
+    }
+
+    @Test
+    fun `test updateEntryType to NOTE updates state`() = runTest(testDispatcher) {
+        viewModel.updateEntryType(EntryType.NOTE)
+        assertEquals(EntryType.NOTE, viewModel.state.value.entryType)
+    }
 }
 

@@ -2,7 +2,8 @@ package com.shejan.acontinue.domain.model
 
 enum class EntryType {
     ACTIVITY,
-    REMINDER
+    REMINDER,
+    NOTE
 }
 
 enum class ActivityCategory(val displayName: String, val colorHex: Long) {
