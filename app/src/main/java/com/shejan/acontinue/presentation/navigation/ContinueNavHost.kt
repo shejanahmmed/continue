@@ -1,7 +1,9 @@
 package com.shejan.acontinue.presentation.navigation
 
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -74,9 +76,7 @@ fun ContinueNavHost(
         NavHost(
             navController = navController,
             startDestination = Screen.Home.route,
-            modifier = modifier
-                .fillMaxSize()
-                .padding(innerPadding)
+            modifier = modifier.fillMaxSize()
         ) {
             // Home Destination
             composable(Screen.Home.route) {
@@ -87,7 +87,8 @@ fun ContinueNavHost(
                     viewModel = homeViewModel,
                     onActivityClick = { activityId ->
                         navController.navigate(Screen.Workspace.createRoute(activityId))
-                    }
+                    },
+                    modifier = Modifier.statusBarsPadding()
                 )
             }
 
@@ -100,7 +101,8 @@ fun ContinueNavHost(
                     viewModel = diaryViewModel,
                     onActivityClick = { activityId ->
                         navController.navigate(Screen.Workspace.createRoute(activityId))
-                    }
+                    },
+                    modifier = Modifier.statusBarsPadding()
                 )
             }
 
@@ -116,7 +118,8 @@ fun ContinueNavHost(
                     },
                     onCreateClick = {
                         navController.navigate(Screen.Create.route)
-                    }
+                    },
+                    modifier = Modifier.statusBarsPadding()
                 )
             }
 
@@ -125,7 +128,10 @@ fun ContinueNavHost(
                 val settingsViewModel: com.shejan.acontinue.presentation.settings.SettingsViewModel = viewModel(
                     factory = container.provideSettingsViewModelFactory()
                 )
-                SettingsScreen(viewModel = settingsViewModel)
+                SettingsScreen(
+                    viewModel = settingsViewModel,
+                    modifier = Modifier.statusBarsPadding()
+                )
             }
 
             // Create Screen
@@ -153,9 +159,11 @@ fun ContinueNavHost(
                 )
                 ActivityWorkspaceScreen(
                     viewModel = workspaceViewModel,
-                    onNavigateBack = { navController.popBackStack() }
+                    onNavigateBack = { navController.popBackStack() },
+                    modifier = Modifier.statusBarsPadding().navigationBarsPadding()
                 )
             }
         }
     }
 }
+

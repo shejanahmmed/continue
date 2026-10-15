@@ -680,5 +680,21 @@ class CreateEntryViewModelTest {
         viewModel.updateEntryType(EntryType.NOTE)
         assertEquals(EntryType.NOTE, viewModel.state.value.entryType)
     }
+
+    @Test
+    fun `test saveNote with custom colorHex persists color in ActivityItem`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.events.test {
+            viewModel.saveNote(title = "Crimson Note", content = "Important crimson note", colorHex = 0xFF5C1324L)
+            testScheduler.advanceUntilIdle()
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+        }
+
+        val activities = activityRepository.activitiesFlow.value
+        assertEquals(1, activities.size)
+        val saved = activities.first()
+        assertEquals(0xFF5C1324L, saved.reminderCategoryColorHex)
+    }
 }
 

@@ -35,6 +35,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.lazy.LazyColumn
@@ -299,8 +300,8 @@ fun CreateEntryScreen(
 
     if (state.entryType == EntryType.NOTE) {
         CreateNoteScreen(
-            onSaveNote = { title, content ->
-                viewModel.saveNote(title, content)
+            onSaveNote = { title, content, colorHex ->
+                viewModel.saveNote(title, content, colorHex)
             },
             onDiscard = {
                 viewModel.updateEntryType(EntryType.ACTIVITY)
@@ -334,6 +335,8 @@ fun CreateEntryScreen(
         Column(
             modifier = Modifier
                 .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
                 .padding(top = 16.dp, bottom = if (showEmojiKeyboard) 360.dp else 120.dp),

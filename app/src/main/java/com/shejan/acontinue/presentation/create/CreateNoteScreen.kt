@@ -1,5 +1,8 @@
 package com.shejan.acontinue.presentation.create
 
+import android.app.Activity
+import android.content.Context
+import android.content.ContextWrapper
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
@@ -11,6 +14,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -31,15 +35,16 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.AddBox
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.Close
+import androidx.compose.material.icons.outlined.Colorize
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FormatColorText
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.MoreVert
-import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -47,7 +52,10 @@ import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -57,16 +65,34 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.core.view.WindowCompat
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import kotlinx.coroutines.launch
+
+val NOTE_COLORS = listOf(
+    0xFF121212L, // Default
+    0xFF5C1324L, // Crimson / Burgundy
+    0xFF6E2B1AL, // Rust / Terracotta
+    0xFF6B4407L, // Amber / Warm Ochre
+    0xFF1C4635L, // Forest Green
+    0xFF144A56L, // Deep Teal
+    0xFF1E435EL, // Slate Blue / Cyan
+    0xFF283556L, // Navy / Midnight
+    0xFF3E2055L, // Deep Purple / Violet
+    0xFF542544L, // Mauve / Wine
+    0xFF403B31L, // Taupe / Olive
+    0xFF252528L  // Charcoal / Carbon
+)
 
 data class ChecklistItem(
     val id: Long = System.currentTimeMillis() + (0..999).random(),
@@ -83,22 +109,64 @@ private data class NoteMenuOption(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateNoteScreen(
-    onSaveNote: (title: String, content: String) -> Unit,
+    onSaveNote: (title: String, content: String, colorHex: Long) -> Unit,
     onDiscard: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val colors = LocalUtilitarianColors.current
     val context = LocalContext.current
+    val view = LocalView.current
+    val activity = remember(context) { context.findActivity() }
     val haptic = LocalHapticFeedback.current
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
     var title by remember { mutableStateOf("") }
     var content by remember { mutableStateOf("") }
+    var selectedColorHex by remember { mutableLongStateOf(0xFF121212L) }
     var isChecklistMode by remember { mutableStateOf(false) }
     var checklistItems by remember { mutableStateOf(listOf<ChecklistItem>()) }
     var attachedImageUris by remember { mutableStateOf(listOf<Uri>()) }
     var showBottomSheet by remember { mutableStateOf(false) }
+    var showColorSheet by remember { mutableStateOf(false) }
+
+    DisposableEffect(activity, selectedColorHex) {
+        val window = activity?.window
+        if (window != null) {
+            val previousStatusBarColor = window.statusBarColor
+            val previousNavColor = window.navigationBarColor
+            val insetsController = WindowCompat.getInsetsController(window, view)
+            val previousLightStatus = insetsController.isAppearanceLightStatusBars
+            val previousLightNav = insetsController.isAppearanceLightNavigationBars
+
+            val targetArgb = Color(selectedColorHex).toArgb()
+            window.statusBarColor = targetArgb
+            window.navigationBarColor = targetArgb
+            insetsController.isAppearanceLightStatusBars = false
+            insetsController.isAppearanceLightNavigationBars = false
+
+            onDispose {
+                window.statusBarColor = previousStatusBarColor
+                window.navigationBarColor = previousNavColor
+                insetsController.isAppearanceLightStatusBars = previousLightStatus
+                insetsController.isAppearanceLightNavigationBars = previousLightNav
+            }
+        } else {
+            onDispose {}
+        }
+    }
+
+    SideEffect {
+        activity?.window?.let { window ->
+            val targetArgb = Color(selectedColorHex).toArgb()
+            window.statusBarColor = targetArgb
+            window.navigationBarColor = targetArgb
+            WindowCompat.getInsetsController(window, view).apply {
+                isAppearanceLightStatusBars = false
+                isAppearanceLightNavigationBars = false
+            }
+        }
+    }
 
     val imagePickerLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.GetContent()
@@ -132,27 +200,33 @@ fun CreateNoteScreen(
     val handleExit = {
         val finalContent = buildFinalContent()
         if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty()) {
-            onSaveNote(title, finalContent)
+            onSaveNote(title, finalContent, selectedColorHex)
         } else {
             onDiscard()
         }
     }
 
     BackHandler {
-        if (showBottomSheet) {
+        if (showColorSheet) {
+            showColorSheet = false
+        } else if (showBottomSheet) {
             showBottomSheet = false
         } else {
             handleExit()
         }
     }
 
-    Column(
+    Box(
         modifier = modifier
             .fillMaxSize()
-            .background(colors.background)
-            .statusBarsPadding()
-            .navigationBarsPadding()
+            .background(Color(selectedColorHex))
     ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .statusBarsPadding()
+                .navigationBarsPadding()
+        ) {
         // Top Bar: Back button on the left (pin & archive intentionally excluded)
         Row(
             modifier = Modifier
@@ -379,7 +453,7 @@ fun CreateNoteScreen(
             }
         }
 
-        // Bottom Bar: [+] | Palette | Format A on the left; 3-dots on the right
+        // Bottom Bar: [+] | ColorLens | Format A on the left; 3-dots on the right
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -407,20 +481,21 @@ fun CreateNoteScreen(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Palette icon
+            // Color picker icon (distinct eyedropper tool, opens color sheet)
             Box(
                 modifier = Modifier
                     .size(42.dp)
                     .clip(CircleShape)
                     .clickable {
-                        Toast.makeText(context, "Color palette", Toast.LENGTH_SHORT).show()
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showColorSheet = true
                     },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Palette,
+                    imageVector = Icons.Outlined.Colorize,
                     contentDescription = "Background color",
-                    tint = colors.textSecondary,
+                    tint = if (selectedColorHex != 0xFF121212L) Color(0xFF76D1FF) else colors.textPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -440,7 +515,7 @@ fun CreateNoteScreen(
                 Icon(
                     imageVector = Icons.Outlined.FormatColorText,
                     contentDescription = "Text style",
-                    tint = colors.textSecondary,
+                    tint = colors.textPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -460,12 +535,13 @@ fun CreateNoteScreen(
                 Icon(
                     imageVector = Icons.Outlined.MoreVert,
                     contentDescription = "More options",
-                    tint = colors.textSecondary,
+                    tint = colors.textPrimary,
                     modifier = Modifier.size(24.dp)
                 )
             }
         }
     }
+}
 
     // Exact Bottom Sheet matching user's reference screenshot
     if (showBottomSheet) {
@@ -565,4 +641,75 @@ fun CreateNoteScreen(
             }
         }
     }
+
+    // Color Palette Bottom Sheet matching reference screenshot
+    if (showColorSheet) {
+        val colorSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+        ModalBottomSheet(
+            onDismissRequest = { showColorSheet = false },
+            sheetState = colorSheetState,
+            containerColor = Color(0xFF1E2225),
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            dragHandle = null
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 22.dp, bottom = 28.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    text = "Color",
+                    color = colors.textPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                LazyRow(
+                    horizontalArrangement = Arrangement.spacedBy(14.dp),
+                    contentPadding = PaddingValues(horizontal = 24.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(NOTE_COLORS) { colorHex ->
+                        val isSelected = colorHex == selectedColorHex
+                        Box(
+                            modifier = Modifier
+                                .size(50.dp)
+                                .clip(CircleShape)
+                                .background(Color(colorHex))
+                                .border(
+                                    width = if (isSelected) 2.5.dp else 1.dp,
+                                    color = if (isSelected) Color(0xFF76D1FF) else Color.White.copy(alpha = 0.2f),
+                                    shape = CircleShape
+                                )
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    selectedColorHex = colorHex
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            if (isSelected) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Check,
+                                    contentDescription = "Selected color",
+                                    tint = if (colorHex == 0xFF121212L) Color(0xFF76D1FF) else Color.White,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private tailrec fun Context.findActivity(): Activity? = when (this) {
+    is Activity -> this
+    is ContextWrapper -> baseContext.findActivity()
+    else -> null
 }

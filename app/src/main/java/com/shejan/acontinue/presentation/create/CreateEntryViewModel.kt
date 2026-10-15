@@ -573,7 +573,7 @@ class CreateEntryViewModel(
         }
     }
 
-    fun saveNote(title: String, content: String) {
+    fun saveNote(title: String, content: String, colorHex: Long = 0xFF121212L) {
         val trimmedTitle = title.trim()
         val trimmedContent = content.trim()
         if (trimmedTitle.isBlank() && trimmedContent.isBlank()) {
@@ -601,6 +601,8 @@ class CreateEntryViewModel(
                 reminderMinutesList = emptyList(),
                 recurrenceMode = RecurrenceMode.NONE,
                 isCompleted = false,
+                reminderCategory = "Notes",
+                reminderCategoryColorHex = colorHex,
                 createdAtMillis = now
             )
 
