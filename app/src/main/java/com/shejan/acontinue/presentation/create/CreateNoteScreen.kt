@@ -1004,6 +1004,10 @@ fun CreateNoteScreen(
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     selectedColorHex = colorHex
                                     undoManager.recordAction(takeSnapshot(newSelectedColorHex = colorHex))
+                                    coroutineScope.launch {
+                                        colorSheetState.hide()
+                                        showColorSheet = false
+                                    }
                                 },
                             contentAlignment = Alignment.Center
                         ) {
