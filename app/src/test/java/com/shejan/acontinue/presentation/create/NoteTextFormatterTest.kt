@@ -91,4 +91,77 @@ class NoteTextFormatterTest {
         assertEquals(text, annotated.text)
         assertTrue(annotated.spanStyles.isNotEmpty())
     }
+
+    @Test
+    fun testFindMatchesCaseInsensitive() {
+        val text = "Device info\nDevice name: Shejan Processor"
+        val matches = NoteTextFormatter.findMatches(text, "devic")
+
+        assertEquals(2, matches.size)
+        assertEquals(0..4, matches[0])
+        assertEquals(12..16, matches[1])
+    }
+
+    @Test
+    fun testFindMatchesEmptyOrBlank() {
+        val text = "Some note content"
+        assertTrue(NoteTextFormatter.findMatches(text, "").isEmpty())
+        assertTrue(NoteTextFormatter.findMatches(text, "   ").isEmpty())
+        assertTrue(NoteTextFormatter.findMatches("", "word").isEmpty())
+    }
+
+    @Test
+    fun testSearchHighlightsDistinguishesActiveMatch() {
+        val text = "Device one and Device two"
+        val matches = NoteTextFormatter.findMatches(text, "Device")
+        assertEquals(2, matches.size)
+
+        // Active match is matches[0] (0..5)
+        val annotated = NoteTextFormatter.buildAnnotatedString(
+            text = text,
+            state = NoteFormatState(),
+            baseColor = Color.White,
+            searchQuery = "Device",
+            activeMatchRange = matches[0]
+        )
+
+        // Verify span styles were applied for both matches
+        val styles = annotated.spanStyles
+        assertTrue("Expected at least 2 styled spans for 2 matches", styles.size >= 2)
+
+        val activeSpan = styles.firstOrNull { it.start == 0 && it.end == 6 }
+        val secondarySpan = styles.firstOrNull { it.start == 15 && it.end == 21 }
+
+        assertTrue(activeSpan != null)
+        assertTrue(secondarySpan != null)
+
+        // Active match should be soft sunny light yellow (0xFFFFEE58) and dark text
+        assertEquals(Color(0xFFFFEE58), activeSpan!!.item.background)
+        assertEquals(Color(0xFF1E1E1E), activeSpan.item.color)
+
+        // Secondary match should be subtle light yellow (0xFFFFEE58 with alpha)
+        assertEquals(Color(0xFFFFEE58).copy(alpha = 0.28f), secondarySpan!!.item.background)
+        assertEquals(Color.White, secondarySpan.item.color)
+    }
+
+    @Test
+    fun testMatchNavigationCyclingLogic() {
+        val totalMatches = 3
+        var activeIndex = 0
+
+        // Down arrow (Next)
+        activeIndex = (activeIndex + 1) % totalMatches
+        assertEquals(1, activeIndex)
+
+        activeIndex = (activeIndex + 1) % totalMatches
+        assertEquals(2, activeIndex)
+
+        // Wraps around to 0
+        activeIndex = (activeIndex + 1) % totalMatches
+        assertEquals(0, activeIndex)
+
+        // Up arrow (Previous) wraps around to 2
+        activeIndex = if (activeIndex - 1 < 0) totalMatches - 1 else activeIndex - 1
+        assertEquals(2, activeIndex)
+    }
 }

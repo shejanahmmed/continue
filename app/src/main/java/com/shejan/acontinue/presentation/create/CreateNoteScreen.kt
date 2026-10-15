@@ -57,6 +57,8 @@ import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FormatColorText
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.KeyboardArrowDown
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoCamera
@@ -77,6 +79,7 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
@@ -174,6 +177,16 @@ fun CreateNoteScreen(
     var showColorSheet by remember { mutableStateOf(false) }
     var showFormattingBar by remember { mutableStateOf(false) }
     var showMoreSheet by remember { mutableStateOf(false) }
+    var showFindBar by remember { mutableStateOf(false) }
+    var searchQuery by remember { mutableStateOf("") }
+    var activeMatchIndex by remember { mutableIntStateOf(0) }
+    val searchFocusRequester = remember { FocusRequester() }
+
+    val searchMatches = remember(noteTextState.text, searchQuery) {
+        if (searchQuery.isBlank()) emptyList() else NoteTextFormatter.findMatches(noteTextState.text, searchQuery)
+    }
+    val safeActiveMatchIndex = if (searchMatches.isEmpty()) -1 else activeMatchIndex.coerceIn(0, searchMatches.size - 1)
+    val activeMatchRange = if (safeActiveMatchIndex in searchMatches.indices) searchMatches[safeActiveMatchIndex] else null
 
     val initialSnapshot = remember {
         NoteEditorSnapshot(
@@ -225,6 +238,25 @@ fun CreateNoteScreen(
     LaunchedEffect(isTitleFocused) {
         if (isTitleFocused) {
             showFormattingBar = false
+        }
+    }
+
+    LaunchedEffect(searchQuery) {
+        activeMatchIndex = 0
+    }
+
+    LaunchedEffect(showFindBar) {
+        if (showFindBar) {
+            searchFocusRequester.requestFocus()
+            keyboardController?.show()
+        }
+    }
+
+    LaunchedEffect(safeActiveMatchIndex, searchMatches) {
+        if (activeMatchRange != null && noteTextState.text.isNotEmpty()) {
+            val charOffset = activeMatchRange.first
+            val lineIndex = noteTextState.text.take(charOffset).count { it == '\n' }
+            scrollState.animateScrollTo((lineIndex * 45).coerceAtLeast(0))
         }
     }
 
@@ -313,6 +345,9 @@ fun CreateNoteScreen(
             showBottomSheet = false
         } else if (showMoreSheet) {
             showMoreSheet = false
+        } else if (showFindBar) {
+            showFindBar = false
+            searchQuery = ""
         } else if (showFormattingBar) {
             showFormattingBar = false
         } else {
@@ -474,8 +509,8 @@ fun CreateNoteScreen(
                             noteTextState = newTfv
                             undoManager.recordTyping(takeSnapshot(newNoteTextState = newTfv, newFormatState = newFormatState))
                         },
-                        visualTransformation = remember(formatState, colors.textPrimary) {
-                            NoteVisualTransformation(formatState, colors.textPrimary)
+                        visualTransformation = remember(formatState, colors.textPrimary, searchQuery, activeMatchRange) {
+                            NoteVisualTransformation(formatState, colors.textPrimary, searchQuery, activeMatchRange)
                         },
                         modifier = Modifier
                             .fillMaxWidth()
@@ -613,7 +648,128 @@ fun CreateNoteScreen(
 
         val isFormattingEnabled = !isTitleFocused && !isChecklistMode
 
-        if (showFormattingBar) {
+        if (showFindBar) {
+            // Find In Note Search Bar docked above keyboard
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(10.dp)
+            ) {
+                // Search Input Box with cyan accent border
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(44.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .background(Color(0xFF161A1D))
+                        .border(1.5.dp, Color(0xFF76D1FF), RoundedCornerShape(8.dp))
+                        .padding(horizontal = 12.dp),
+                    contentAlignment = Alignment.CenterStart
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Search,
+                            contentDescription = "Search",
+                            tint = colors.textPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(searchFocusRequester),
+                            textStyle = TextStyle(
+                                color = colors.textPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Normal
+                            ),
+                            cursorBrush = SolidColor(Color(0xFF76D1FF)),
+                            singleLine = true,
+                            decorationBox = { innerTextField ->
+                                Box {
+                                    if (searchQuery.isEmpty()) {
+                                        Text(
+                                            text = "Find in note",
+                                            color = colors.textSecondary.copy(alpha = 0.6f),
+                                            fontSize = 15.sp,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
+                        )
+                    }
+                }
+
+                // Up Arrow
+                val canNavigate = searchMatches.size > 1
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable(enabled = canNavigate) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            activeMatchIndex = if (activeMatchIndex - 1 < 0) searchMatches.size - 1 else activeMatchIndex - 1
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.KeyboardArrowUp,
+                        contentDescription = "Previous match",
+                        tint = if (canNavigate) colors.textPrimary else colors.textDisabled.copy(alpha = 0.35f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // Down Arrow
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .clip(CircleShape)
+                        .clickable(enabled = canNavigate) {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            activeMatchIndex = (activeMatchIndex + 1) % searchMatches.size
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.KeyboardArrowDown,
+                        contentDescription = "Next match",
+                        tint = if (canNavigate) colors.textPrimary else colors.textDisabled.copy(alpha = 0.35f),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+
+                // Close Button [X]
+                Box(
+                    modifier = Modifier
+                        .size(38.dp)
+                        .clip(CircleShape)
+                        .background(Color(0xFF262C30))
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showFindBar = false
+                            searchQuery = ""
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Close,
+                        contentDescription = "Close find",
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            }
+        } else if (showFormattingBar) {
             val currentLine = remember(noteTextState.text, noteTextState.selection.min) {
                 NoteTextFormatter.getLineIndex(noteTextState.text, noteTextState.selection.min)
             }
@@ -1036,7 +1192,8 @@ fun CreateNoteScreen(
                 coroutineScope.launch {
                     moreSheetState.hide()
                     showMoreSheet = false
-                    Toast.makeText(context, "Find in note", Toast.LENGTH_SHORT).show()
+                    showFormattingBar = false
+                    showFindBar = true
                 }
             },
             NoteMenuOption("Make a copy", Icons.Outlined.ContentCopy) {

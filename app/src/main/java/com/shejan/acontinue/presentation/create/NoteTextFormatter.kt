@@ -222,10 +222,27 @@ object NoteTextFormatter {
         return result
     }
 
+    fun findMatches(text: String, query: String): List<IntRange> {
+        if (text.isEmpty() || query.isBlank()) return emptyList()
+        val results = mutableListOf<IntRange>()
+        val lowerText = text.lowercase()
+        val lowerQuery = query.lowercase()
+        var startIndex = 0
+        while (startIndex < text.length) {
+            val foundIndex = lowerText.indexOf(lowerQuery, startIndex)
+            if (foundIndex < 0) break
+            results.add(foundIndex until (foundIndex + lowerQuery.length))
+            startIndex = foundIndex + lowerQuery.length
+        }
+        return results
+    }
+
     fun buildAnnotatedString(
         text: String,
         state: NoteFormatState,
-        baseColor: Color
+        baseColor: Color,
+        searchQuery: String = "",
+        activeMatchRange: IntRange? = null
     ): AnnotatedString {
         return buildAnnotatedString {
             append(text)
@@ -293,6 +310,31 @@ object NoteTextFormatter {
                     s,
                     e
                 )
+            }
+
+            if (searchQuery.isNotBlank() && text.isNotEmpty()) {
+                val matches = findMatches(text, searchQuery)
+                for (match in matches) {
+                    val isCurrentActive = activeMatchRange != null &&
+                        activeMatchRange.first == match.first &&
+                        activeMatchRange.last == match.last
+
+                    val bgColor = if (isCurrentActive) {
+                        Color(0xFFFFEE58)
+                    } else {
+                        Color(0xFFFFEE58).copy(alpha = 0.28f)
+                    }
+                    val textColor = if (isCurrentActive) Color(0xFF1E1E1E) else baseColor
+
+                    addStyle(
+                        SpanStyle(
+                            background = bgColor,
+                            color = textColor
+                        ),
+                        match.first,
+                        match.last + 1
+                    )
+                }
             }
         }
     }
@@ -440,10 +482,18 @@ object NoteTextFormatter {
 
 class NoteVisualTransformation(
     private val formatState: NoteFormatState,
-    private val baseColor: Color
+    private val baseColor: Color,
+    private val searchQuery: String = "",
+    private val activeMatchRange: IntRange? = null
 ) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
-        val annotated = NoteTextFormatter.buildAnnotatedString(text.text, formatState, baseColor)
+        val annotated = NoteTextFormatter.buildAnnotatedString(
+            text.text,
+            formatState,
+            baseColor,
+            searchQuery,
+            activeMatchRange
+        )
         return TransformedText(annotated, OffsetMapping.Identity)
     }
 }
