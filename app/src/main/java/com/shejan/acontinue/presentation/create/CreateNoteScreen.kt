@@ -32,8 +32,10 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import android.content.Intent
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.automirrored.outlined.Redo
 import androidx.compose.material.icons.automirrored.outlined.Undo
 import androidx.compose.material.icons.outlined.AddBox
@@ -42,6 +44,8 @@ import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Colorize
+import androidx.compose.material.icons.outlined.ContentCopy
+import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FormatColorText
 import androidx.compose.material.icons.outlined.Image
@@ -49,6 +53,10 @@ import androidx.compose.material.icons.outlined.Mic
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoCamera
+import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.Share
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
@@ -124,6 +132,8 @@ private data class NoteMenuOption(
 fun CreateNoteScreen(
     onSaveNote: (title: String, content: String, colorHex: Long) -> Unit,
     onDiscard: () -> Unit,
+    initialUpdatedAtMillis: Long? = null,
+    onDeleteNote: (() -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = LocalUtilitarianColors.current
@@ -139,6 +149,10 @@ fun CreateNoteScreen(
     var isTitleFocused by remember { mutableStateOf(false) }
     var isContentFocused by remember { mutableStateOf(false) }
 
+    val openedAtMillis = remember { initialUpdatedAtMillis ?: System.currentTimeMillis() }
+    var lastEditedMillis by remember { mutableLongStateOf(openedAtMillis) }
+    var hasUserModified by remember { mutableStateOf(false) }
+
     var title by remember { mutableStateOf("") }
     var noteTextState by remember { mutableStateOf(TextFieldValue("")) }
     var formatState by remember { mutableStateOf(NoteFormatState()) }
@@ -149,6 +163,7 @@ fun CreateNoteScreen(
     var showBottomSheet by remember { mutableStateOf(false) }
     var showColorSheet by remember { mutableStateOf(false) }
     var showFormattingBar by remember { mutableStateOf(false) }
+    var showMoreSheet by remember { mutableStateOf(false) }
 
     val initialSnapshot = remember {
         NoteEditorSnapshot(
@@ -172,6 +187,8 @@ fun CreateNoteScreen(
         newAttachedImageUris: List<Uri> = attachedImageUris,
         newSelectedColorHex: Long = selectedColorHex
     ): NoteEditorSnapshot {
+        hasUserModified = true
+        lastEditedMillis = System.currentTimeMillis()
         return NoteEditorSnapshot(
             title = newTitle,
             noteTextState = newNoteTextState,
@@ -184,6 +201,8 @@ fun CreateNoteScreen(
     }
 
     val restoreSnapshot: (NoteEditorSnapshot) -> Unit = { restored ->
+        hasUserModified = true
+        lastEditedMillis = System.currentTimeMillis()
         title = restored.title
         noteTextState = restored.noteTextState
         formatState = restored.formatState
@@ -282,6 +301,8 @@ fun CreateNoteScreen(
             showColorSheet = false
         } else if (showBottomSheet) {
             showBottomSheet = false
+        } else if (showMoreSheet) {
+            showMoreSheet = false
         } else if (showFormattingBar) {
             showFormattingBar = false
         } else {
@@ -789,7 +810,8 @@ fun CreateNoteScreen(
                         contentDescription = "More options",
                         isEnabled = true,
                         onClick = {
-                            Toast.makeText(context, "More options", Toast.LENGTH_SHORT).show()
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showMoreSheet = true
                         }
                     )
                 }
@@ -961,6 +983,118 @@ fun CreateNoteScreen(
                                 )
                             }
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    // More Options Bottom Sheet matching reference screenshot
+    if (showMoreSheet) {
+        val moreSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+        val clipboardManager = LocalClipboardManager.current
+
+        val moreOptions = listOf(
+            NoteMenuOption("Find in note", Icons.Outlined.Search) {
+                coroutineScope.launch {
+                    moreSheetState.hide()
+                    showMoreSheet = false
+                    Toast.makeText(context, "Find in note", Toast.LENGTH_SHORT).show()
+                }
+            },
+            NoteMenuOption("Make a copy", Icons.Outlined.ContentCopy) {
+                coroutineScope.launch {
+                    moreSheetState.hide()
+                    showMoreSheet = false
+                    val finalContent = buildFinalContent()
+                    val fullNoteText = if (title.isNotBlank()) "$title\n\n$finalContent" else finalContent
+                    clipboardManager.setText(AnnotatedString(fullNoteText))
+                    Toast.makeText(context, "Note copied to clipboard", Toast.LENGTH_SHORT).show()
+                }
+            },
+            NoteMenuOption("Send", Icons.Outlined.Share) {
+                coroutineScope.launch {
+                    moreSheetState.hide()
+                    showMoreSheet = false
+                    val finalContent = buildFinalContent()
+                    val shareIntent = Intent(Intent.ACTION_SEND).apply {
+                        type = "text/plain"
+                        putExtra(Intent.EXTRA_SUBJECT, title)
+                        putExtra(Intent.EXTRA_TEXT, if (title.isNotBlank()) "$title\n\n$finalContent" else finalContent)
+                    }
+                    context.startActivity(Intent.createChooser(shareIntent, "Share note via"))
+                }
+            },
+            NoteMenuOption("Labels", Icons.AutoMirrored.Outlined.Label) {
+                coroutineScope.launch {
+                    moreSheetState.hide()
+                    showMoreSheet = false
+                    Toast.makeText(context, "Labels", Toast.LENGTH_SHORT).show()
+                }
+            },
+            NoteMenuOption("Delete", Icons.Outlined.Delete) {
+                coroutineScope.launch {
+                    moreSheetState.hide()
+                    showMoreSheet = false
+                    if (onDeleteNote != null) {
+                        onDeleteNote()
+                    } else {
+                        onDiscard()
+                    }
+                }
+            }
+        )
+
+        ModalBottomSheet(
+            onDismissRequest = { showMoreSheet = false },
+            sheetState = moreSheetState,
+            containerColor = Color(0xFF1E2225),
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            dragHandle = null
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 22.dp, bottom = 28.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    text = NoteLastEditedFormatter.format(lastEditedMillis),
+                    color = colors.textPrimary,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+
+                Spacer(modifier = Modifier.height(14.dp))
+
+                moreOptions.forEach { option ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clip(RoundedCornerShape(8.dp))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                option.onClick()
+                            }
+                            .padding(horizontal = 24.dp, vertical = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = option.icon,
+                            contentDescription = option.title,
+                            tint = colors.textPrimary,
+                            modifier = Modifier.size(24.dp)
+                        )
+
+                        Spacer(modifier = Modifier.width(20.dp))
+
+                        Text(
+                            text = option.title,
+                            color = colors.textPrimary,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Normal
+                        )
                     }
                 }
             }
