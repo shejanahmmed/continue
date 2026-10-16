@@ -58,6 +58,7 @@ fun DotMatrixHeader(
     leadingIcon: ImageVector? = null,
     badgeText: String? = null,
     isAccentBadge: Boolean = false,
+    badgeAtEnd: Boolean = false,
     actions: @Composable (RowScope.() -> Unit)? = null
 ) {
     val colors = LocalUtilitarianColors.current
@@ -86,7 +87,7 @@ fun DotMatrixHeader(
             letterSpacing = 1.2.sp
         )
 
-        if (badgeText != null) {
+        if (badgeText != null && !badgeAtEnd) {
             Spacer(modifier = Modifier.width(8.dp))
             Surface(
                 shape = RoundedCornerShape(4.dp),
@@ -103,9 +104,26 @@ fun DotMatrixHeader(
             }
         }
 
-        if (actions != null) {
+        if (badgeAtEnd || actions != null) {
             Spacer(modifier = Modifier.weight(1f))
-            actions()
+            if (badgeText != null && badgeAtEnd) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = if (isAccentBadge) colors.accent else colors.borderStroke
+                ) {
+                    Text(
+                        text = badgeText,
+                        color = if (isAccentBadge && colors.accent == Color.White) Color.Black else colors.textPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                    )
+                }
+            }
+            if (actions != null) {
+                actions()
+            }
         }
     }
 }

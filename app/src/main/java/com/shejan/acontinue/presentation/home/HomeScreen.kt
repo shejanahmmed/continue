@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.sp
 import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.core.designsystem.components.UtilitarianBadge
+import com.shejan.acontinue.core.designsystem.components.UtilitarianDailyMetricCard
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityTask
 import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
@@ -61,7 +62,8 @@ import java.util.Locale
 fun HomeScreen(
     viewModel: HomeViewModel,
     onActivityClick: (Long) -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onNavigateToCalendar: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
@@ -78,9 +80,24 @@ fun HomeScreen(
             DotMatrixHeader(
                 title = "HOME",
                 leadingIcon = Icons.Outlined.Home,
-                badgeText = dateHeader.uppercase()
+                badgeText = dateHeader.uppercase(),
+                badgeAtEnd = true
             )
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Main Hero Metric Card: Compact dual-gauge overview
+            UtilitarianDailyMetricCard(
+                eventCount = uiState.todayEventCount,
+                completedEventCount = uiState.todayCompletedEventCount,
+                eventProgress = uiState.eventProgress,
+                reminderCount = uiState.todayReminderCount,
+                completedReminderCount = uiState.todayCompletedReminderCount,
+                pendingReminderCount = uiState.todayPendingReminderCount,
+                reminderProgress = uiState.reminderProgress,
+                onEventsClick = onNavigateToCalendar,
+                onRemindersClick = onNavigateToCalendar
+            )
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         // Section 1: Next Up or Current Focus

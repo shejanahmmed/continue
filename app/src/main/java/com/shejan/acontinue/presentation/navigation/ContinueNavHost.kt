@@ -91,6 +91,9 @@ fun ContinueNavHost(
                     onActivityClick = { activityId ->
                         navController.navigate(Screen.Workspace.createRoute(activityId))
                     },
+                    onNavigateToCalendar = {
+                        navController.navigate(Screen.Calendar.route)
+                    },
                     modifier = Modifier.statusBarsPadding()
                 )
             }

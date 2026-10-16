@@ -6,6 +6,7 @@ import com.shejan.acontinue.FakeTaskRepository
 import com.shejan.acontinue.domain.model.ActivityCategory
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityTask
+import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.usecase.GetTodayTimelineUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -90,5 +91,80 @@ class HomeViewModelTest {
 
         val allTasks = taskRepository.tasksFlow.value
         assertEquals(true, allTasks.first().isCompleted)
+    }
+
+    @Test
+    fun `test home view model calculates distinct event and reminder counts for today`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        val event1 = ActivityItem(
+            id = 1L,
+            title = "Team Standup",
+            entryType = EntryType.ACTIVITY,
+            startTimeMillis = now + 1000L,
+            endTimeMillis = now + 2000L
+        )
+        val event2 = ActivityItem(
+            id = 2L,
+            title = "Architecture Review",
+            entryType = EntryType.ACTIVITY,
+            startTimeMillis = now + 3000L,
+            endTimeMillis = now + 4000L
+        )
+        val reminder1 = ActivityItem(
+            id = 3L,
+            title = "Submit Report",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now + 5000L,
+            endTimeMillis = now + 5000L,
+            isCompleted = false
+        )
+        val reminder2 = ActivityItem(
+            id = 4L,
+            title = "Water Plants",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now + 6000L,
+            endTimeMillis = now + 6000L,
+            isCompleted = true
+        )
+
+        activityRepository.insertActivity(event1)
+        activityRepository.insertActivity(event2)
+        activityRepository.insertActivity(reminder1)
+        activityRepository.insertActivity(reminder2)
+
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(2, state.todayEventCount)
+            assertEquals(0, state.todayCompletedEventCount)
+            assertEquals(0f, state.eventProgress, 0.001f)
+            assertEquals(2, state.todayReminderCount)
+            assertEquals(1, state.todayCompletedReminderCount)
+            assertEquals(1, state.todayPendingReminderCount)
+            assertEquals(0.5f, state.reminderProgress, 0.001f)
+            assertEquals(4, state.todayTotalCount)
+            assertEquals(1, state.todayCompletedCount)
+            assertEquals(0.25f, state.completionProgress, 0.001f)
+        }
+    }
+
+    @Test
+    fun `test empty day calculates zero metrics`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(0, state.todayEventCount)
+            assertEquals(0, state.todayCompletedEventCount)
+            assertEquals(0f, state.eventProgress, 0.001f)
+            assertEquals(0, state.todayReminderCount)
+            assertEquals(0, state.todayCompletedReminderCount)
+            assertEquals(0, state.todayPendingReminderCount)
+            assertEquals(0f, state.reminderProgress, 0.001f)
+            assertEquals(0, state.todayTotalCount)
+            assertEquals(0, state.todayCompletedCount)
+            assertEquals(0f, state.completionProgress, 0.001f)
+        }
     }
 }
