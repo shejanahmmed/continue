@@ -62,7 +62,7 @@ import java.util.Locale
 fun CalendarScreen(
     viewModel: CalendarViewModel,
     onActivityClick: (Long) -> Unit,
-    onCreateClick: () -> Unit = {},
+    onCreateClick: (Long) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -229,7 +229,7 @@ fun CalendarScreen(
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 16.dp)
-                .clickable { onCreateClick() },
+                .clickable { onCreateClick(uiState.selectedDateMillis) },
             shape = CircleShape,
             color = Color(0xFF222222),
             border = BorderStroke(1.dp, UtilitarianBorderStroke)

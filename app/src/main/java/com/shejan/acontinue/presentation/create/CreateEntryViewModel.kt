@@ -188,6 +188,15 @@ class CreateEntryViewModel(
     fun updateStartMillis(millis: Long) = _state.update { it.copy(startMillis = millis) }
     fun updateEndMillis(millis: Long) = _state.update { it.copy(endMillis = millis) }
 
+    fun setInitialDate(dateMillis: Long) {
+        val targetCal = Calendar.getInstance().apply { timeInMillis = dateMillis }
+        updateStartDate(
+            year = targetCal.get(Calendar.YEAR),
+            month = targetCal.get(Calendar.MONTH),
+            dayOfMonth = targetCal.get(Calendar.DAY_OF_MONTH)
+        )
+    }
+
     fun updateStartDate(year: Int, month: Int, dayOfMonth: Int) {
         _state.update { current ->
             val cal = Calendar.getInstance().apply {

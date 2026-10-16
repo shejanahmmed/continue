@@ -33,7 +33,10 @@ sealed class Screen(val route: String) {
     data object Diary : Screen("diary")
     data object Calendar : Screen("calendar")
     data object Settings : Screen("settings")
-    data object Create : Screen("create")
+    data object Create : Screen("create?initialDate={initialDate}") {
+        fun createRoute(initialDate: Long? = null): String =
+            if (initialDate != null) "create?initialDate=$initialDate" else "create"
+    }
     data object Workspace : Screen("workspace/{activityId}") {
         fun createRoute(activityId: Long): String = "workspace/$activityId"
     }
@@ -116,8 +119,8 @@ fun ContinueNavHost(
                     onActivityClick = { activityId ->
                         navController.navigate(Screen.Workspace.createRoute(activityId))
                     },
-                    onCreateClick = {
-                        navController.navigate(Screen.Create.route)
+                    onCreateClick = { dateMillis ->
+                        navController.navigate(Screen.Create.createRoute(dateMillis))
                     },
                     modifier = Modifier.statusBarsPadding()
                 )
@@ -135,10 +138,22 @@ fun ContinueNavHost(
             }
 
             // Create Screen
-            composable(Screen.Create.route) {
+            composable(
+                route = Screen.Create.route,
+                arguments = listOf(
+                    navArgument("initialDate") {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    }
+                )
+            ) { backStackEntry ->
+                val initialDate = backStackEntry.arguments?.getLong("initialDate") ?: -1L
                 val createViewModel: CreateEntryViewModel = viewModel(
                     factory = container.provideCreateEntryViewModelFactory()
                 )
+                if (initialDate > 0L) {
+                    createViewModel.setInitialDate(initialDate)
+                }
                 CreateEntryScreen(
                     viewModel = createViewModel,
                     onDismiss = { navController.popBackStack() }
