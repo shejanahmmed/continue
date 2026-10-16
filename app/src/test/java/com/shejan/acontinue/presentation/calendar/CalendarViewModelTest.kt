@@ -15,6 +15,8 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -318,6 +320,98 @@ class CalendarViewModelTest {
             val state = awaitItem()
             val prevCal = Calendar.getInstance().apply { timeInMillis = state.selectedDateMillis }
             assertEquals(16, prevCal.get(Calendar.DAY_OF_MONTH))
+        }
+    }
+
+    @Test
+    fun `test showActivityDetail and dismissActivityDetail`() = runTest(testDispatcher) {
+        val item = ActivityItem(
+            id = 50L,
+            title = "Design Sync",
+            startTimeMillis = System.currentTimeMillis(),
+            endTimeMillis = System.currentTimeMillis() + 3600000L
+        )
+        activityRepository.insertActivity(item)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val initialState = awaitItem()
+            assertNull(initialState.selectedActivityForDetail)
+
+            viewModel.showActivityDetail(item)
+            val detailState = awaitItem()
+            assertNotNull(detailState.selectedActivityForDetail)
+            assertEquals("Design Sync", detailState.selectedActivityForDetail?.title)
+
+            viewModel.dismissActivityDetail()
+            val dismissedState = awaitItem()
+            assertNull(dismissedState.selectedActivityForDetail)
+        }
+    }
+
+    @Test
+    fun `test deleteActivity removes item and dismisses detail if active`() = runTest(testDispatcher) {
+        val item = ActivityItem(
+            id = 60L,
+            title = "Temporary Meeting",
+            startTimeMillis = System.currentTimeMillis(),
+            endTimeMillis = System.currentTimeMillis() + 3600000L
+        )
+        activityRepository.insertActivity(item)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.showActivityDetail(item)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.deleteActivity(60L)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertNull(state.selectedActivityForDetail)
+            assertFalse(state.selectedDayActivities.any { it.id == 60L })
+        }
+    }
+
+    @Test
+    fun `test allDayActivities and timedActivities filter properly`() = runTest(testDispatcher) {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 20, 10, 0, 0)
+        }
+        val baseTime = cal.timeInMillis
+
+        // 1. All-Day item
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 70L,
+                title = "College Holiday",
+                isAllDay = true,
+                startTimeMillis = baseTime,
+                endTimeMillis = baseTime + 86400000L
+            )
+        )
+
+        // 2. Timed item
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 71L,
+                title = "Lab Exam",
+                isAllDay = false,
+                startTimeMillis = baseTime,
+                endTimeMillis = baseTime + 7200000L
+            )
+        )
+
+        viewModel.selectDate(baseTime)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(2, state.selectedDayActivities.size)
+            assertEquals(1, state.allDayActivities.size)
+            assertEquals("College Holiday", state.allDayActivities.first().title)
+            assertEquals(1, state.timedActivities.size)
+            assertEquals("Lab Exam", state.timedActivities.first().title)
         }
     }
 }
