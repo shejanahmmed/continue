@@ -34,9 +34,21 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutVertically
+import androidx.compose.animation.togetherWith
+import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -101,12 +113,14 @@ fun CalendarScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
-                            onClick = { viewModel.previousMonth() },
+                            onClick = {
+                                if (uiState.isWeekMode) viewModel.previousWeek() else viewModel.previousMonth()
+                            },
                             modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.ChevronLeft,
-                                contentDescription = "Previous Month",
+                                contentDescription = if (uiState.isWeekMode) "Previous Week" else "Previous Month",
                                 tint = UtilitarianTextSecondary,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -123,12 +137,14 @@ fun CalendarScreen(
                         )
 
                         IconButton(
-                            onClick = { viewModel.nextMonth() },
+                            onClick = {
+                                if (uiState.isWeekMode) viewModel.nextWeek() else viewModel.nextMonth()
+                            },
                             modifier = Modifier.size(28.dp)
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.ChevronRight,
-                                contentDescription = "Next Month",
+                                contentDescription = if (uiState.isWeekMode) "Next Week" else "Next Month",
                                 tint = UtilitarianTextSecondary,
                                 modifier = Modifier.size(18.dp)
                             )
@@ -183,12 +199,73 @@ fun CalendarScreen(
                 Spacer(modifier = Modifier.height(6.dp))
             }
 
-            // Full-Month 6x7 Grid
+            // Collapsible Month/Week Grid with Drag Gestures
             item {
-                UtilitarianMonthGrid(
-                    days = uiState.monthDays,
-                    onDayClick = { day -> viewModel.selectDate(day.dateMillis) }
-                )
+                var dragX by remember { mutableFloatStateOf(0f) }
+                var dragY by remember { mutableFloatStateOf(0f) }
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerInput(uiState.isWeekMode) {
+                            detectDragGestures(
+                                onDragStart = {
+                                    dragX = 0f
+                                    dragY = 0f
+                                },
+                                onDragEnd = {
+                                    val absX = kotlin.math.abs(dragX)
+                                    val absY = kotlin.math.abs(dragY)
+                                    if (absY > absX && absY > 25.dp.toPx()) {
+                                        if (dragY < 0) {
+                                            viewModel.setWeekMode(true)
+                                        } else {
+                                            viewModel.setWeekMode(false)
+                                        }
+                                    } else if (absX > absY && absX > 30.dp.toPx()) {
+                                        if (dragX < 0) {
+                                            if (uiState.isWeekMode) viewModel.nextWeek() else viewModel.nextMonth()
+                                        } else {
+                                            if (uiState.isWeekMode) viewModel.previousWeek() else viewModel.previousMonth()
+                                        }
+                                    }
+                                },
+                                onDrag = { change, dragAmount ->
+                                    dragX += dragAmount.x
+                                    dragY += dragAmount.y
+                                    if (kotlin.math.abs(dragX) > 15.dp.toPx() || kotlin.math.abs(dragY) > 15.dp.toPx()) {
+                                        change.consume()
+                                    }
+                                }
+                            )
+                        }
+                ) {
+                    AnimatedContent(
+                        targetState = uiState.isWeekMode,
+                        transitionSpec = {
+                            if (targetState) {
+                                (slideInVertically(animationSpec = tween(250)) { -it / 2 } + fadeIn(animationSpec = tween(200))) togetherWith
+                                        (slideOutVertically(animationSpec = tween(250)) { -it / 2 } + fadeOut(animationSpec = tween(150)))
+                            } else {
+                                (slideInVertically(animationSpec = tween(250)) { -it / 2 } + fadeIn(animationSpec = tween(200))) togetherWith
+                                        (slideOutVertically(animationSpec = tween(250)) { -it / 2 } + fadeOut(animationSpec = tween(150)))
+                            }
+                        },
+                        label = "CalendarCollapsibleTransition"
+                    ) { inWeekMode ->
+                        if (inWeekMode) {
+                            UtilitarianWeekRow(
+                                days = uiState.currentWeekDays,
+                                onDayClick = { day -> viewModel.selectDate(day.dateMillis) }
+                            )
+                        } else {
+                            UtilitarianMonthGrid(
+                                days = uiState.monthDays,
+                                onDayClick = { day -> viewModel.selectDate(day.dateMillis) }
+                            )
+                        }
+                    }
+                }
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
@@ -352,6 +429,25 @@ private fun UtilitarianMonthGrid(
                     )
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun UtilitarianWeekRow(
+    days: List<CalendarDay>,
+    onDayClick: (CalendarDay) -> Unit
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        days.forEach { day ->
+            MonthDayCell(
+                day = day,
+                onClick = { onDayClick(day) },
+                modifier = Modifier.weight(1f)
+            )
         }
     }
 }

@@ -37,6 +37,7 @@ data class CalendarDay(
 data class CalendarUiState(
     val currentMonthMillis: Long = System.currentTimeMillis(),
     val selectedDateMillis: Long = System.currentTimeMillis(),
+    val isWeekMode: Boolean = false,
     val monthDays: List<CalendarDay> = emptyList(),
     val selectedDayActivities: List<ActivityItem> = emptyList(),
     val todayDateNumber: Int = Calendar.getInstance().get(Calendar.DAY_OF_MONTH),
@@ -45,6 +46,16 @@ data class CalendarUiState(
     val activities: List<ActivityItem> get() = selectedDayActivities
     val selectedDayCompletedCount: Int get() = selectedDayActivities.count { it.isCompleted }
     val selectedDayTotalCount: Int get() = selectedDayActivities.size
+
+    val currentWeekDays: List<CalendarDay>
+        get() {
+            if (monthDays.isEmpty()) return emptyList()
+            val rows = monthDays.chunked(7)
+            return rows.firstOrNull { week -> week.any { it.isSelected } }
+                ?: rows.firstOrNull { week -> week.any { it.isToday } }
+                ?: rows.firstOrNull()
+                ?: emptyList()
+        }
 }
 
 class CalendarViewModel(
@@ -53,17 +64,47 @@ class CalendarViewModel(
 
     private val _currentMonth = MutableStateFlow(System.currentTimeMillis())
     private val _selectedDate = MutableStateFlow(System.currentTimeMillis())
+    private val _isWeekMode = MutableStateFlow(false)
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
     init {
-        combine(_currentMonth, _selectedDate, activityRepository.getAllActivities()) { monthMillis, selectedMillis, allActivities ->
-            buildUiState(monthMillis, selectedMillis, allActivities)
+        combine(
+            _currentMonth,
+            _selectedDate,
+            _isWeekMode,
+            activityRepository.getAllActivities()
+        ) { monthMillis, selectedMillis, weekMode, allActivities ->
+            buildUiState(monthMillis, selectedMillis, weekMode, allActivities)
         }
             .onEach { newState ->
                 _uiState.value = newState
             }
             .launchIn(viewModelScope)
+    }
+
+    fun setWeekMode(isWeek: Boolean) {
+        _isWeekMode.value = isWeek
+    }
+
+    fun toggleCalendarMode() {
+        _isWeekMode.value = !_isWeekMode.value
+    }
+
+    fun nextWeek() {
+        val cal = Calendar.getInstance().apply {
+            timeInMillis = _selectedDate.value
+            add(Calendar.DAY_OF_YEAR, 7)
+        }
+        selectDate(cal.timeInMillis)
+    }
+
+    fun previousWeek() {
+        val cal = Calendar.getInstance().apply {
+            timeInMillis = _selectedDate.value
+            add(Calendar.DAY_OF_YEAR, -7)
+        }
+        selectDate(cal.timeInMillis)
     }
 
     fun selectDate(millis: Long) {
@@ -142,6 +183,7 @@ class CalendarViewModel(
     private fun buildUiState(
         monthMillis: Long,
         selectedMillis: Long,
+        weekMode: Boolean,
         activities: List<ActivityItem>
     ): CalendarUiState {
         val bounds = calculateGridBounds(monthMillis)
@@ -182,6 +224,7 @@ class CalendarViewModel(
         return CalendarUiState(
             currentMonthMillis = monthMillis,
             selectedDateMillis = selectedMillis,
+            isWeekMode = weekMode,
             monthDays = days,
             selectedDayActivities = selectedActivities,
             todayDateNumber = todayDate,

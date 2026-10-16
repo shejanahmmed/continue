@@ -261,4 +261,63 @@ class CalendarViewModelTest {
             assertEquals(todayCal.get(Calendar.DAY_OF_YEAR), stateCal.get(Calendar.DAY_OF_YEAR))
         }
     }
+
+    @Test
+    fun `test week mode toggle and setWeekMode`() = runTest(testDispatcher) {
+        viewModel.uiState.test {
+            val initialState = awaitItem()
+            assertFalse(initialState.isWeekMode)
+
+            viewModel.setWeekMode(true)
+            val weekState = awaitItem()
+            assertTrue(weekState.isWeekMode)
+
+            viewModel.toggleCalendarMode()
+            val monthState = awaitItem()
+            assertFalse(monthState.isWeekMode)
+        }
+    }
+
+    @Test
+    fun `test currentWeekDays returns exactly 7 days containing selected date`() = runTest(testDispatcher) {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 16, 10, 0, 0)
+        }
+        viewModel.selectDate(cal.timeInMillis)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val weekDays = state.currentWeekDays
+            assertEquals(7, weekDays.size)
+            assertTrue(weekDays.any { it.dayOfMonth == 16 && it.isSelected })
+        }
+    }
+
+    @Test
+    fun `test nextWeek and previousWeek adjust selection by 7 days`() = runTest(testDispatcher) {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 16, 10, 0, 0)
+        }
+        viewModel.selectDate(cal.timeInMillis)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.nextWeek()
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val nextCal = Calendar.getInstance().apply { timeInMillis = state.selectedDateMillis }
+            assertEquals(23, nextCal.get(Calendar.DAY_OF_MONTH))
+        }
+
+        viewModel.previousWeek()
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val prevCal = Calendar.getInstance().apply { timeInMillis = state.selectedDateMillis }
+            assertEquals(16, prevCal.get(Calendar.DAY_OF_MONTH))
+        }
+    }
 }
