@@ -277,7 +277,12 @@ fun CalendarScreen(
                         } else {
                             UtilitarianMonthGrid(
                                 days = uiState.monthDays,
-                                onDayClick = { day -> viewModel.selectDate(day.dateMillis) }
+                                onDayClick = { day ->
+                                    viewModel.selectDate(day.dateMillis)
+                                    if (day.activities.isNotEmpty()) {
+                                        viewModel.setWeekMode(true)
+                                    }
+                                }
                             )
                         }
                     }
