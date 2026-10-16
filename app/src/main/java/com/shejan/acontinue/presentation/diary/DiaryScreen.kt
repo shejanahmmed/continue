@@ -105,20 +105,6 @@ fun DiaryScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // Knowledge Archive Stats
-        item {
-            MonochromeCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceAround
-                ) {
-                    MetricColumn(label = "ACTIVITIES", value = "${uiState.activities.size}")
-                    MetricColumn(label = "COMPLETED", value = "${uiState.completedActivitiesCount}")
-                    MetricColumn(label = "NOTES", value = "${uiState.notes.size}")
-                }
-            }
-            Spacer(modifier = Modifier.height(20.dp))
-        }
 
         // Section: Activity Records
         item {
@@ -204,24 +190,6 @@ fun DiaryScreen(
     }
 }
 
-@Composable
-private fun MetricColumn(label: String, value: String) {
-    Column(horizontalAlignment = Alignment.CenterHorizontally) {
-        Text(
-            text = value,
-            color = UtilitarianTextPrimary,
-            fontFamily = FontFamily.Monospace,
-            fontWeight = FontWeight.Bold,
-            fontSize = 20.sp
-        )
-        Text(
-            text = label,
-            color = UtilitarianTextSecondary,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 10.sp
-        )
-    }
-}
 
 @Composable
 private fun DiaryActivityRow(
