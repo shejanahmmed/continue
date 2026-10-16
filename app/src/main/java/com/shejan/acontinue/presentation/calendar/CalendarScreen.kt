@@ -26,8 +26,8 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.SentimentSatisfiedAlt
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
@@ -88,30 +88,16 @@ fun CalendarScreen(
                 .padding(horizontal = 16.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
         ) {
-            // Top Bar: Matches Screenshot Design
+            // Top Bar: Centered Month Title & Right Actions
             item {
-                Row(
+                Box(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                        .padding(vertical = 4.dp)
                 ) {
-                    // Left Menu Action
-                    IconButton(
-                        onClick = { /* Menu */ },
-                        modifier = Modifier.size(36.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Menu,
-                            contentDescription = "Menu",
-                            tint = UtilitarianTextPrimary,
-                            modifier = Modifier.size(24.dp)
-                        )
-                    }
-
                     // Center Month with Navigation
                     Row(
+                        modifier = Modifier.align(Alignment.Center),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         IconButton(
@@ -151,6 +137,7 @@ fun CalendarScreen(
 
                     // Right Actions: Search & Persistent Today Badge
                     Row(
+                        modifier = Modifier.align(Alignment.CenterEnd),
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
@@ -215,39 +202,57 @@ fun CalendarScreen(
                 ) {
                     Text(
                         text = dayNumberStr,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontWeight = FontWeight.Bold,
-                        fontSize = 26.sp,
+                        fontSize = 28.sp,
                         color = UtilitarianTextPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
                     Text(
                         text = dayWeekStr,
-                        fontFamily = FontFamily.Monospace,
+                        fontFamily = FontFamily.SansSerif,
                         fontWeight = FontWeight.SemiBold,
-                        fontSize = 15.sp,
+                        fontSize = 16.sp,
                         color = UtilitarianTextPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
+                    val countBadge = if (uiState.selectedDayTotalCount > 0) {
+                        "(${uiState.selectedDayCompletedCount}/${uiState.selectedDayTotalCount})"
+                    } else {
+                        "(0)"
+                    }
                     Text(
-                        text = "(${uiState.selectedDayActivities.size})",
+                        text = countBadge,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 13.sp,
                         color = UtilitarianTextSecondary
                     )
                 }
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
             }
 
-            // Selected Day Agenda Items
+            // Selected Day Agenda Items or Screenshot-Matched Empty State
             if (uiState.selectedDayActivities.isEmpty()) {
                 item {
-                    MonochromeCard {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 44.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.SentimentSatisfiedAlt,
+                            contentDescription = null,
+                            tint = Color(0xFF6E7681),
+                            modifier = Modifier.size(38.dp)
+                        )
+                        Spacer(modifier = Modifier.height(12.dp))
                         Text(
-                            text = "No activities scheduled for this day.",
+                            text = "Tap to add a sticker to this day.",
                             color = UtilitarianTextSecondary,
                             fontSize = 13.sp,
-                            lineHeight = 18.sp
+                            fontWeight = FontWeight.Normal
                         )
                     }
                 }
