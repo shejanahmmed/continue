@@ -21,10 +21,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material.icons.outlined.Menu
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
@@ -44,7 +47,6 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
@@ -67,8 +69,8 @@ fun CalendarScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
 
-    val monthHeaderFormat = SimpleDateFormat("MMM yyyy", Locale.getDefault())
-    val monthTitle = monthHeaderFormat.format(Date(uiState.currentMonthMillis)).uppercase()
+    val monthShortFormat = SimpleDateFormat("MMM", Locale.getDefault())
+    val monthShortTitle = monthShortFormat.format(Date(uiState.currentMonthMillis)).uppercase()
 
     val dayNumberFormat = SimpleDateFormat("dd", Locale.getDefault())
     val dayNumberStr = dayNumberFormat.format(Date(uiState.selectedDateMillis))
@@ -86,60 +88,97 @@ fun CalendarScreen(
                 .padding(horizontal = 16.dp),
             contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
         ) {
-            // Top Header: Unified DotMatrixHeader
+            // Top Bar: Matches Screenshot Design
             item {
-                DotMatrixHeader(
-                    title = "CALENDAR",
-                    leadingIcon = Icons.Outlined.CalendarToday,
-                    actions = {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            IconButton(
-                                onClick = { viewModel.previousMonth() },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.ChevronLeft,
-                                    contentDescription = "Previous Month",
-                                    tint = UtilitarianTextSecondary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Left Menu Action
+                    IconButton(
+                        onClick = { /* Menu */ },
+                        modifier = Modifier.size(36.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Menu,
+                            contentDescription = "Menu",
+                            tint = UtilitarianTextPrimary,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
 
-                            Text(
-                                text = monthTitle,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                letterSpacing = 0.5.sp,
-                                color = UtilitarianTextPrimary,
-                                modifier = Modifier.padding(horizontal = 2.dp)
+                    // Center Month with Navigation
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        IconButton(
+                            onClick = { viewModel.previousMonth() },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ChevronLeft,
+                                contentDescription = "Previous Month",
+                                tint = UtilitarianTextSecondary,
+                                modifier = Modifier.size(18.dp)
                             )
+                        }
 
-                            IconButton(
-                                onClick = { viewModel.nextMonth() },
-                                modifier = Modifier.size(28.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.ChevronRight,
-                                    contentDescription = "Next Month",
-                                    tint = UtilitarianTextSecondary,
-                                    modifier = Modifier.size(20.dp)
-                                )
-                            }
+                        Text(
+                            text = monthShortTitle,
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 22.sp,
+                            letterSpacing = 1.sp,
+                            color = UtilitarianTextPrimary,
+                            modifier = Modifier.padding(horizontal = 6.dp)
+                        )
 
-                            Spacer(modifier = Modifier.width(6.dp))
+                        IconButton(
+                            onClick = { viewModel.nextMonth() },
+                            modifier = Modifier.size(28.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.ChevronRight,
+                                contentDescription = "Next Month",
+                                tint = UtilitarianTextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    }
 
-                            // Today Jump Box Button [12]
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(7.dp))
-                                    .clickable { viewModel.jumpToToday() },
-                                contentAlignment = Alignment.Center
-                            ) {
+                    // Right Actions: Search & Persistent Today Badge
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        IconButton(
+                            onClick = { /* Search */ },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Search,
+                                contentDescription = "Search",
+                                tint = UtilitarianTextPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        // Today Jump Badge [16]
+                        Surface(
+                            shape = RoundedCornerShape(7.dp),
+                            color = Color.Transparent,
+                            border = BorderStroke(1.5.dp, UtilitarianTextPrimary),
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clickable { viewModel.jumpToToday() }
+                        ) {
+                            Box(contentAlignment = Alignment.Center) {
                                 Text(
                                     text = uiState.todayDateNumber.toString(),
-                                    fontFamily = FontFamily.Monospace,
+                                    fontFamily = FontFamily.SansSerif,
                                     fontWeight = FontWeight.Bold,
                                     fontSize = 12.sp,
                                     color = UtilitarianTextPrimary
@@ -147,8 +186,8 @@ fun CalendarScreen(
                             }
                         }
                     }
-                )
-                Spacer(modifier = Modifier.height(12.dp))
+                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
 
             // Day of Week Header Row
@@ -318,19 +357,24 @@ private fun MonthDayCell(
     onClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
-    val borderColor = when {
-        day.isSelected -> Color(0xFFE5A93C) // Accent border matching reference
+    val cellBorderColor = when {
+        day.isSelected -> Color(0xFF6E7681)
         day.isToday -> UtilitarianBorderStroke
-        else -> Color(0xFF262626)
+        else -> Color(0xFF222222)
+    }
+
+    val cellBackgroundColor = when {
+        day.isSelected -> Color(0xFF21262D)
+        else -> Color(0xFF14171A)
     }
 
     Surface(
         modifier = modifier
-            .height(52.dp)
+            .height(54.dp)
             .clickable { onClick() },
         shape = RoundedCornerShape(8.dp),
-        color = if (day.isSelected) Color(0xFF202020) else UtilitarianCardBackground,
-        border = BorderStroke(1.dp, borderColor)
+        color = cellBackgroundColor,
+        border = BorderStroke(1.dp, cellBorderColor)
     ) {
         Column(
             modifier = Modifier
@@ -338,20 +382,20 @@ private fun MonthDayCell(
                 .padding(vertical = 3.dp, horizontal = 2.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Date Number Badge
-            if (day.isSelected) {
+            // Date Number: Current date ALWAYS displayed in a small white rounded box
+            if (day.isToday) {
                 Surface(
                     shape = RoundedCornerShape(4.dp),
-                    color = UtilitarianTextPrimary,
+                    color = Color.White,
                     modifier = Modifier.padding(bottom = 2.dp)
                 ) {
                     Text(
                         text = day.dayOfMonth.toString(),
-                        color = UtilitarianPureBlack,
-                        fontSize = 10.sp,
+                        color = Color.Black,
+                        fontSize = 10.5.sp,
                         fontWeight = FontWeight.Bold,
                         fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(horizontal = 3.dp, vertical = 0.5.dp)
+                        modifier = Modifier.padding(horizontal = 3.5.dp, vertical = 0.5.dp)
                     )
                 }
             } else {
@@ -359,34 +403,83 @@ private fun MonthDayCell(
                     text = day.dayOfMonth.toString(),
                     color = if (day.isCurrentMonth) UtilitarianTextPrimary else UtilitarianTextDisabled,
                     fontFamily = FontFamily.Monospace,
-                    fontWeight = if (day.isToday) FontWeight.Bold else FontWeight.Normal,
+                    fontWeight = if (day.isSelected) FontWeight.Bold else FontWeight.Normal,
                     fontSize = 11.sp,
                     modifier = Modifier.padding(bottom = 2.dp)
                 )
             }
 
-            // Colored Activity Indicator Strips
-            val visibleActivities = day.activities.take(3)
-            Column(
-                modifier = Modifier.fillMaxWidth(),
-                verticalArrangement = Arrangement.spacedBy(1.5.dp)
+            Spacer(modifier = Modifier.weight(1f))
+
+            // Multi-Color Dot Matrix Indicator
+            DayDotMatrix(
+                colorsHex = day.dotColorsHex,
+                hasOverflow = day.hasMoreDots,
+                modifier = Modifier.padding(bottom = 3.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun DayDotMatrix(
+    colorsHex: List<Long>,
+    hasOverflow: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (colorsHex.isEmpty()) return
+
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(2.dp)
+    ) {
+        // Line 1: up to 4 dots
+        val line1Colors = colorsHex.take(4)
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(2.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            line1Colors.forEach { hex ->
+                Box(
+                    modifier = Modifier
+                        .size(4.dp)
+                        .background(color = Color(hex), shape = CircleShape)
+                )
+            }
+        }
+
+        // Line 2: up to 4 items (or 3 dots + 1 arrow if hasOverflow)
+        if (colorsHex.size > 4 || hasOverflow) {
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(2.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
-                visibleActivities.forEach { activity ->
-                    val dotColor = if (activity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER) {
-                        Color(activity.reminderCategoryColorHex)
-                    } else {
-                        Color(activity.category.colorHex)
+                if (hasOverflow) {
+                    val line2Colors = colorsHex.drop(4).take(3)
+                    line2Colors.forEach { hex ->
+                        Box(
+                            modifier = Modifier
+                                .size(4.dp)
+                                .background(color = Color(hex), shape = CircleShape)
+                        )
                     }
-                    Box(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(2.5.dp)
-                            .padding(horizontal = 2.dp)
-                            .background(
-                                color = dotColor,
-                                shape = RoundedCornerShape(1.dp)
-                            )
+                    // 4th item: arrow indicating more
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowForward,
+                        contentDescription = "More",
+                        tint = UtilitarianTextSecondary,
+                        modifier = Modifier.size(5.dp)
                     )
+                } else {
+                    val line2Colors = colorsHex.drop(4).take(4)
+                    line2Colors.forEach { hex ->
+                        Box(
+                            modifier = Modifier
+                                .size(4.dp)
+                                .background(color = Color(hex), shape = CircleShape)
+                        )
+                    }
                 }
             }
         }
