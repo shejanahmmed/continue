@@ -7,10 +7,16 @@ import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.RecurrenceEndType
 import com.shejan.acontinue.domain.model.RecurrenceMode
 import com.shejan.acontinue.domain.repository.ActivityRepository
+import com.shejan.acontinue.domain.model.ActivityWorkspaceAggregate
+import com.shejan.acontinue.domain.usecase.GetActivityWorkspaceUseCase
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -41,6 +47,8 @@ data class CalendarUiState(
     val monthDays: List<CalendarDay> = emptyList(),
     val selectedDayActivities: List<ActivityItem> = emptyList(),
     val selectedActivityForDetail: ActivityItem? = null,
+    val expandedActivityId: Long? = null,
+    val expandedWorkspace: ActivityWorkspaceAggregate? = null,
     val todayDateNumber: Int = Calendar.getInstance().get(Calendar.DAY_OF_MONTH),
     val isLoading: Boolean = false
 ) {
@@ -62,30 +70,83 @@ data class CalendarUiState(
 }
 
 class CalendarViewModel(
-    private val activityRepository: ActivityRepository
+    private val activityRepository: ActivityRepository,
+    private val getActivityWorkspaceUseCase: GetActivityWorkspaceUseCase? = null
 ) : ViewModel() {
 
     private val _currentMonth = MutableStateFlow(System.currentTimeMillis())
     private val _selectedDate = MutableStateFlow(System.currentTimeMillis())
     private val _isWeekMode = MutableStateFlow(false)
     private val _selectedActivityForDetail = MutableStateFlow<ActivityItem?>(null)
+    private val _expandedActivityId = MutableStateFlow<Long?>(null)
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
 
+    @OptIn(ExperimentalCoroutinesApi::class)
+    private val expandedWorkspaceFlow: Flow<ActivityWorkspaceAggregate?> = _expandedActivityId.flatMapLatest { id ->
+        if (id == null || getActivityWorkspaceUseCase == null) {
+            flowOf(null)
+        } else {
+            getActivityWorkspaceUseCase(id)
+        }
+    }
+
+    private data class CalendarViewState(
+        val monthMillis: Long,
+        val selectedMillis: Long,
+        val isWeekMode: Boolean
+    )
+
+    private data class CardFocusState(
+        val detailActivity: ActivityItem?,
+        val expandedId: Long?,
+        val expandedWs: ActivityWorkspaceAggregate?
+    )
+
     init {
-        combine(
+        val calendarViewFlow = combine(
             _currentMonth,
             _selectedDate,
-            _isWeekMode,
+            _isWeekMode
+        ) { month, selected, isWeek ->
+            CalendarViewState(month, selected, isWeek)
+        }
+
+        val cardFocusFlow = combine(
             _selectedActivityForDetail,
+            _expandedActivityId,
+            expandedWorkspaceFlow
+        ) { detail, expandedId, ws ->
+            CardFocusState(detail, expandedId, ws)
+        }
+
+        combine(
+            calendarViewFlow,
+            cardFocusFlow,
             activityRepository.getAllActivities()
-        ) { monthMillis, selectedMillis, weekMode, detailActivity, allActivities ->
-            buildUiState(monthMillis, selectedMillis, weekMode, detailActivity, allActivities)
+        ) { viewState, focusState, allActivities ->
+            buildUiState(
+                monthMillis = viewState.monthMillis,
+                selectedMillis = viewState.selectedMillis,
+                weekMode = viewState.isWeekMode,
+                detailActivity = focusState.detailActivity,
+                expandedId = focusState.expandedId,
+                expandedWs = focusState.expandedWs,
+                activities = allActivities
+            )
         }
             .onEach { newState ->
                 _uiState.value = newState
             }
             .launchIn(viewModelScope)
+    }
+
+    fun toggleCardExpansion(activityId: Long) {
+        _expandedActivityId.value = if (_expandedActivityId.value == activityId) null else activityId
+    }
+
+    fun collapseCard() {
+        _expandedActivityId.value = null
     }
 
     fun showActivityDetail(activity: ActivityItem) {
@@ -101,6 +162,9 @@ class CalendarViewModel(
             activityRepository.deleteActivity(id)
             if (_selectedActivityForDetail.value?.id == id) {
                 _selectedActivityForDetail.value = null
+            }
+            if (_expandedActivityId.value == id) {
+                _expandedActivityId.value = null
             }
         }
     }
@@ -207,6 +271,8 @@ class CalendarViewModel(
         selectedMillis: Long,
         weekMode: Boolean,
         detailActivity: ActivityItem?,
+        expandedId: Long?,
+        expandedWs: ActivityWorkspaceAggregate?,
         activities: List<ActivityItem>
     ): CalendarUiState {
         val bounds = calculateGridBounds(monthMillis)
@@ -246,6 +312,11 @@ class CalendarViewModel(
         val resolvedDetail = detailActivity?.let { da ->
             activities.firstOrNull { it.id == da.id }
         }
+        val resolvedWorkspace = expandedWs ?: expandedId?.let { id ->
+            activities.firstOrNull { it.id == id }?.let { item ->
+                ActivityWorkspaceAggregate(activity = item)
+            }
+        }
 
         return CalendarUiState(
             currentMonthMillis = monthMillis,
@@ -254,6 +325,8 @@ class CalendarViewModel(
             monthDays = days,
             selectedDayActivities = selectedActivities,
             selectedActivityForDetail = resolvedDetail,
+            expandedActivityId = expandedId,
+            expandedWorkspace = resolvedWorkspace,
             todayDateNumber = todayDate,
             isLoading = false
         )

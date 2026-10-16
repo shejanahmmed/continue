@@ -414,4 +414,60 @@ class CalendarViewModelTest {
             assertEquals("Lab Exam", state.timedActivities.first().title)
         }
     }
+
+    @Test
+    fun `test toggleCardExpansion and collapseCard`() = runTest(testDispatcher) {
+        val item = ActivityItem(
+            id = 80L,
+            title = "Sprint Review",
+            startTimeMillis = System.currentTimeMillis(),
+            endTimeMillis = System.currentTimeMillis() + 3600000L
+        )
+        activityRepository.insertActivity(item)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val initialState = awaitItem()
+            assertNull(initialState.expandedActivityId)
+
+            viewModel.toggleCardExpansion(80L)
+            val expandedState = awaitItem()
+            assertEquals(80L, expandedState.expandedActivityId)
+
+            viewModel.toggleCardExpansion(80L)
+            val collapsedState = awaitItem()
+            assertNull(collapsedState.expandedActivityId)
+
+            viewModel.toggleCardExpansion(80L)
+            val reExpandedState = awaitItem()
+            assertEquals(80L, reExpandedState.expandedActivityId)
+
+            viewModel.collapseCard()
+            val finalCollapsedState = awaitItem()
+            assertNull(finalCollapsedState.expandedActivityId)
+        }
+    }
+
+    @Test
+    fun `test deleting expanded activity collapses card`() = runTest(testDispatcher) {
+        val item = ActivityItem(
+            id = 90L,
+            title = "Task to Delete",
+            startTimeMillis = System.currentTimeMillis(),
+            endTimeMillis = System.currentTimeMillis() + 3600000L
+        )
+        activityRepository.insertActivity(item)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.toggleCardExpansion(90L)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.deleteActivity(90L)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertNull(state.expandedActivityId)
+        }
+    }
 }

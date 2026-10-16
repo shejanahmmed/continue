@@ -25,11 +25,14 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.outlined.Notifications
@@ -47,10 +50,12 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.layout.navigationBarsPadding
+import com.shejan.acontinue.domain.model.ActivityWorkspaceAggregate
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.RecurrenceMode
 import java.util.Calendar
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -358,9 +363,15 @@ fun CalendarScreen(
                 // 1. All-Day Cards (at the top)
                 if (uiState.allDayActivities.isNotEmpty()) {
                     items(uiState.allDayActivities, key = { it.id }) { activity ->
+                        val isExpanded = uiState.expandedActivityId == activity.id
+                        val workspace = if (isExpanded) uiState.expandedWorkspace else null
                         AllDayActivityCard(
                             activity = activity,
-                            onClick = { viewModel.showActivityDetail(activity) }
+                            isExpanded = isExpanded,
+                            workspace = workspace,
+                            onToggleExpansion = { viewModel.toggleCardExpansion(activity.id) },
+                            onDelete = { id -> viewModel.deleteActivity(id) },
+                            onOpenWorkspace = { id -> onActivityClick(id) }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -369,10 +380,16 @@ fun CalendarScreen(
                 // 2. Timed Activities & Reminders Cards
                 if (uiState.timedActivities.isNotEmpty()) {
                     items(uiState.timedActivities, key = { it.id }) { activity ->
+                        val isExpanded = uiState.expandedActivityId == activity.id
+                        val workspace = if (isExpanded) uiState.expandedWorkspace else null
                         TimedAgendaActivityCard(
                             activity = activity,
-                            onClick = { viewModel.showActivityDetail(activity) },
-                            onToggleCompletion = { done -> viewModel.toggleActivityCompletion(activity.id, done) }
+                            isExpanded = isExpanded,
+                            workspace = workspace,
+                            onToggleExpansion = { viewModel.toggleCardExpansion(activity.id) },
+                            onToggleCompletion = { done -> viewModel.toggleActivityCompletion(activity.id, done) },
+                            onDelete = { id -> viewModel.deleteActivity(id) },
+                            onOpenWorkspace = { id -> onActivityClick(id) }
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                     }
@@ -639,57 +656,74 @@ private fun DayDotMatrix(
 @Composable
 private fun AllDayActivityCard(
     activity: ActivityItem,
-    onClick: () -> Unit
+    isExpanded: Boolean,
+    workspace: ActivityWorkspaceAggregate?,
+    onToggleExpansion: () -> Unit,
+    onDelete: (Long) -> Unit,
+    onOpenWorkspace: (Long) -> Unit
 ) {
     val isReminder = activity.entryType == EntryType.REMINDER
     val accentColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
 
     MonochromeCard(
-        onClick = onClick,
-        borderColor = if (activity.isCompleted) UtilitarianBorderStroke else Color(0xFF2C2C2C)
+        onClick = onToggleExpansion,
+        borderColor = if (activity.isCompleted) UtilitarianBorderStroke else Color(0xFF2C2C2C),
+        modifier = Modifier.animateContentSize()
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Icon(
-                imageVector = Icons.Outlined.CalendarToday,
-                contentDescription = null,
-                tint = accentColor,
-                modifier = Modifier.size(18.dp)
-            )
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(
-                    text = activity.title,
-                    color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.CalendarToday,
+                    contentDescription = null,
+                    tint = accentColor,
+                    modifier = Modifier.size(18.dp)
                 )
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = "All day",
-                    color = UtilitarianTextSecondary,
-                    fontSize = 11.sp
-                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = activity.title,
+                        color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = "All day",
+                        color = UtilitarianTextSecondary,
+                        fontSize = 11.sp
+                    )
+                }
+
+                Surface(
+                    shape = CircleShape,
+                    color = Color(0xFF222222),
+                    border = BorderStroke(1.dp, UtilitarianBorderStroke)
+                ) {
+                    Text(
+                        text = if (isReminder) activity.reminderCategory else activity.category.displayName,
+                        color = UtilitarianTextSecondary,
+                        fontSize = 10.sp,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                    )
+                }
             }
 
-            Surface(
-                shape = CircleShape,
-                color = Color(0xFF222222),
-                border = BorderStroke(1.dp, UtilitarianBorderStroke)
-            ) {
-                Text(
-                    text = if (isReminder) activity.reminderCategory else activity.category.displayName,
-                    color = UtilitarianTextSecondary,
-                    fontSize = 10.sp,
-                    fontFamily = FontFamily.Monospace,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+            if (isExpanded) {
+                ExpandedCardContent(
+                    activity = activity,
+                    workspace = workspace,
+                    onDelete = { onDelete(activity.id) },
+                    onOpenWorkspace = { onOpenWorkspace(activity.id) },
+                    onCollapse = onToggleExpansion
                 )
             }
         }
@@ -699,8 +733,12 @@ private fun AllDayActivityCard(
 @Composable
 private fun TimedAgendaActivityCard(
     activity: ActivityItem,
-    onClick: () -> Unit,
-    onToggleCompletion: (Boolean) -> Unit
+    isExpanded: Boolean,
+    workspace: ActivityWorkspaceAggregate?,
+    onToggleExpansion: () -> Unit,
+    onToggleCompletion: (Boolean) -> Unit,
+    onDelete: (Long) -> Unit,
+    onOpenWorkspace: (Long) -> Unit
 ) {
     val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
     val shortTimeFormat = SimpleDateFormat("h:mm", Locale.getDefault())
@@ -710,74 +748,394 @@ private fun TimedAgendaActivityCard(
     val accentColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
 
     MonochromeCard(
-        onClick = onClick,
-        borderColor = if (activity.isCompleted) UtilitarianBorderStroke else Color(0xFF2C2C2C)
+        onClick = onToggleExpansion,
+        borderColor = if (activity.isCompleted) UtilitarianBorderStroke else Color(0xFF2C2C2C),
+        modifier = Modifier.animateContentSize()
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Start Time column (e.g., 10:00, 2:30)
-            Text(
-                text = startTimeReadout,
-                color = UtilitarianTextPrimary,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                fontSize = 13.sp,
-                modifier = Modifier.width(44.dp)
-            )
-
-            // Category Vertical Accent Stroke
-            Box(
-                modifier = Modifier
-                    .width(3.dp)
-                    .height(30.dp)
-                    .background(
-                        color = accentColor,
-                        shape = RoundedCornerShape(1.5.dp)
-                    )
-            )
-
-            Spacer(modifier = Modifier.width(10.dp))
-
-            // Activity Info
-            Column(modifier = Modifier.weight(1f)) {
+        Column(modifier = Modifier.fillMaxWidth()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Start Time column (e.g., 10:00, 2:30)
                 Text(
-                    text = activity.title,
-                    color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                    text = startTimeReadout,
+                    color = UtilitarianTextPrimary,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 13.sp,
+                    modifier = Modifier.width(44.dp)
                 )
-                Spacer(modifier = Modifier.height(1.dp))
-                val subtitle = if (isReminder && activity.location.isNotBlank()) {
-                    "${activity.reminderCategory} • $timeSpan  ${activity.location}"
-                } else if (isReminder) {
-                    "${activity.reminderCategory} • $timeSpan"
-                } else if (activity.location.isNotBlank()) {
-                    "$timeSpan  ${activity.location}"
-                } else {
-                    timeSpan
+
+                // Category Vertical Accent Stroke
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .height(30.dp)
+                        .background(
+                            color = accentColor,
+                            shape = RoundedCornerShape(1.5.dp)
+                        )
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                // Activity Info
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = activity.title,
+                        color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                        textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                    )
+                    Spacer(modifier = Modifier.height(1.dp))
+                    val subtitle = if (isReminder && activity.location.isNotBlank()) {
+                        "${activity.reminderCategory} • $timeSpan  ${activity.location}"
+                    } else if (isReminder) {
+                        "${activity.reminderCategory} • $timeSpan"
+                    } else if (activity.location.isNotBlank()) {
+                        "$timeSpan  ${activity.location}"
+                    } else {
+                        timeSpan
+                    }
+                    Text(
+                        text = subtitle,
+                        color = UtilitarianTextSecondary,
+                        fontSize = 11.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
                 }
-                Text(
-                    text = subtitle,
-                    color = UtilitarianTextSecondary,
-                    fontSize = 11.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
+
+                Checkbox(
+                    checked = activity.isCompleted,
+                    onCheckedChange = { done -> onToggleCompletion(done) },
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = UtilitarianAccentRed,
+                        uncheckedColor = UtilitarianBorderStroke,
+                        checkmarkColor = UtilitarianTextPrimary
+                    )
                 )
             }
 
-            Checkbox(
-                checked = activity.isCompleted,
-                onCheckedChange = onToggleCompletion,
-                colors = CheckboxDefaults.colors(
-                    checkedColor = UtilitarianAccentRed,
-                    uncheckedColor = UtilitarianBorderStroke,
-                    checkmarkColor = UtilitarianTextPrimary
+            if (isExpanded) {
+                ExpandedCardContent(
+                    activity = activity,
+                    workspace = workspace,
+                    onDelete = { onDelete(activity.id) },
+                    onOpenWorkspace = { onOpenWorkspace(activity.id) },
+                    onCollapse = onToggleExpansion
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedCardContent(
+    activity: ActivityItem,
+    workspace: ActivityWorkspaceAggregate?,
+    onDelete: () -> Unit,
+    onOpenWorkspace: () -> Unit,
+    onCollapse: () -> Unit
+) {
+    val fullDateFormat = SimpleDateFormat("EEEE, d MMMM yyyy", Locale.getDefault())
+    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+    val dateStr = fullDateFormat.format(Date(activity.startTimeMillis))
+    val timeStr = if (activity.isAllDay) "All day" else "${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
+    val repeatStr = if (activity.recurrenceMode != RecurrenceMode.NONE) formatRecurrenceRule(activity) else "None"
+    val locationStr = if (activity.location.isNotBlank()) activity.location else "None"
+    val noteStr = activity.description.ifBlank {
+        workspace?.notes?.firstOrNull()?.content ?: ""
+    }.ifBlank { "None" }
+    val alertsStr = formatAlerts(activity) ?: "None"
+    val isReminder = activity.entryType == EntryType.REMINDER
+    val categoryName = if (isReminder) activity.reminderCategory else activity.category.displayName
+
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(top = 10.dp)
+    ) {
+        HorizontalDivider(color = Color(0xFF262626), thickness = 0.8.dp)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // 1. When / Schedule
+        ExpandedFieldRow(
+            label = "WHEN",
+            icon = Icons.Outlined.AccessTime,
+            value = "$dateStr • $timeStr"
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 2. Repeat
+        ExpandedFieldRow(
+            label = "REPEAT",
+            icon = Icons.Outlined.Repeat,
+            value = repeatStr
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 3. Location
+        ExpandedFieldRow(
+            label = "LOCATION",
+            icon = Icons.Outlined.LocationOn,
+            value = locationStr
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 4. Notes
+        ExpandedFieldRow(
+            label = "NOTE",
+            icon = Icons.AutoMirrored.Outlined.Notes,
+            value = noteStr
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 5. Attachments
+        val attachments = workspace?.attachments ?: emptyList()
+        if (attachments.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AttachFile,
+                    contentDescription = null,
+                    tint = UtilitarianTextSecondary,
+                    modifier = Modifier.size(16.dp).padding(top = 2.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "ATTACHMENTS (${attachments.size})",
+                        color = UtilitarianTextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    attachments.forEach { att ->
+                        Text(
+                            text = "• ${att.fileName}",
+                            color = UtilitarianTextPrimary,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        } else {
+            ExpandedFieldRow(
+                label = "ATTACHMENTS",
+                icon = Icons.Outlined.AttachFile,
+                value = "None"
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 6. Checklist / Tasks
+        val tasks = workspace?.tasks ?: emptyList()
+        if (tasks.isNotEmpty()) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Check,
+                    contentDescription = null,
+                    tint = UtilitarianTextSecondary,
+                    modifier = Modifier.size(16.dp).padding(top = 2.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    val completedTasks = tasks.count { it.isCompleted }
+                    Text(
+                        text = "TASKS ($completedTasks/${tasks.size})",
+                        color = UtilitarianTextSecondary,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    tasks.forEach { task ->
+                        Text(
+                            text = if (task.isCompleted) "[✓] ${task.title}" else "[ ] ${task.title}",
+                            color = if (task.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                            fontSize = 12.sp,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                        )
+                    }
+                }
+            }
+        } else {
+            ExpandedFieldRow(
+                label = "TASKS",
+                icon = Icons.Outlined.Check,
+                value = "None"
+            )
+        }
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 7. Alerts
+        ExpandedFieldRow(
+            label = "ALERT",
+            icon = Icons.Outlined.Notifications,
+            value = alertsStr
+        )
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // 8. Category & Priority
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = "CATEGORY: ${categoryName.uppercase(Locale.getDefault())}",
+                color = UtilitarianTextSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+            Text(
+                text = "PRIORITY: ${activity.priority.name}",
+                color = UtilitarianTextSecondary,
+                fontSize = 10.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+        }
+
+        Spacer(modifier = Modifier.height(14.dp))
+        HorizontalDivider(color = Color(0xFF262626), thickness = 0.8.dp)
+        Spacer(modifier = Modifier.height(12.dp))
+
+        // Action buttons row: DELETE, OPEN
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Surface(
+                onClick = onDelete,
+                shape = RoundedCornerShape(6.dp),
+                color = Color(0xFF1E1414),
+                border = BorderStroke(1.dp, Color(0xFF4A1A1A))
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Delete,
+                        contentDescription = "Delete",
+                        tint = UtilitarianAccentRed,
+                        modifier = Modifier.size(14.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "DELETE",
+                        color = UtilitarianAccentRed,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+            }
+
+            Surface(
+                onClick = onOpenWorkspace,
+                shape = RoundedCornerShape(6.dp),
+                color = Color.White,
+                border = BorderStroke(1.dp, Color.White)
+            ) {
+                Row(
+                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "OPEN",
+                        color = Color.Black,
+                        fontSize = 10.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                        contentDescription = "Open Workspace",
+                        tint = Color.Black,
+                        modifier = Modifier.size(12.dp)
+                    )
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(10.dp))
+
+        // Centered collapse arrow
+        Box(
+            modifier = Modifier.fillMaxWidth(),
+            contentAlignment = Alignment.Center
+        ) {
+            Surface(
+                onClick = onCollapse,
+                shape = CircleShape,
+                color = Color(0xFF1C1C1C),
+                border = BorderStroke(1.dp, UtilitarianBorderStroke),
+                modifier = Modifier.size(28.dp)
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        imageVector = Icons.Outlined.KeyboardArrowUp,
+                        contentDescription = "Shrink card",
+                        tint = UtilitarianTextPrimary,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ExpandedFieldRow(
+    label: String,
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    value: String
+) {
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            imageVector = icon,
+            contentDescription = null,
+            tint = UtilitarianTextSecondary,
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = label,
+                color = UtilitarianTextSecondary,
+                fontSize = 9.sp,
+                fontWeight = FontWeight.Bold,
+                fontFamily = FontFamily.Monospace
+            )
+            Text(
+                text = value,
+                color = if (value == "None") UtilitarianTextDisabled else UtilitarianTextPrimary,
+                fontSize = 12.sp,
+                maxLines = 2,
+                overflow = TextOverflow.Ellipsis
             )
         }
     }

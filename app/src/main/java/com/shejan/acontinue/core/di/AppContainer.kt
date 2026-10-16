@@ -62,7 +62,10 @@ class AppContainer(context: Context) {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return CalendarViewModel(activityRepository) as T
+                return CalendarViewModel(
+                    activityRepository = activityRepository,
+                    getActivityWorkspaceUseCase = getActivityWorkspaceUseCase
+                ) as T
             }
         }
 
