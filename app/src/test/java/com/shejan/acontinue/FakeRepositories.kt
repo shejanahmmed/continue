@@ -283,5 +283,31 @@ class FakeSettingsRepository : com.shejan.acontinue.domain.repository.SettingsRe
         val updated = current.filterNot { it.id == id && !it.isDefault }
         settingsFlow.value = settingsFlow.value.copy(reminderCategories = updated)
     }
+
+    override fun getNoteLabels(): Flow<List<String>> {
+        return settingsFlow.map { it.noteLabels }
+    }
+
+    override suspend fun addNoteLabel(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        val current = settingsFlow.value.noteLabels
+        if (current.any { it.equals(trimmed, ignoreCase = true) }) return
+        val updated = current + trimmed
+        settingsFlow.value = settingsFlow.value.copy(noteLabels = updated)
+    }
+
+    override suspend fun updateNoteLabel(oldName: String, newName: String) {
+        val trimmedNew = newName.trim()
+        if (trimmedNew.isBlank()) return
+        val current = settingsFlow.value.noteLabels
+        val updated = current.map { if (it.equals(oldName, ignoreCase = true)) trimmedNew else it }.distinct()
+        settingsFlow.value = settingsFlow.value.copy(noteLabels = updated)
+    }
+
+    override suspend fun deleteNoteLabel(name: String) {
+        val updated = settingsFlow.value.noteLabels.filterNot { it.equals(name, ignoreCase = true) }
+        settingsFlow.value = settingsFlow.value.copy(noteLabels = updated)
+    }
 }
 

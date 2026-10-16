@@ -300,16 +300,20 @@ fun CreateEntryScreen(
 
     if (state.entryType == EntryType.NOTE) {
         CreateNoteScreen(
-            onSaveNote = { title, content, colorHex ->
-                viewModel.saveNote(title, content, colorHex)
+            onSaveNote = { title, content, colorHex, labels ->
+                viewModel.saveNote(title, content, colorHex, labels)
             },
             onDiscard = {
                 viewModel.updateEntryType(EntryType.ACTIVITY)
                 onDismiss()
             },
-            onMakeCopy = { title, content, colorHex ->
-                viewModel.makeCopyOfNote(title, content, colorHex)
-            }
+            onMakeCopy = { title, content, colorHex, labels ->
+                viewModel.makeCopyOfNote(title, content, colorHex, labels)
+            },
+            allLabels = state.savedNoteLabels,
+            onCreateLabel = { viewModel.addNoteLabel(it) },
+            onEditLabel = { oldName, newName -> viewModel.updateNoteLabel(oldName, newName) },
+            onDeleteLabel = { viewModel.deleteNoteLabel(it) }
         )
         return
     }

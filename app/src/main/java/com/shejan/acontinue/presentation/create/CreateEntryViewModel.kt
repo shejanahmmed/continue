@@ -95,6 +95,7 @@ data class CreateEntryState(
     val selectedReminderCategory: ReminderCategory = ReminderCategory.DEFAULT,
     val savedReminderCategories: List<ReminderCategory> = listOf(ReminderCategory.DEFAULT),
     val categoryReminderCounts: Map<String, Int> = emptyMap(),
+    val savedNoteLabels: List<String> = emptyList(),
     val isSaving: Boolean = false
 )
 
@@ -157,7 +158,8 @@ class CreateEntryViewModel(
                     savedCustomAlerts = userSettings.customAlerts,
                     savedReminderCategories = categories,
                     categoryReminderCounts = counts,
-                    selectedReminderCategory = updatedSelected
+                    selectedReminderCategory = updatedSelected,
+                    savedNoteLabels = userSettings.noteLabels
                 )
             }
         }.launchIn(viewModelScope)
@@ -573,7 +575,37 @@ class CreateEntryViewModel(
         }
     }
 
-    fun saveNote(title: String, content: String, colorHex: Long = 0xFF121212L) {
+    fun addNoteLabel(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        viewModelScope.launch {
+            settingsRepository?.addNoteLabel(trimmed)
+        }
+    }
+
+    fun updateNoteLabel(oldName: String, newName: String) {
+        val trimmedOld = oldName.trim()
+        val trimmedNew = newName.trim()
+        if (trimmedOld.isBlank() || trimmedNew.isBlank()) return
+        viewModelScope.launch {
+            settingsRepository?.updateNoteLabel(trimmedOld, trimmedNew)
+        }
+    }
+
+    fun deleteNoteLabel(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        viewModelScope.launch {
+            settingsRepository?.deleteNoteLabel(trimmed)
+        }
+    }
+
+    fun saveNote(
+        title: String,
+        content: String,
+        colorHex: Long = 0xFF121212L,
+        labels: List<String> = emptyList()
+    ) {
         val trimmedTitle = title.trim()
         val trimmedContent = content.trim()
         if (trimmedTitle.isBlank() && trimmedContent.isBlank()) {
@@ -586,6 +618,7 @@ class CreateEntryViewModel(
             val effectiveTitle = trimmedTitle.ifBlank {
                 trimmedContent.lineSequence().firstOrNull()?.take(40) ?: "Untitled Note"
             }
+            val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
 
             val activity = ActivityItem(
                 title = effectiveTitle,
@@ -601,7 +634,7 @@ class CreateEntryViewModel(
                 reminderMinutesList = emptyList(),
                 recurrenceMode = RecurrenceMode.NONE,
                 isCompleted = false,
-                reminderCategory = "Notes",
+                reminderCategory = categoryString,
                 reminderCategoryColorHex = colorHex,
                 createdAtMillis = now
             )
@@ -621,7 +654,12 @@ class CreateEntryViewModel(
         }
     }
 
-    fun makeCopyOfNote(title: String, content: String, colorHex: Long = 0xFF121212L) {
+    fun makeCopyOfNote(
+        title: String,
+        content: String,
+        colorHex: Long = 0xFF121212L,
+        labels: List<String> = emptyList()
+    ) {
         val trimmedTitle = title.trim()
         val trimmedContent = content.trim()
         if (trimmedTitle.isBlank() && trimmedContent.isBlank()) {
@@ -633,6 +671,7 @@ class CreateEntryViewModel(
             val effectiveTitle = trimmedTitle.ifBlank {
                 trimmedContent.lineSequence().firstOrNull()?.take(40) ?: "Untitled Note"
             }
+            val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
 
             val activity = ActivityItem(
                 title = effectiveTitle,
@@ -648,7 +687,7 @@ class CreateEntryViewModel(
                 reminderMinutesList = emptyList(),
                 recurrenceMode = RecurrenceMode.NONE,
                 isCompleted = false,
-                reminderCategory = "Notes",
+                reminderCategory = categoryString,
                 reminderCategoryColorHex = colorHex,
                 createdAtMillis = now
             )

@@ -19,4 +19,8 @@ interface SettingsRepository {
     suspend fun addReminderCategory(name: String, colorHex: Long, iconName: String): com.shejan.acontinue.domain.model.ReminderCategory
     suspend fun updateReminderCategory(id: String, newName: String, newColorHex: Long, newIconName: String): com.shejan.acontinue.domain.model.ReminderCategory
     suspend fun deleteReminderCategory(id: String)
+    fun getNoteLabels(): Flow<List<String>>
+    suspend fun addNoteLabel(name: String)
+    suspend fun updateNoteLabel(oldName: String, newName: String)
+    suspend fun deleteNoteLabel(name: String)
 }

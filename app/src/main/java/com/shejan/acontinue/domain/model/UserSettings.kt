@@ -70,5 +70,6 @@ data class UserSettings(
     val notificationsEnabled: Boolean = true,
     val recentEmojis: List<String> = emptyList(),
     val customAlerts: List<CustomAlert> = emptyList(),
-    val reminderCategories: List<ReminderCategory> = listOf(ReminderCategory.DEFAULT)
+    val reminderCategories: List<ReminderCategory> = listOf(ReminderCategory.DEFAULT),
+    val noteLabels: List<String> = emptyList()
 )

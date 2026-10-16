@@ -737,5 +737,94 @@ class CreateEntryViewModelTest {
         assertTrue(activityRepository.activitiesFlow.value.isEmpty())
         assertTrue(noteRepository.notesFlow.value.isEmpty())
     }
+
+    @Test
+    fun `test addNoteLabel persists label and updates savedNoteLabels state`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.addNoteLabel("Work")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(listOf("Work"), viewModel.state.value.savedNoteLabels)
+
+        // Adding duplicate or blank should be handled gracefully
+        viewModel.addNoteLabel("Work")
+        viewModel.addNoteLabel("   ")
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("Work"), viewModel.state.value.savedNoteLabels)
+
+        viewModel.addNoteLabel("Personal")
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("Work", "Personal"), viewModel.state.value.savedNoteLabels)
+    }
+
+    @Test
+    fun `test saveNote with labels saves comma-separated labels in reminderCategory`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.saveNote(
+            title = "Weekly Tasks",
+            content = "1. Clean room\n2. Buy groceries",
+            colorHex = 0xFF121212L,
+            labels = listOf("Work", "Personal")
+        )
+        testScheduler.advanceUntilIdle()
+
+        val activities = activityRepository.activitiesFlow.value
+        assertEquals(1, activities.size)
+        val activity = activities.first()
+        assertEquals("Work,Personal", activity.reminderCategory)
+    }
+
+    @Test
+    fun `test makeCopyOfNote with labels preserves labels in duplicate note`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.makeCopyOfNote(
+            title = "Template Note",
+            content = "Checklist items",
+            colorHex = 0xFF121212L,
+            labels = listOf("Templates", "Routine")
+        )
+        testScheduler.advanceUntilIdle()
+
+        val activities = activityRepository.activitiesFlow.value
+        assertEquals(1, activities.size)
+        val activity = activities.first()
+        assertEquals("Templates,Routine", activity.reminderCategory)
+    }
+
+    @Test
+    fun `test updateNoteLabel renames label and updates savedNoteLabels state`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.addNoteLabel("Work")
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("Work"), viewModel.state.value.savedNoteLabels)
+
+        viewModel.updateNoteLabel("Work", "Office")
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("Office"), viewModel.state.value.savedNoteLabels)
+
+        // Blank new name should be ignored
+        viewModel.updateNoteLabel("Office", "   ")
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("Office"), viewModel.state.value.savedNoteLabels)
+    }
+
+    @Test
+    fun `test deleteNoteLabel removes label and updates savedNoteLabels state`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.addNoteLabel("Work")
+        viewModel.addNoteLabel("Personal")
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("Work", "Personal"), viewModel.state.value.savedNoteLabels)
+
+        viewModel.deleteNoteLabel("Work")
+        testScheduler.advanceUntilIdle()
+        assertEquals(listOf("Personal"), viewModel.state.value.savedNoteLabels)
+    }
 }
+
 

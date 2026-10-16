@@ -17,7 +17,8 @@ data class NoteEditorSnapshot(
     val checklistItems: List<ChecklistItem>,
     val isChecklistMode: Boolean,
     val attachedImageUris: List<Uri>,
-    val selectedColorHex: Long
+    val selectedColorHex: Long,
+    val selectedLabels: Set<String> = emptySet()
 )
 
 /**

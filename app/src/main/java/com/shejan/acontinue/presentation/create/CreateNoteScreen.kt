@@ -15,6 +15,7 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -142,11 +143,15 @@ private data class NoteMenuOption(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateNoteScreen(
-    onSaveNote: (title: String, content: String, colorHex: Long) -> Unit,
+    onSaveNote: (title: String, content: String, colorHex: Long, labels: List<String>) -> Unit,
     onDiscard: () -> Unit,
     initialUpdatedAtMillis: Long? = null,
     onDeleteNote: (() -> Unit)? = null,
-    onMakeCopy: ((title: String, content: String, colorHex: Long) -> Unit)? = null,
+    onMakeCopy: ((title: String, content: String, colorHex: Long, labels: List<String>) -> Unit)? = null,
+    allLabels: List<String> = emptyList(),
+    onCreateLabel: (String) -> Unit = {},
+    onEditLabel: (oldName: String, newName: String) -> Unit = { _, _ -> },
+    onDeleteLabel: (name: String) -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     val colors = LocalUtilitarianColors.current
@@ -174,6 +179,8 @@ fun CreateNoteScreen(
     var isChecklistMode by remember { mutableStateOf(false) }
     var checklistItems by remember { mutableStateOf(listOf<ChecklistItem>()) }
     var attachedImageUris by remember { mutableStateOf(listOf<Uri>()) }
+    var selectedLabels by remember { mutableStateOf(setOf<String>()) }
+    var showLabelScreen by remember { mutableStateOf(false) }
     var showBottomSheet by remember { mutableStateOf(false) }
     var showColorSheet by remember { mutableStateOf(false) }
     var showFormattingBar by remember { mutableStateOf(false) }
@@ -197,7 +204,8 @@ fun CreateNoteScreen(
             checklistItems = emptyList(),
             isChecklistMode = false,
             attachedImageUris = emptyList(),
-            selectedColorHex = 0xFF121212L
+            selectedColorHex = 0xFF121212L,
+            selectedLabels = emptySet()
         )
     }
     val undoManager = remember { NoteUndoManager(initialSnapshot = initialSnapshot) }
@@ -209,7 +217,8 @@ fun CreateNoteScreen(
         newChecklistItems: List<ChecklistItem> = checklistItems,
         newIsChecklistMode: Boolean = isChecklistMode,
         newAttachedImageUris: List<Uri> = attachedImageUris,
-        newSelectedColorHex: Long = selectedColorHex
+        newSelectedColorHex: Long = selectedColorHex,
+        newSelectedLabels: Set<String> = selectedLabels
     ): NoteEditorSnapshot {
         hasUserModified = true
         lastEditedMillis = System.currentTimeMillis()
@@ -220,7 +229,8 @@ fun CreateNoteScreen(
             checklistItems = newChecklistItems,
             isChecklistMode = newIsChecklistMode,
             attachedImageUris = newAttachedImageUris,
-            selectedColorHex = newSelectedColorHex
+            selectedColorHex = newSelectedColorHex,
+            selectedLabels = newSelectedLabels
         )
     }
 
@@ -234,6 +244,7 @@ fun CreateNoteScreen(
         isChecklistMode = restored.isChecklistMode
         attachedImageUris = restored.attachedImageUris
         selectedColorHex = restored.selectedColorHex
+        selectedLabels = restored.selectedLabels
     }
 
     LaunchedEffect(isTitleFocused) {
@@ -332,15 +343,17 @@ fun CreateNoteScreen(
 
     val handleExit = {
         val finalContent = buildFinalContent()
-        if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty()) {
-            onSaveNote(title, finalContent, selectedColorHex)
+        if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || selectedLabels.isNotEmpty()) {
+            onSaveNote(title, finalContent, selectedColorHex, selectedLabels.toList())
         } else {
             onDiscard()
         }
     }
 
     BackHandler {
-        if (showColorSheet) {
+        if (showLabelScreen) {
+            showLabelScreen = false
+        } else if (showColorSheet) {
             showColorSheet = false
         } else if (showBottomSheet) {
             showBottomSheet = false
@@ -642,6 +655,36 @@ fun CreateNoteScreen(
                             color = colors.textSecondary,
                             fontSize = 16.sp
                         )
+                    }
+                }
+            }
+
+            if (selectedLabels.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(16.dp))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    selectedLabels.forEach { label ->
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF262C30))
+                                .border(1.dp, Color(0xFF3E4348), RoundedCornerShape(8.dp))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showLabelScreen = true
+                                }
+                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = label,
+                                color = colors.textPrimary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        }
                     }
                 }
             }
@@ -1202,8 +1245,8 @@ fun CreateNoteScreen(
                     moreSheetState.hide()
                     showMoreSheet = false
                     val finalContent = buildFinalContent()
-                    if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty()) {
-                        onMakeCopy?.invoke(title, finalContent, selectedColorHex)
+                    if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || selectedLabels.isNotEmpty()) {
+                        onMakeCopy?.invoke(title, finalContent, selectedColorHex, selectedLabels.toList())
                         Toast.makeText(context, "Note copied", Toast.LENGTH_SHORT).show()
                     }
                 }
@@ -1225,7 +1268,7 @@ fun CreateNoteScreen(
                 coroutineScope.launch {
                     moreSheetState.hide()
                     showMoreSheet = false
-                    Toast.makeText(context, "Labels", Toast.LENGTH_SHORT).show()
+                    showLabelScreen = true
                 }
             },
             NoteMenuOption("Delete", Icons.Outlined.Delete) {
@@ -1295,6 +1338,40 @@ fun CreateNoteScreen(
                 }
             }
         }
+    }
+
+    if (showLabelScreen) {
+        NoteLabelsScreen(
+            allLabels = allLabels,
+            selectedLabels = selectedLabels,
+            onToggleLabel = { label ->
+                val updated = if (label in selectedLabels) {
+                    selectedLabels - label
+                } else {
+                    selectedLabels + label
+                }
+                selectedLabels = updated
+                undoManager.recordAction(takeSnapshot(newSelectedLabels = updated))
+            },
+            onCreateLabel = onCreateLabel,
+            onBack = { showLabelScreen = false },
+            onEditLabel = { oldName, newName ->
+                onEditLabel(oldName, newName)
+                if (oldName in selectedLabels) {
+                    val updated = selectedLabels.map { if (it == oldName) newName else it }.toSet()
+                    selectedLabels = updated
+                    undoManager.recordAction(takeSnapshot(newSelectedLabels = updated))
+                }
+            },
+            onDeleteLabel = { name ->
+                onDeleteLabel(name)
+                if (name in selectedLabels) {
+                    val updated = selectedLabels - name
+                    selectedLabels = updated
+                    undoManager.recordAction(takeSnapshot(newSelectedLabels = updated))
+                }
+            }
+        )
     }
 }
 

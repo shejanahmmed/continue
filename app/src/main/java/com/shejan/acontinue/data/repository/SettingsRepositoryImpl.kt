@@ -11,6 +11,7 @@ import com.shejan.acontinue.domain.repository.SettingsRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import java.util.UUID
 
@@ -115,6 +116,35 @@ class SettingsRepositoryImpl(
         _settings.update { it.copy(reminderCategories = updated) }
     }
 
+    override fun getNoteLabels(): Flow<List<String>> {
+        return settingsFlow.map { it.noteLabels }
+    }
+
+    override suspend fun addNoteLabel(name: String) {
+        val trimmed = name.trim()
+        if (trimmed.isBlank()) return
+        val current = _settings.value.noteLabels
+        if (current.any { it.equals(trimmed, ignoreCase = true) }) return
+        val updated = current + trimmed
+        saveNoteLabels(updated)
+        _settings.update { it.copy(noteLabels = updated) }
+    }
+
+    override suspend fun updateNoteLabel(oldName: String, newName: String) {
+        val trimmedNew = newName.trim()
+        if (trimmedNew.isBlank()) return
+        val current = _settings.value.noteLabels
+        val updated = current.map { if (it.equals(oldName, ignoreCase = true)) trimmedNew else it }.distinct()
+        saveNoteLabels(updated)
+        _settings.update { it.copy(noteLabels = updated) }
+    }
+
+    override suspend fun deleteNoteLabel(name: String) {
+        val updated = _settings.value.noteLabels.filterNot { it.equals(name, ignoreCase = true) }
+        saveNoteLabels(updated)
+        _settings.update { it.copy(noteLabels = updated) }
+    }
+
     private fun saveCustomAlerts(alerts: List<CustomAlert>) {
         val serialized = alerts.joinToString(DELIMITER) { "${it.id}:::${it.value}:::${it.unit}" }
         prefs.edit().putString(KEY_CUSTOM_ALERTS, serialized).apply()
@@ -161,6 +191,15 @@ class SettingsRepositoryImpl(
         }
     }
 
+    private fun saveNoteLabels(labels: List<String>) {
+        prefs.edit().putString(KEY_NOTE_LABELS, labels.joinToString(DELIMITER)).apply()
+    }
+
+    private fun parseNoteLabels(raw: String): List<String> {
+        if (raw.isBlank()) return emptyList()
+        return raw.split(DELIMITER).map { it.trim() }.filter { it.isNotBlank() }
+    }
+
     private fun loadSettings(): UserSettings {
         val themeStr = prefs.getString(KEY_THEME_MODE, ThemeMode.DARK.name)
         val themeMode = try {
@@ -191,6 +230,9 @@ class SettingsRepositoryImpl(
         val reminderCategoriesRaw = prefs.getString(KEY_REMINDER_CATEGORIES, "") ?: ""
         val reminderCategories = parseReminderCategories(reminderCategoriesRaw)
 
+        val noteLabelsRaw = prefs.getString(KEY_NOTE_LABELS, "") ?: ""
+        val noteLabels = parseNoteLabels(noteLabelsRaw)
+
         return UserSettings(
             themeMode = themeMode,
             accentPalette = accentPalette,
@@ -198,7 +240,8 @@ class SettingsRepositoryImpl(
             notificationsEnabled = notifs,
             recentEmojis = recentEmojis,
             customAlerts = customAlerts,
-            reminderCategories = reminderCategories
+            reminderCategories = reminderCategories,
+            noteLabels = noteLabels
         )
     }
 
@@ -211,6 +254,7 @@ class SettingsRepositoryImpl(
         private const val KEY_RECENT_EMOJIS = "recent_emojis"
         private const val KEY_CUSTOM_ALERTS = "custom_alerts"
         private const val KEY_REMINDER_CATEGORIES = "reminder_categories"
+        private const val KEY_NOTE_LABELS = "note_labels"
         private const val DELIMITER = "|||"
     }
 }
