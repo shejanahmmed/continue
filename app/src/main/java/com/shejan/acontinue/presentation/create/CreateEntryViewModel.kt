@@ -620,4 +620,48 @@ class CreateEntryViewModel(
             _events.emit(CreateEntryEvent.SavedSuccessfully)
         }
     }
+
+    fun makeCopyOfNote(title: String, content: String, colorHex: Long = 0xFF121212L) {
+        val trimmedTitle = title.trim()
+        val trimmedContent = content.trim()
+        if (trimmedTitle.isBlank() && trimmedContent.isBlank()) {
+            return
+        }
+
+        viewModelScope.launch {
+            val now = System.currentTimeMillis()
+            val effectiveTitle = trimmedTitle.ifBlank {
+                trimmedContent.lineSequence().firstOrNull()?.take(40) ?: "Untitled Note"
+            }
+
+            val activity = ActivityItem(
+                title = effectiveTitle,
+                description = trimmedContent,
+                entryType = EntryType.NOTE,
+                category = ActivityCategory.OTHER,
+                isAllDay = false,
+                startTimeMillis = now,
+                endTimeMillis = now,
+                location = "",
+                priority = ActivityPriority.MEDIUM,
+                reminderMinutesBefore = -1,
+                reminderMinutesList = emptyList(),
+                recurrenceMode = RecurrenceMode.NONE,
+                isCompleted = false,
+                reminderCategory = "Notes",
+                reminderCategoryColorHex = colorHex,
+                createdAtMillis = now
+            )
+
+            val newId = activityRepository.insertActivity(activity)
+            noteRepository.insertNote(
+                ActivityNote(
+                    activityId = newId,
+                    title = effectiveTitle,
+                    content = trimmedContent,
+                    updatedAtMillis = now
+                )
+            )
+        }
+    }
 }

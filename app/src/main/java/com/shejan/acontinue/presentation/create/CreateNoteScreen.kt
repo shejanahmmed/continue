@@ -146,6 +146,7 @@ fun CreateNoteScreen(
     onDiscard: () -> Unit,
     initialUpdatedAtMillis: Long? = null,
     onDeleteNote: (() -> Unit)? = null,
+    onMakeCopy: ((title: String, content: String, colorHex: Long) -> Unit)? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = LocalUtilitarianColors.current
@@ -1201,9 +1202,10 @@ fun CreateNoteScreen(
                     moreSheetState.hide()
                     showMoreSheet = false
                     val finalContent = buildFinalContent()
-                    val fullNoteText = if (title.isNotBlank()) "$title\n\n$finalContent" else finalContent
-                    clipboardManager.setText(AnnotatedString(fullNoteText))
-                    Toast.makeText(context, "Note copied to clipboard", Toast.LENGTH_SHORT).show()
+                    if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty()) {
+                        onMakeCopy?.invoke(title, finalContent, selectedColorHex)
+                        Toast.makeText(context, "Note copied", Toast.LENGTH_SHORT).show()
+                    }
                 }
             },
             NoteMenuOption("Send", Icons.Outlined.Share) {

@@ -306,6 +306,9 @@ fun CreateEntryScreen(
             onDiscard = {
                 viewModel.updateEntryType(EntryType.ACTIVITY)
                 onDismiss()
+            },
+            onMakeCopy = { title, content, colorHex ->
+                viewModel.makeCopyOfNote(title, content, colorHex)
             }
         )
         return

@@ -696,5 +696,46 @@ class CreateEntryViewModelTest {
         val saved = activities.first()
         assertEquals(0xFF5C1324L, saved.reminderCategoryColorHex)
     }
+
+    @Test
+    fun `test makeCopyOfNote inserts duplicate note into repositories without dismissing screen`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.makeCopyOfNote(
+            title = "Project Plan",
+            content = "1. Phase One\n2. Phase Two",
+            colorHex = 0xFF6B4407L
+        )
+        testScheduler.advanceUntilIdle()
+
+        val activities = activityRepository.activitiesFlow.value
+        assertEquals(1, activities.size)
+        val copyActivity = activities.first()
+        assertEquals("Project Plan", copyActivity.title)
+        assertEquals("1. Phase One\n2. Phase Two", copyActivity.description)
+        assertEquals(EntryType.NOTE, copyActivity.entryType)
+        assertEquals(0xFF6B4407L, copyActivity.reminderCategoryColorHex)
+
+        val notes = noteRepository.notesFlow.value
+        assertEquals(1, notes.size)
+        val copyNote = notes.first()
+        assertEquals(copyActivity.id, copyNote.activityId)
+        assertEquals("Project Plan", copyNote.title)
+        assertEquals("1. Phase One\n2. Phase Two", copyNote.content)
+
+        // Verify that screen is NOT dismissed (isSaving remains false, no SavedSuccessfully event)
+        assertFalse(viewModel.state.value.isSaving)
+    }
+
+    @Test
+    fun `test makeCopyOfNote with blank title and content is safely ignored`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.makeCopyOfNote(title = "   ", content = "   ")
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(activityRepository.activitiesFlow.value.isEmpty())
+        assertTrue(noteRepository.notesFlow.value.isEmpty())
+    }
 }
 
