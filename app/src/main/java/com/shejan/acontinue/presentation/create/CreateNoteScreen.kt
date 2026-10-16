@@ -109,6 +109,8 @@ import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.core.view.WindowCompat
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import kotlinx.coroutines.launch
@@ -185,6 +187,7 @@ fun CreateNoteScreen(
     var showColorSheet by remember { mutableStateOf(false) }
     var showFormattingBar by remember { mutableStateOf(false) }
     var showMoreSheet by remember { mutableStateOf(false) }
+    var showDeleteNoteConfirmDialog by remember { mutableStateOf(false) }
     var showFindBar by remember { mutableStateOf(false) }
     var searchQuery by remember { mutableStateOf("") }
     var activeMatchIndex by remember { mutableIntStateOf(0) }
@@ -351,7 +354,9 @@ fun CreateNoteScreen(
     }
 
     BackHandler {
-        if (showLabelScreen) {
+        if (showDeleteNoteConfirmDialog) {
+            showDeleteNoteConfirmDialog = false
+        } else if (showLabelScreen) {
             showLabelScreen = false
         } else if (showColorSheet) {
             showColorSheet = false
@@ -1275,11 +1280,7 @@ fun CreateNoteScreen(
                 coroutineScope.launch {
                     moreSheetState.hide()
                     showMoreSheet = false
-                    if (onDeleteNote != null) {
-                        onDeleteNote()
-                    } else {
-                        onDiscard()
-                    }
+                    showDeleteNoteConfirmDialog = true
                 }
             }
         )
@@ -1372,6 +1373,98 @@ fun CreateNoteScreen(
                 }
             }
         )
+    }
+
+    if (showDeleteNoteConfirmDialog) {
+        Dialog(
+            onDismissRequest = { showDeleteNoteConfirmDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp)
+                    .clip(RoundedCornerShape(24.dp))
+                    .background(Color(0xFF1E2225))
+                    .border(1.dp, Color(0xFF33383F), RoundedCornerShape(24.dp))
+                    .padding(horizontal = 24.dp, vertical = 24.dp)
+            ) {
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    Text(
+                        text = "Delete note?",
+                        color = colors.textPrimary,
+                        fontSize = 20.sp,
+                        fontWeight = FontWeight.SemiBold
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+
+                    Text(
+                        text = "This note will be moved to trash and then deleted forever from all your devices after 7 days.",
+                        color = colors.textSecondary.copy(alpha = 0.85f),
+                        fontSize = 15.sp,
+                        lineHeight = 22.sp,
+                        fontWeight = FontWeight.Normal
+                    )
+
+                    Spacer(modifier = Modifier.height(26.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Cancel Button Box
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF2C3136))
+                                .border(1.dp, Color(0xFF3F454C), RoundedCornerShape(12.dp))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showDeleteNoteConfirmDialog = false
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Cancel",
+                                color = colors.textPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        // Delete Button Box
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFD71921))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showDeleteNoteConfirmDialog = false
+                                    if (onDeleteNote != null) {
+                                        onDeleteNote()
+                                    } else {
+                                        onDiscard()
+                                    }
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Delete",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 
