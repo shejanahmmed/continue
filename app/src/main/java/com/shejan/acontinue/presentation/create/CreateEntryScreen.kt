@@ -383,12 +383,12 @@ fun CreateEntryScreen(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Main Card Container
+            // Main Card Container (Elevated surface matching Home overview card)
             Surface(
                 modifier = Modifier.fillMaxWidth(),
                 shape = RoundedCornerShape(22.dp),
-                color = colors.cardBackground,
-                border = BorderStroke(1.dp, colors.borderStroke)
+                color = if (colors.isDark) Color(0xFF1E1E22) else colors.cardBackground,
+                border = BorderStroke(1.dp, if (colors.isDark) Color(0xFF323238) else colors.borderStroke)
             ) {
                 Box(modifier = Modifier.fillMaxWidth()) {
                     Column(
@@ -1103,6 +1103,7 @@ fun CreateEntryScreen(
                 recentEmojis = state.recentEmojis,
                 onEmojiSelected = { emoji ->
                     viewModel.selectEmoji(emoji)
+                    showEmojiKeyboard = false
                 },
                 onClose = { showEmojiKeyboard = false }
             )
@@ -1423,8 +1424,8 @@ private fun SegmentedTopToggle(
 
     Surface(
         shape = RoundedCornerShape(32.dp),
-        color = colors.cardBackground,
-        border = BorderStroke(1.dp, colors.borderStroke)
+        color = if (colors.isDark) Color(0xFF1E1E22) else colors.cardBackground,
+        border = BorderStroke(1.dp, if (colors.isDark) Color(0xFF323238) else colors.borderStroke)
     ) {
         Row(
             modifier = Modifier.padding(4.dp),
@@ -1462,12 +1463,12 @@ private fun SegmentItem(
             .clip(RoundedCornerShape(24.dp))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(24.dp),
-        color = if (isSelected) colors.background else Color.Transparent,
-        border = if (isSelected) BorderStroke(1.dp, colors.borderStroke) else null
+        color = if (isSelected) (if (colors.isDark) Color(0xFF282828) else Color(0xFFE2E2E6)) else Color.Transparent,
+        border = if (isSelected) BorderStroke(1.dp, colors.textPrimary) else null
     ) {
         Text(
             text = label,
-            color = if (isSelected) colors.textPrimary else colors.textDisabled,
+            color = if (isSelected) colors.textPrimary else colors.textSecondary,
             fontFamily = FontFamily.SansSerif,
             fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
             fontSize = 14.sp,
@@ -2414,8 +2415,8 @@ private fun BottomCancelSaveDock(
         Surface(
             modifier = Modifier.fillMaxWidth(0.85f),
             shape = RoundedCornerShape(32.dp),
-            color = colors.cardBackground,
-            border = BorderStroke(1.dp, colors.borderStroke)
+            color = if (colors.isDark) Color(0xFF1E1E22) else colors.cardBackground,
+            border = BorderStroke(1.dp, if (colors.isDark) Color(0xFF323238) else colors.borderStroke)
         ) {
             Row(
                 modifier = Modifier
