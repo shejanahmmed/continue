@@ -38,9 +38,18 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.ime
+import androidx.compose.foundation.layout.isImeVisible
+import androidx.compose.foundation.layout.navigationBars
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
+import androidx.compose.foundation.relocation.BringIntoViewRequester
+import androidx.compose.foundation.relocation.bringIntoViewRequester
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
@@ -121,12 +130,20 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
+import kotlinx.coroutines.delay
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.geometry.Rect
+import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.IntOffset
@@ -155,6 +172,7 @@ enum class ActivePickerField {
     END_TIME
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun CreateEntryScreen(
     viewModel: CreateEntryViewModel,
@@ -349,6 +367,65 @@ fun CreateEntryScreen(
     val focusManager = LocalFocusManager.current
     val keyboardController = LocalSoftwareKeyboardController.current
 
+    val notesBringIntoViewRequester = remember { BringIntoViewRequester() }
+    val notesFocusRequester = remember { FocusRequester() }
+    var isNotesFocused by remember { mutableStateOf(false) }
+    val isImeVisible = WindowInsets.isImeVisible
+    val density = LocalDensity.current
+
+    var notesValue by remember {
+        mutableStateOf(TextFieldValue(text = state.notes, selection = TextRange(state.notes.length)))
+    }
+    var notesTextLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+
+    LaunchedEffect(state.notes) {
+        if (state.notes != notesValue.text) {
+            notesValue = notesValue.copy(
+                text = state.notes,
+                selection = TextRange(state.notes.length)
+            )
+        }
+    }
+
+    val configuration = LocalConfiguration.current
+    val screenHeightDp = configuration.screenHeightDp.dp
+    val imeBottomPx = WindowInsets.ime.getBottom(density)
+    val imeBottomDp = with(density) { imeBottomPx.toDp() }
+    val visibleViewportDp = (screenHeightDp - imeBottomDp).coerceAtLeast(240.dp)
+    // Dynamic, device-adaptive clearance: scales to ~42% of visible screen height above keyboard (180dp - 280dp)
+    val smartClearanceDp = (visibleViewportDp * 0.42f).coerceIn(180.dp, 280.dp)
+    val smartClearancePx = with(density) { smartClearanceDp.toPx() }
+
+    // Keep Notes field and active cursor line lifted comfortably above the software keyboard on any device
+    LaunchedEffect(isNotesFocused, isImeVisible, imeBottomPx, notesValue.selection, notesValue.text, notesTextLayoutResult) {
+        if (isNotesFocused && isImeVisible) {
+            if (imeBottomPx == 0) {
+                delay(150)
+            }
+            val layout = notesTextLayoutResult
+            val targetRect = if (layout != null) {
+                val textLength = layout.layoutInput.text.length
+                val cursorIndex = notesValue.selection.start.coerceIn(0, textLength)
+                val cursorRect = layout.getCursorRect(cursorIndex)
+                Rect(
+                    left = cursorRect.left,
+                    top = cursorRect.top,
+                    right = cursorRect.right,
+                    bottom = cursorRect.bottom + smartClearancePx
+                )
+            } else {
+                val estimatedLinePx = with(density) { 24.dp.toPx() }
+                Rect(
+                    left = 0f,
+                    top = 0f,
+                    right = 0f,
+                    bottom = estimatedLinePx + smartClearancePx
+                )
+            }
+            notesBringIntoViewRequester.bringIntoView(targetRect)
+        }
+    }
+
     LaunchedEffect(activePickerField) {
         if (activePickerField != ActivePickerField.NONE) {
             focusManager.clearFocus()
@@ -394,10 +471,10 @@ fun CreateEntryScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .navigationBarsPadding()
+                .windowInsetsPadding(WindowInsets.navigationBars.union(WindowInsets.ime))
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
-                .padding(top = 16.dp, bottom = if (showEmojiKeyboard) 360.dp else 120.dp),
+                .padding(top = 16.dp, bottom = if (showEmojiKeyboard) 360.dp else if (isImeVisible) 280.dp else 120.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
             // Top Segmented Pill Toggle: Event vs Reminder
@@ -942,103 +1019,125 @@ fun CreateEntryScreen(
 
                             SectionDivider()
 
-                            // Notes Field Row
-                            Row(
+                            // Notes Field Container with Full Row Tap Target
+                            Column(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier.size(24.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Description,
-                                        contentDescription = "Notes",
-                                        tint = colors.textSecondary,
-                                        modifier = Modifier.size(20.dp)
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null,
+                                        onClick = { notesFocusRequester.requestFocus() }
                                     )
-                                }
-                                Spacer(modifier = Modifier.width(16.dp))
-                                Column(modifier = Modifier.fillMaxWidth()) {
-                                    BasicTextField(
-                                        value = state.notes,
-                                        onValueChange = { viewModel.updateNotes(it) },
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .onFocusChanged { focusState ->
-                                                if (focusState.isFocused) {
-                                                    activePickerField = ActivePickerField.NONE
-                                                    showColorPicker = false
-                                                    showEmojiKeyboard = false
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(vertical = 12.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Box(
+                                        modifier = Modifier.size(24.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Description,
+                                            contentDescription = "Notes",
+                                            tint = colors.textSecondary,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Column(modifier = Modifier.fillMaxWidth()) {
+                                        BasicTextField(
+                                            value = notesValue,
+                                            onValueChange = { newValue ->
+                                                notesValue = newValue
+                                                if (newValue.text != state.notes) {
+                                                    viewModel.updateNotes(newValue.text)
                                                 }
                                             },
-                                        textStyle = TextStyle(
-                                            color = colors.textPrimary,
-                                            fontSize = 15.sp,
-                                        ),
-                                        cursorBrush = SolidColor(colors.accent),
-                                        decorationBox = { innerTextField ->
-                                            if (state.notes.isEmpty()) {
-                                                Text(
-                                                    text = "Notes",
-                                                    color = colors.textSecondary,
-                                                    fontSize = 15.sp
-                                                )
-                                            }
-                                            innerTextField()
-                                        }
-                                    )
-
-                                    val detectedUrls = remember(state.notes) { LinkHelper.extractUrls(state.notes) }
-                                    if (detectedUrls.isNotEmpty()) {
-                                        Spacer(modifier = Modifier.height(8.dp))
-                                        Row(
+                                            onTextLayout = { layoutResult ->
+                                                notesTextLayoutResult = layoutResult
+                                            },
                                             modifier = Modifier
                                                 .fillMaxWidth()
-                                                .horizontalScroll(rememberScrollState()),
-                                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                                        ) {
-                                            detectedUrls.forEach { url ->
-                                                Box(
-                                                    modifier = Modifier
-                                                        .clip(RoundedCornerShape(12.dp))
-                                                        .background(Color(0xFF1E3A5F).copy(alpha = 0.4f))
-                                                        .border(1.dp, Color(0xFF3897F0), RoundedCornerShape(12.dp))
-                                                        .clickable { LinkHelper.openUrl(context, url) }
-                                                        .padding(horizontal = 10.dp, vertical = 5.dp),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    Row(
-                                                        verticalAlignment = Alignment.CenterVertically,
-                                                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                .focusRequester(notesFocusRequester)
+                                                .bringIntoViewRequester(notesBringIntoViewRequester)
+                                                .onFocusChanged { focusState ->
+                                                    isNotesFocused = focusState.isFocused
+                                                    if (focusState.isFocused) {
+                                                        activePickerField = ActivePickerField.NONE
+                                                        showColorPicker = false
+                                                        showEmojiKeyboard = false
+                                                    }
+                                                },
+                                            textStyle = TextStyle(
+                                                color = colors.textPrimary,
+                                                fontSize = 15.sp,
+                                            ),
+                                            cursorBrush = SolidColor(colors.accent),
+                                            decorationBox = { innerTextField ->
+                                                if (notesValue.text.isEmpty()) {
+                                                    Text(
+                                                        text = "Notes",
+                                                        color = colors.textSecondary,
+                                                        fontSize = 15.sp
+                                                    )
+                                                }
+                                                innerTextField()
+                                            }
+                                        )
+
+                                        val detectedUrls = remember(state.notes) { LinkHelper.extractUrls(state.notes) }
+                                        if (detectedUrls.isNotEmpty()) {
+                                            Spacer(modifier = Modifier.height(8.dp))
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .horizontalScroll(rememberScrollState()),
+                                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                                            ) {
+                                                detectedUrls.forEach { url ->
+                                                    Box(
+                                                        modifier = Modifier
+                                                            .clip(RoundedCornerShape(12.dp))
+                                                            .background(Color(0xFF1E3A5F).copy(alpha = 0.4f))
+                                                            .border(1.dp, Color(0xFF3897F0), RoundedCornerShape(12.dp))
+                                                            .clickable { LinkHelper.openUrl(context, url) }
+                                                            .padding(horizontal = 10.dp, vertical = 5.dp),
+                                                        contentAlignment = Alignment.Center
                                                     ) {
-                                                        Icon(
-                                                            imageVector = Icons.Outlined.Link,
-                                                            contentDescription = "Open Link",
-                                                            tint = Color(0xFF3897F0),
-                                                            modifier = Modifier.size(13.dp)
-                                                        )
-                                                        Text(
-                                                            text = url.removePrefix("https://").removePrefix("http://").take(30) + if (url.length > 36) "…" else "",
-                                                            color = Color(0xFF3897F0),
-                                                            fontSize = 12.sp,
-                                                            fontWeight = FontWeight.Medium,
-                                                            maxLines = 1
-                                                        )
-                                                        Icon(
-                                                            imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                                                            contentDescription = null,
-                                                            tint = Color(0xFF3897F0),
-                                                            modifier = Modifier.size(11.dp)
-                                                        )
+                                                        Row(
+                                                            verticalAlignment = Alignment.CenterVertically,
+                                                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                                                        ) {
+                                                            Icon(
+                                                                imageVector = Icons.Outlined.Link,
+                                                                contentDescription = "Open Link",
+                                                                tint = Color(0xFF3897F0),
+                                                                modifier = Modifier.size(13.dp)
+                                                            )
+                                                            Text(
+                                                                text = url.removePrefix("https://").removePrefix("http://").take(30) + if (url.length > 36) "…" else "",
+                                                                color = Color(0xFF3897F0),
+                                                                fontSize = 12.sp,
+                                                                fontWeight = FontWeight.Medium,
+                                                                maxLines = 1
+                                                            )
+                                                            Icon(
+                                                                imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                                                                contentDescription = null,
+                                                                tint = Color(0xFF3897F0),
+                                                                modifier = Modifier.size(11.dp)
+                                                            )
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
                                 }
+                                Spacer(modifier = Modifier.height(8.dp))
                             }
 
                             SectionDivider()
