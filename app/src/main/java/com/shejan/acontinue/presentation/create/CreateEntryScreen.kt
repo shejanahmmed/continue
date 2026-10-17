@@ -6,10 +6,16 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutLinearInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.scaleIn
+import androidx.compose.animation.scaleOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
@@ -21,6 +27,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.gestures.snapping.rememberSnapFlingBehavior
 import androidx.compose.foundation.layout.Arrangement
@@ -103,11 +110,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.coroutineScope
 import kotlinx.coroutines.launch
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
@@ -427,33 +436,17 @@ fun CreateEntryScreen(
                             )
 
                             if (state.entryType == EntryType.ACTIVITY) {
-                                // Emoji / Sticker Button (Opens Bottom Emoji Keyboard)
-                                Box(
-                                    modifier = Modifier
-                                        .size(28.dp)
-                                        .clip(CircleShape)
-                                        .clickable {
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                            showColorPicker = false
-                                            showEmojiKeyboard = !showEmojiKeyboard
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (state.emoji.isNotBlank()) {
-                                        Text(
-                                            text = state.emoji,
-                                            fontSize = 18.sp
-                                        )
-                                    } else {
-                                        Icon(
-                                            imageVector = Icons.Outlined.SentimentSatisfied,
-                                            contentDescription = "Emoji",
-                                            tint = if (showEmojiKeyboard) colors.accent else colors.textSecondary,
-                                            modifier = Modifier.size(22.dp)
-                                        )
+                                // Emoji / Sticker Button with Sequential Shrink-and-Pop Physics
+                                EmojiPopButton(
+                                    emoji = state.emoji,
+                                    isOpen = showEmojiKeyboard,
+                                    onClick = {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
+                                        showColorPicker = false
+                                        showEmojiKeyboard = !showEmojiKeyboard
                                     }
-                                }
+                                )
 
                                 Spacer(modifier = Modifier.width(10.dp))
 
@@ -480,7 +473,7 @@ fun CreateEntryScreen(
                             }
                         }
 
-                        HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                        SectionDivider()
 
                         // "All day" Row with Clock icon on the left and Switch on the right
                         Row(
@@ -617,7 +610,7 @@ fun CreateEntryScreen(
                             exit = shrinkVertically(animationSpec = tween(200)) + fadeOut(animationSpec = tween(150))
                         ) {
                             Column(modifier = Modifier.fillMaxWidth()) {
-                                HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                                SectionDivider()
                                 InlineCalendarDatePicker(
                                     selectedMillis = if (activePickerField == ActivePickerField.START_DATE) state.startMillis else state.endMillis,
                                     displayedYear = displayedYear,
@@ -655,7 +648,7 @@ fun CreateEntryScreen(
                             exit = shrinkVertically(animationSpec = tween(200)) + fadeOut(animationSpec = tween(150))
                         ) {
                             Column(modifier = Modifier.fillMaxWidth()) {
-                                HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                                SectionDivider()
                                 InlineWheelTimePicker(
                                     selectedMillis = if (activePickerField == ActivePickerField.START_TIME) state.startMillis else state.endMillis,
                                     onTimeSelected = { hour12, minute, isPm ->
@@ -671,7 +664,7 @@ fun CreateEntryScreen(
 
                         if (state.entryType == EntryType.REMINDER) {
                             // --- REMINDER OPTIONS ---
-                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                            SectionDivider()
 
                             // Early alert Row
                             val earlyAlertLabel = when (state.earlyAlertMinutes) {
@@ -725,7 +718,7 @@ fun CreateEntryScreen(
                                 onClick = { isEarlyAlertScreenVisible = true }
                             )
 
-                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                            SectionDivider()
 
                             // Repeat Row
                             val repeatLabel = if (state.recurrenceMode == RecurrenceMode.NONE) "Don't repeat" else formatRecurrenceLabel(state)
@@ -737,7 +730,7 @@ fun CreateEntryScreen(
                                 onClick = { isRepeatScreenVisible = true }
                             )
 
-                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                            SectionDivider()
 
                             // Priority / Sound Row (Speaker icon)
                             Box(modifier = Modifier.fillMaxWidth()) {
@@ -776,7 +769,7 @@ fun CreateEntryScreen(
                                 }
                             }
 
-                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                            SectionDivider()
 
                             // Reminder Category Row
                             FormOptionRow(
@@ -790,7 +783,7 @@ fun CreateEntryScreen(
 
                         } else {
                             // --- EVENT (ACTIVITY) OPTIONS ---
-                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                            SectionDivider()
 
                             // Location Row with free typing, clear button & "Open map" when a map link is entered
                             Row(
@@ -878,7 +871,7 @@ fun CreateEntryScreen(
                                 }
                             }
 
-                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                            SectionDivider()
 
                             // Alert / Reminder Offset Row
                             val alertLabel = if (!state.alertsEnabled || state.selectedAlertMinutes.isEmpty()) {
@@ -907,7 +900,7 @@ fun CreateEntryScreen(
                                 onClick = { isAlertScreenVisible = true }
                             )
 
-                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                            SectionDivider()
 
                             // Repeat Row
                             FormOptionRow(
@@ -918,7 +911,7 @@ fun CreateEntryScreen(
                                 onClick = { isRepeatScreenVisible = true }
                             )
 
-                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                            SectionDivider()
 
                             // Notes Field Row
                             Row(
@@ -1019,7 +1012,7 @@ fun CreateEntryScreen(
                                 }
                             }
 
-                            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.6f), thickness = 0.5.dp)
+                            SectionDivider()
 
                             // Attachment Row
                             FormOptionRow(
@@ -1110,7 +1103,6 @@ fun CreateEntryScreen(
                 recentEmojis = state.recentEmojis,
                 onEmojiSelected = { emoji ->
                     viewModel.selectEmoji(emoji)
-                    showEmojiKeyboard = false
                 },
                 onClose = { showEmojiKeyboard = false }
             )
@@ -1177,62 +1169,82 @@ private fun BottomEmojiKeyboard(
                 .fillMaxSize()
                 .navigationBarsPadding()
         ) {
-            // Category Tabs Header Row
-            LazyRow(
+            // Category Tabs Header Row with Done checkmark
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
                     .background(Color(0xFF161616))
-                    .padding(horizontal = 8.dp, vertical = 6.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
+                    .padding(end = 8.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                itemsIndexed(categoryTabs) { index, (_, icon) ->
-                    val isSelected = index == selectedCategoryIndex
-                    Column(
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(8.dp))
-                            .clickable { selectedCategoryIndex = index }
-                            .padding(horizontal = 10.dp, vertical = 6.dp)
-                    ) {
-                        when (index) {
-                            0 -> {
-                                // Recent Tab: Single Monochrome Outlined Clock Vector Icon
-                                Icon(
-                                    imageVector = Icons.Outlined.AccessTime,
-                                    contentDescription = "Recent History",
-                                    tint = if (isSelected) Color(0xFF3897F0) else colors.textSecondary,
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            }
-                            categoryTabs.lastIndex -> {
-                                // More Tab: Single Monochrome Outlined Add Vector Icon
-                                Icon(
-                                    imageVector = Icons.Outlined.Add,
-                                    contentDescription = "More",
-                                    tint = if (isSelected) Color(0xFF3897F0) else colors.textSecondary,
-                                    modifier = Modifier.size(19.dp)
-                                )
-                            }
-                            else -> {
-                                Text(
-                                    text = icon,
-                                    fontSize = 18.sp
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Box(
+                LazyRow(
+                    modifier = Modifier
+                        .weight(1f)
+                        .padding(start = 8.dp, top = 6.dp, bottom = 6.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    itemsIndexed(categoryTabs) { index, (_, icon) ->
+                        val isSelected = index == selectedCategoryIndex
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier
-                                .width(16.dp)
-                                .height(2.dp)
-                                .background(if (isSelected) Color(0xFF3897F0) else Color.Transparent)
-                        )
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { selectedCategoryIndex = index }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            when (index) {
+                                0 -> {
+                                    Icon(
+                                        imageVector = Icons.Outlined.AccessTime,
+                                        contentDescription = "Recent History",
+                                        tint = if (isSelected) Color(0xFF3897F0) else colors.textSecondary,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+                                categoryTabs.lastIndex -> {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Add,
+                                        contentDescription = "More",
+                                        tint = if (isSelected) Color(0xFF3897F0) else colors.textSecondary,
+                                        modifier = Modifier.size(19.dp)
+                                    )
+                                }
+                                else -> {
+                                    Text(
+                                        text = icon,
+                                        fontSize = 18.sp
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Box(
+                                modifier = Modifier
+                                    .width(16.dp)
+                                    .height(2.dp)
+                                    .background(if (isSelected) Color(0xFF3897F0) else Color.Transparent)
+                            )
+                        }
                     }
+                }
+
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onClose),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Check,
+                        contentDescription = "Done",
+                        tint = Color(0xFF3897F0),
+                        modifier = Modifier.size(20.dp)
+                    )
                 }
             }
 
-            HorizontalDivider(color = colors.borderStroke.copy(alpha = 0.5f), thickness = 0.5.dp)
+            SectionDivider()
 
             // Dynamic Content Grid: Zero Hardcoding for History
             if (selectedCategoryIndex == 0) {
@@ -2218,6 +2230,105 @@ private fun generate42Days(year: Int, month: Int): List<CalendarDay> {
         cal.add(Calendar.DAY_OF_MONTH, 1)
     }
     return days
+}
+
+@Composable
+private fun SectionDivider(modifier: Modifier = Modifier) {
+    val colors = LocalUtilitarianColors.current
+    HorizontalDivider(
+        modifier = modifier,
+        color = if (colors.isDark) Color(0xFF38383A) else Color(0xFFD0D0D0),
+        thickness = 1.dp
+    )
+}
+
+@Composable
+private fun EmojiPopButton(
+    emoji: String,
+    isOpen: Boolean,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = LocalUtilitarianColors.current
+    var displayedEmoji by remember { mutableStateOf(emoji) }
+    val scale = remember { Animatable(1f) }
+    val alpha = remember { Animatable(1f) }
+
+    LaunchedEffect(emoji) {
+        if (emoji != displayedEmoji) {
+            if (displayedEmoji.isNotBlank()) {
+                // Step 1: Distinct shrink down into a tiny dot
+                coroutineScope {
+                    launch {
+                        alpha.animateTo(
+                            targetValue = 0f,
+                            animationSpec = tween(durationMillis = 110, easing = FastOutLinearInEasing)
+                        )
+                    }
+                    scale.animateTo(
+                        targetValue = 0.15f,
+                        animationSpec = tween(durationMillis = 110, easing = FastOutLinearInEasing)
+                    )
+                }
+            } else {
+                scale.snapTo(0.15f)
+                alpha.snapTo(0f)
+            }
+
+            displayedEmoji = emoji
+
+            // Step 2: Pop out new emoji from the dot with noticeable overshoot bounce
+            coroutineScope {
+                launch {
+                    alpha.animateTo(
+                        targetValue = 1f,
+                        animationSpec = tween(durationMillis = 140)
+                    )
+                }
+                scale.animateTo(
+                    targetValue = 1f,
+                    animationSpec = spring(
+                        dampingRatio = 0.42f, // Tactile overshoot bounce (~1.32x scale)
+                        stiffness = Spring.StiffnessMediumLow // Clearly visible settling time (~260ms)
+                    )
+                )
+            }
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .size(32.dp)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            ),
+        contentAlignment = Alignment.Center
+    ) {
+        Box(
+            modifier = Modifier.graphicsLayer {
+                scaleX = scale.value
+                scaleY = scale.value
+                this.alpha = alpha.value
+            },
+            contentAlignment = Alignment.Center
+        ) {
+            if (displayedEmoji.isNotBlank()) {
+                Text(
+                    text = displayedEmoji,
+                    fontSize = 18.sp
+                )
+            } else {
+                Icon(
+                    imageVector = Icons.Outlined.SentimentSatisfied,
+                    contentDescription = "Emoji",
+                    tint = if (isOpen) colors.accent else colors.textSecondary,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    }
 }
 
 @Composable
