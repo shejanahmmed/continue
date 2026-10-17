@@ -204,7 +204,6 @@ class AlarmReceiver : BroadcastReceiver() {
                     notificationBuilder
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setCategory(NotificationCompat.CATEGORY_REMINDER)
-                        .setFullScreenIntent(pendingIntent, false)
                 }
                 ActivityPriority.HIGH -> {
                     val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
@@ -214,7 +213,6 @@ class AlarmReceiver : BroadcastReceiver() {
                         .setCategory(NotificationCompat.CATEGORY_ALARM)
                         .setVibrate(longArrayOf(0, 500, 250, 500, 250, 500))
                         .setSound(alarmSound)
-                        .setFullScreenIntent(pendingIntent, true)
                 }
             }
         }
