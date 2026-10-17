@@ -356,6 +356,35 @@ fun CreateEntryScreen(
         }
     }
 
+    var showDiscardSheet by remember { mutableStateOf(false) }
+
+    val hasModifications = state.title.isNotBlank() ||
+            state.emoji.isNotBlank() ||
+            state.location.isNotBlank() ||
+            state.notes.isNotBlank() ||
+            state.attachments.isNotEmpty() ||
+            state.selectedAlertMinutes.isNotEmpty() ||
+            state.recurrenceMode != RecurrenceMode.NONE ||
+            state.earlyAlertMinutes != -1
+
+    BackHandler(enabled = true) {
+        if (showDiscardSheet) {
+            showDiscardSheet = false
+        } else if (showIntensityPopup) {
+            showIntensityPopup = false
+        } else if (showEmojiKeyboard) {
+            showEmojiKeyboard = false
+        } else if (showColorPicker) {
+            showColorPicker = false
+        } else if (activePickerField != ActivePickerField.NONE) {
+            activePickerField = ActivePickerField.NONE
+        } else if (hasModifications) {
+            showDiscardSheet = true
+        } else {
+            onDismiss()
+        }
+    }
+
     Box(
         modifier = modifier
             .fillMaxSize()
@@ -1085,7 +1114,13 @@ fun CreateEntryScreen(
         // Bottom Action Dock: Cancel | Save Pill (Visible when Emoji Keyboard is closed)
         if (!showEmojiKeyboard) {
             BottomCancelSaveDock(
-                onCancel = onDismiss,
+                onCancel = {
+                    if (hasModifications) {
+                        showDiscardSheet = true
+                    } else {
+                        onDismiss()
+                    }
+                },
                 onSave = { viewModel.saveEntry() },
                 isSaveEnabled = state.title.isNotBlank() && !state.isSaving,
                 modifier = Modifier.align(Alignment.BottomCenter)
@@ -1107,6 +1142,141 @@ fun CreateEntryScreen(
                 },
                 onClose = { showEmojiKeyboard = false }
             )
+        }
+
+        // Discard Changes Modal Scrim
+        AnimatedVisibility(
+            visible = showDiscardSheet,
+            enter = fadeIn(tween(180)),
+            exit = fadeOut(tween(140)),
+            modifier = Modifier.fillMaxSize()
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.6f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { showDiscardSheet = false }
+                    )
+            )
+        }
+
+        // Discard Changes Bottom Sheet Card
+        AnimatedVisibility(
+            visible = showDiscardSheet,
+            enter = slideInVertically(initialOffsetY = { it }, animationSpec = tween(220)) + fadeIn(tween(180)),
+            exit = slideOutVertically(targetOffsetY = { it }, animationSpec = tween(180)) + fadeOut(tween(140)),
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(horizontal = 14.dp, vertical = 12.dp)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = { /* Intercept click so scrim doesn't dismiss */ }
+                    ),
+                shape = RoundedCornerShape(20.dp),
+                color = if (colors.isDark) Color(0xFF2C2C2E) else Color(0xFFF2F2F7),
+                border = BorderStroke(1.dp, if (colors.isDark) Color(0xFF38383A) else Color(0xFFD0D0D0))
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 22.dp, bottom = 18.dp, start = 20.dp, end = 20.dp)
+                ) {
+                    Text(
+                        text = "Save your changes or discard them?",
+                        color = colors.textPrimary,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+
+                    Spacer(modifier = Modifier.height(26.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceEvenly
+                    ) {
+                        // Cancel
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable { showDiscardSheet = false }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Cancel",
+                                color = colors.textPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(18.dp)
+                                .background(if (colors.isDark) Color(0xFF48484A) else Color(0xFFD0D0D0))
+                        )
+
+                        // Discard
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    showDiscardSheet = false
+                                    onDismiss()
+                                }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Discard",
+                                color = colors.textPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(18.dp)
+                                .background(if (colors.isDark) Color(0xFF48484A) else Color(0xFFD0D0D0))
+                        )
+
+                        // Save
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .clip(RoundedCornerShape(8.dp))
+                                .clickable {
+                                    showDiscardSheet = false
+                                    viewModel.saveEntry()
+                                }
+                                .padding(vertical = 10.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Save",
+                                color = colors.textPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                }
+            }
         }
     }
 }
