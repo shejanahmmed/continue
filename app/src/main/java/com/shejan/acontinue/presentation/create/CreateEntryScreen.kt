@@ -112,8 +112,11 @@ import androidx.compose.ui.graphics.Path
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -334,6 +337,15 @@ fun CreateEntryScreen(
     var slideDirection by remember { mutableIntStateOf(1) }
 
     val scrollState = rememberScrollState()
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+
+    LaunchedEffect(activePickerField) {
+        if (activePickerField != ActivePickerField.NONE) {
+            focusManager.clearFocus()
+            keyboardController?.hide()
+        }
+    }
 
     Box(
         modifier = modifier
@@ -353,7 +365,11 @@ fun CreateEntryScreen(
             // Top Segmented Pill Toggle: Event vs Reminder
             SegmentedTopToggle(
                 selectedType = state.entryType,
-                onSelectType = { viewModel.updateEntryType(it) }
+                onSelectType = {
+                    focusManager.clearFocus()
+                    keyboardController?.hide()
+                    viewModel.updateEntryType(it)
+                }
             )
 
             Spacer(modifier = Modifier.height(16.dp))
@@ -383,7 +399,14 @@ fun CreateEntryScreen(
                                 onValueChange = { viewModel.updateTitle(it) },
                                 modifier = Modifier
                                     .weight(1f)
-                                    .padding(vertical = 8.dp),
+                                    .padding(vertical = 8.dp)
+                                    .onFocusChanged { focusState ->
+                                        if (focusState.isFocused) {
+                                            activePickerField = ActivePickerField.NONE
+                                            showColorPicker = false
+                                            showEmojiKeyboard = false
+                                        }
+                                    },
                                 textStyle = TextStyle(
                                     color = colors.textPrimary,
                                     fontSize = 18.sp,
@@ -410,6 +433,8 @@ fun CreateEntryScreen(
                                         .size(28.dp)
                                         .clip(CircleShape)
                                         .clickable {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
                                             showColorPicker = false
                                             showEmojiKeyboard = !showEmojiKeyboard
                                         },
@@ -438,6 +463,8 @@ fun CreateEntryScreen(
                                         .size(28.dp)
                                         .clip(CircleShape)
                                         .clickable {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
                                             showEmojiKeyboard = false
                                             showColorPicker = !showColorPicker
                                         },
@@ -486,6 +513,8 @@ fun CreateEntryScreen(
                             Switch(
                                 checked = state.isAllDay,
                                 onCheckedChange = {
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
                                     if (it && (activePickerField == ActivePickerField.START_TIME || activePickerField == ActivePickerField.END_TIME)) {
                                         activePickerField = ActivePickerField.NONE
                                     }
@@ -518,6 +547,8 @@ fun CreateEntryScreen(
                                     fontSize = 17.sp,
                                     fontWeight = if (activePickerField == ActivePickerField.START_DATE) FontWeight.SemiBold else FontWeight.Normal,
                                     modifier = Modifier.clickable {
+                                        focusManager.clearFocus()
+                                        keyboardController?.hide()
                                         showColorPicker = false
                                         showEmojiKeyboard = false
                                         activePickerField = if (activePickerField == ActivePickerField.START_DATE) ActivePickerField.NONE else ActivePickerField.START_DATE
@@ -538,6 +569,8 @@ fun CreateEntryScreen(
                                         fontSize = 17.sp,
                                         fontWeight = if (activePickerField == ActivePickerField.START_TIME) FontWeight.SemiBold else FontWeight.Normal,
                                         modifier = Modifier.clickable {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
                                             showColorPicker = false
                                             showEmojiKeyboard = false
                                             activePickerField = if (activePickerField == ActivePickerField.START_TIME) ActivePickerField.NONE else ActivePickerField.START_TIME
@@ -554,6 +587,8 @@ fun CreateEntryScreen(
                                 endMillis = state.endMillis,
                                 activePickerField = activePickerField,
                                 onDateFieldClick = { clickedField ->
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
                                     showColorPicker = false
                                     showEmojiKeyboard = false
                                     val newActive = if (activePickerField == clickedField) ActivePickerField.NONE else clickedField
@@ -566,6 +601,8 @@ fun CreateEntryScreen(
                                     }
                                 },
                                 onTimeFieldClick = { clickedField ->
+                                    focusManager.clearFocus()
+                                    keyboardController?.hide()
                                     showColorPicker = false
                                     showEmojiKeyboard = false
                                     activePickerField = if (activePickerField == clickedField) ActivePickerField.NONE else clickedField
@@ -781,7 +818,14 @@ fun CreateEntryScreen(
                                     onValueChange = { viewModel.updateLocation(it) },
                                     modifier = Modifier
                                         .weight(1f)
-                                        .padding(vertical = 4.dp),
+                                        .padding(vertical = 4.dp)
+                                        .onFocusChanged { focusState ->
+                                            if (focusState.isFocused) {
+                                                activePickerField = ActivePickerField.NONE
+                                                showColorPicker = false
+                                                showEmojiKeyboard = false
+                                            }
+                                        },
                                     textStyle = TextStyle(
                                         color = colors.textPrimary,
                                         fontSize = 15.sp,
@@ -899,7 +943,15 @@ fun CreateEntryScreen(
                                     BasicTextField(
                                         value = state.notes,
                                         onValueChange = { viewModel.updateNotes(it) },
-                                        modifier = Modifier.fillMaxWidth(),
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .onFocusChanged { focusState ->
+                                                if (focusState.isFocused) {
+                                                    activePickerField = ActivePickerField.NONE
+                                                    showColorPicker = false
+                                                    showEmojiKeyboard = false
+                                                }
+                                            },
                                         textStyle = TextStyle(
                                             color = colors.textPrimary,
                                             fontSize = 15.sp,
@@ -2180,11 +2232,17 @@ private fun FormOptionRow(
     onClick: () -> Unit
 ) {
     val colors = LocalUtilitarianColors.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
 
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .clickable {
+                focusManager.clearFocus()
+                keyboardController?.hide()
+                onClick()
+            }
             .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
