@@ -12,13 +12,17 @@ import kotlinx.coroutines.flow.Flow
 interface ActivityDao {
     @Query("""
         SELECT * FROM activities 
-        WHERE startTimeMillis <= :endMillis AND endTimeMillis >= :startMillis 
+        WHERE (startTimeMillis <= :endMillis AND endTimeMillis >= :startMillis)
+           OR recurrenceMode != 'NONE'
         ORDER BY startTimeMillis ASC
     """)
     fun getActivitiesForDateRange(startMillis: Long, endMillis: Long): Flow<List<ActivityEntity>>
 
     @Query("SELECT * FROM activities WHERE id = :id LIMIT 1")
     fun getActivityById(id: Long): Flow<ActivityEntity?>
+
+    @Query("SELECT * FROM activities WHERE id = :id LIMIT 1")
+    suspend fun getActivityByIdSync(id: Long): ActivityEntity?
 
     @Query("SELECT * FROM activities ORDER BY startTimeMillis DESC")
     fun getAllActivities(): Flow<List<ActivityEntity>>
@@ -42,7 +46,7 @@ interface ActivityDao {
     """)
     fun searchActivities(query: String): Flow<List<ActivityEntity>>
 
-    @Query("SELECT * FROM activities WHERE startTimeMillis > :now AND isCompleted = 0")
+    @Query("SELECT * FROM activities WHERE (startTimeMillis > :now OR recurrenceMode != 'NONE') AND isCompleted = 0")
     suspend fun getUpcomingIncompleteActivities(now: Long): List<ActivityEntity>
 
     @Query("UPDATE activities SET reminderCategoryColorHex = :colorHex, reminderCategoryIcon = :icon WHERE reminderCategory = :categoryName")

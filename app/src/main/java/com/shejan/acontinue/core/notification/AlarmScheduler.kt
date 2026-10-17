@@ -6,6 +6,8 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import com.shejan.acontinue.domain.model.ActivityItem
+import com.shejan.acontinue.domain.model.RecurrenceMode
+import com.shejan.acontinue.domain.util.RecurrenceEvaluator
 
 interface ActivityScheduler {
     fun schedule(activity: ActivityItem)
@@ -17,10 +19,26 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
 
     override fun schedule(activity: ActivityItem) {
-        val offsets = if (activity.reminderMinutesList.isNotEmpty()) {
-            activity.reminderMinutesList
-        } else if (activity.reminderMinutesBefore >= 0) {
-            listOf(activity.reminderMinutesBefore)
+        val now = System.currentTimeMillis()
+        val effectiveActivity = if (activity.recurrenceMode != RecurrenceMode.NONE) {
+            val nextOccurrenceStart = RecurrenceEvaluator.getNextOccurrenceStart(activity, now - 60_000L)
+            if (nextOccurrenceStart != null) {
+                val duration = (activity.endTimeMillis - activity.startTimeMillis).coerceAtLeast(0L)
+                activity.copy(
+                    startTimeMillis = nextOccurrenceStart,
+                    endTimeMillis = nextOccurrenceStart + duration
+                )
+            } else {
+                activity
+            }
+        } else {
+            activity
+        }
+
+        val offsets = if (effectiveActivity.reminderMinutesList.isNotEmpty()) {
+            effectiveActivity.reminderMinutesList
+        } else if (effectiveActivity.reminderMinutesBefore >= 0) {
+            listOf(effectiveActivity.reminderMinutesBefore)
         } else {
             emptyList()
         }
@@ -29,19 +47,19 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
 
         for (minutes in offsets) {
             if (minutes < 0) continue
-            val triggerTimeMillis = activity.startTimeMillis - (minutes * 60 * 1000L)
-            if (triggerTimeMillis <= System.currentTimeMillis()) continue
+            val triggerTimeMillis = effectiveActivity.startTimeMillis - (minutes * 60 * 1000L)
+            if (triggerTimeMillis <= now) continue
 
             val intent = Intent(context, AlarmReceiver::class.java).apply {
-                putExtra(EXTRA_ACTIVITY_ID, activity.id)
-                putExtra(EXTRA_ACTIVITY_TITLE, activity.title)
-                putExtra(EXTRA_ACTIVITY_LOCATION, activity.location)
-                putExtra(EXTRA_ACTIVITY_START_TIME, activity.startTimeMillis)
-                putExtra(EXTRA_ACTIVITY_END_TIME, activity.endTimeMillis)
-                putExtra(EXTRA_IS_ALL_DAY, activity.isAllDay)
-                putExtra(EXTRA_ACTIVITY_PRIORITY, activity.priority.name)
-                putExtra(EXTRA_ENTRY_TYPE, activity.entryType.name)
-                putExtra(EXTRA_REMINDER_CATEGORY, activity.reminderCategory)
+                putExtra(EXTRA_ACTIVITY_ID, effectiveActivity.id)
+                putExtra(EXTRA_ACTIVITY_TITLE, effectiveActivity.title)
+                putExtra(EXTRA_ACTIVITY_LOCATION, effectiveActivity.location)
+                putExtra(EXTRA_ACTIVITY_START_TIME, effectiveActivity.startTimeMillis)
+                putExtra(EXTRA_ACTIVITY_END_TIME, effectiveActivity.endTimeMillis)
+                putExtra(EXTRA_IS_ALL_DAY, effectiveActivity.isAllDay)
+                putExtra(EXTRA_ACTIVITY_PRIORITY, effectiveActivity.priority.name)
+                putExtra(EXTRA_ENTRY_TYPE, effectiveActivity.entryType.name)
+                putExtra(EXTRA_REMINDER_CATEGORY, effectiveActivity.reminderCategory)
             }
 
             val requestCode = getRequestCode(activity.id, minutes)

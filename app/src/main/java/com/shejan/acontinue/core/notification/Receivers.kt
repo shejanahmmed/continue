@@ -21,6 +21,7 @@ import android.media.AudioAttributes
 import android.media.RingtoneManager
 import com.shejan.acontinue.domain.model.ActivityPriority
 import com.shejan.acontinue.domain.model.EntryType
+import com.shejan.acontinue.domain.model.RecurrenceMode
 import java.util.Locale
 
 class AlarmReceiver : BroadcastReceiver() {
@@ -219,6 +220,25 @@ class AlarmReceiver : BroadcastReceiver() {
         }
 
         notificationManager.notify(activityId.toInt(), notificationBuilder.build())
+
+        // If activity is repeating, re-arm the next upcoming occurrence
+        if (activityId > 0) {
+            val pendingResult = goAsync()
+            CoroutineScope(Dispatchers.IO).launch {
+                try {
+                    val dao = ContinueDatabase.getInstance(context).activityDao()
+                    val entity = dao.getActivityByIdSync(activityId)
+                    if (entity != null && entity.recurrenceMode != RecurrenceMode.NONE.name) {
+                        val scheduler = AlarmScheduler(context)
+                        scheduler.schedule(entity.toDomain())
+                    }
+                } catch (e: Exception) {
+                    // Suppress background rescheduling exceptions
+                } finally {
+                    pendingResult.finish()
+                }
+            }
+        }
     }
 }
 

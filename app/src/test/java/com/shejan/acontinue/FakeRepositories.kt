@@ -19,7 +19,9 @@ class FakeActivityRepository : ActivityRepository {
 
     override fun getActivitiesForDateRange(startMillis: Long, endMillis: Long): Flow<List<ActivityItem>> {
         return activitiesFlow.map { list ->
-            list.filter { it.startTimeMillis <= endMillis && it.endTimeMillis >= startMillis }
+            list.flatMap { item ->
+                com.shejan.acontinue.domain.util.RecurrenceEvaluator.expandOccurrencesForRange(item, startMillis, endMillis)
+            }.sortedBy { it.startTimeMillis }
         }
     }
 

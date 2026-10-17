@@ -5,6 +5,7 @@ import com.shejan.acontinue.data.mapper.toDomain
 import com.shejan.acontinue.data.mapper.toEntity
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.repository.ActivityRepository
+import com.shejan.acontinue.domain.util.RecurrenceEvaluator
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
@@ -14,7 +15,10 @@ class ActivityRepositoryImpl(
 
     override fun getActivitiesForDateRange(startMillis: Long, endMillis: Long): Flow<List<ActivityItem>> {
         return activityDao.getActivitiesForDateRange(startMillis, endMillis).map { list ->
-            list.map { it.toDomain() }
+            list.flatMap { entity ->
+                val domain = entity.toDomain()
+                RecurrenceEvaluator.expandOccurrencesForRange(domain, startMillis, endMillis)
+            }.sortedBy { it.startTimeMillis }
         }
     }
 

@@ -9,6 +9,7 @@ import com.shejan.acontinue.domain.model.RecurrenceMode
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.model.ActivityWorkspaceAggregate
 import com.shejan.acontinue.domain.usecase.GetActivityWorkspaceUseCase
+import com.shejan.acontinue.domain.util.RecurrenceEvaluator
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -287,8 +288,8 @@ class CalendarViewModel(
             val startOfDay = getStartOfDayMillis(dayCal.timeInMillis)
             val endOfDay = getEndOfDayMillis(dayCal.timeInMillis)
 
-            val dayActivities = activities.filter { item ->
-                occursOnDay(item, startOfDay, endOfDay)
+            val dayActivities = activities.flatMap { item ->
+                RecurrenceEvaluator.expandOccurrencesForRange(item, startOfDay, endOfDay)
             }.sortedBy { it.startTimeMillis }
 
             CalendarDay(
@@ -304,8 +305,8 @@ class CalendarViewModel(
         val selStart = getStartOfDayMillis(selectedMillis)
         val selEnd = getEndOfDayMillis(selectedMillis)
 
-        val selectedActivities = activities.filter { item ->
-            occursOnDay(item, selStart, selEnd)
+        val selectedActivities = activities.flatMap { item ->
+            RecurrenceEvaluator.expandOccurrencesForRange(item, selStart, selEnd)
         }.sortedBy { it.startTimeMillis }
 
         val todayDate = Calendar.getInstance().apply { timeInMillis = todayMillis }.get(Calendar.DAY_OF_MONTH)
@@ -330,146 +331,6 @@ class CalendarViewModel(
             todayDateNumber = todayDate,
             isLoading = false
         )
-    }
-
-    private fun occursOnDay(activity: ActivityItem, startOfDay: Long, endOfDay: Long): Boolean {
-        val activityStartDate = getStartOfDayMillis(activity.startTimeMillis)
-        if (startOfDay < activityStartDate) return false
-
-        if (activity.recurrenceMode == RecurrenceMode.NONE) {
-            return activity.startTimeMillis <= endOfDay && activity.endTimeMillis >= startOfDay
-        }
-
-        // End condition check
-        if (activity.recurrenceEndType == RecurrenceEndType.UNTIL_DATE && activity.recurrenceEndDateMillis > 0L) {
-            val endLimit = getEndOfDayMillis(activity.recurrenceEndDateMillis)
-            if (startOfDay > endLimit) return false
-        }
-
-        val startCal = Calendar.getInstance().apply { timeInMillis = activity.startTimeMillis }
-        val targetCal = Calendar.getInstance().apply { timeInMillis = startOfDay }
-        val interval = activity.recurrenceInterval.coerceAtLeast(1)
-
-        return when (activity.recurrenceMode) {
-            RecurrenceMode.NONE -> false
-            RecurrenceMode.MINUTELY, RecurrenceMode.HOURLY, RecurrenceMode.DAILY -> {
-                val daysDiff = ((startOfDay - activityStartDate) / (24 * 60 * 60 * 1000L)).toInt()
-                if (daysDiff < 0 || daysDiff % interval != 0) return false
-                if (activity.recurrenceEndType == RecurrenceEndType.COUNT) {
-                    val occurrenceIndex = daysDiff / interval
-                    if (occurrenceIndex >= activity.recurrenceEndCount) return false
-                }
-                true
-            }
-            RecurrenceMode.WEEKDAYS -> {
-                val dow = targetCal.get(Calendar.DAY_OF_WEEK)
-                if (dow == Calendar.SATURDAY || dow == Calendar.SUNDAY) return false
-                if (activity.recurrenceEndType == RecurrenceEndType.COUNT) {
-                    val countBefore = countWeekdaysBetween(activityStartDate, startOfDay)
-                    if (countBefore >= activity.recurrenceEndCount) return false
-                }
-                true
-            }
-            RecurrenceMode.WEEKLY -> {
-                val dow = targetCal.get(Calendar.DAY_OF_WEEK)
-                val matchesDow = if (activity.recurrenceDaysOfWeek.isNotEmpty()) {
-                    dow in activity.recurrenceDaysOfWeek
-                } else {
-                    dow == startCal.get(Calendar.DAY_OF_WEEK)
-                }
-                if (!matchesDow) return false
-
-                val startWeekCal = (startCal.clone() as Calendar).apply {
-                    set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
-                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                }
-                val targetWeekCal = (targetCal.clone() as Calendar).apply {
-                    set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY)
-                    set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-                }
-                val weeksDiff = ((targetWeekCal.timeInMillis - startWeekCal.timeInMillis) / (7 * 24 * 60 * 60 * 1000L)).toInt()
-                if (weeksDiff < 0 || weeksDiff % interval != 0) return false
-                if (activity.recurrenceEndType == RecurrenceEndType.COUNT) {
-                    val countBefore = countWeeklyOccurrences(activity, startCal, targetCal)
-                    if (countBefore >= activity.recurrenceEndCount) return false
-                }
-                true
-            }
-            RecurrenceMode.MONTHLY -> {
-                val targetDom = targetCal.get(Calendar.DAY_OF_MONTH)
-                val matchesDom = if (activity.monthlySelectedDays.isNotEmpty()) {
-                    targetDom in activity.monthlySelectedDays
-                } else {
-                    targetDom == startCal.get(Calendar.DAY_OF_MONTH)
-                }
-                if (!matchesDom) return false
-
-                val monthsDiff = (targetCal.get(Calendar.YEAR) - startCal.get(Calendar.YEAR)) * 12 +
-                        (targetCal.get(Calendar.MONTH) - startCal.get(Calendar.MONTH))
-                if (monthsDiff < 0 || monthsDiff % interval != 0) return false
-                if (activity.recurrenceEndType == RecurrenceEndType.COUNT) {
-                    val occurrenceIndex = monthsDiff / interval
-                    if (occurrenceIndex >= activity.recurrenceEndCount) return false
-                }
-                true
-            }
-            RecurrenceMode.YEARLY -> {
-                val targetDom = targetCal.get(Calendar.DAY_OF_MONTH)
-                val targetMonth = targetCal.get(Calendar.MONTH)
-                val matchesMonth = if (activity.yearlySelectedMonths.isNotEmpty()) {
-                    targetMonth in activity.yearlySelectedMonths
-                } else {
-                    targetMonth == startCal.get(Calendar.MONTH)
-                }
-                if (!matchesMonth || targetDom != startCal.get(Calendar.DAY_OF_MONTH)) return false
-
-                val yearsDiff = targetCal.get(Calendar.YEAR) - startCal.get(Calendar.YEAR)
-                if (yearsDiff < 0 || yearsDiff % interval != 0) return false
-                if (activity.recurrenceEndType == RecurrenceEndType.COUNT) {
-                    val occurrenceIndex = yearsDiff / interval
-                    if (occurrenceIndex >= activity.recurrenceEndCount) return false
-                }
-                true
-            }
-        }
-    }
-
-    private fun countWeekdaysBetween(startMillis: Long, targetMillis: Long): Int {
-        if (targetMillis <= startMillis) return 0
-        var count = 0
-        val cal = Calendar.getInstance().apply { timeInMillis = startMillis }
-        val targetCal = Calendar.getInstance().apply { timeInMillis = targetMillis }
-        while (cal.get(Calendar.YEAR) < targetCal.get(Calendar.YEAR) ||
-            (cal.get(Calendar.YEAR) == targetCal.get(Calendar.YEAR) && cal.get(Calendar.DAY_OF_YEAR) < targetCal.get(Calendar.DAY_OF_YEAR))
-        ) {
-            val dow = cal.get(Calendar.DAY_OF_WEEK)
-            if (dow != Calendar.SATURDAY && dow != Calendar.SUNDAY) {
-                count++
-            }
-            cal.add(Calendar.DAY_OF_YEAR, 1)
-        }
-        return count
-    }
-
-    private fun countWeeklyOccurrences(activity: ActivityItem, startCal: Calendar, targetCal: Calendar): Int {
-        val daysList = if (activity.recurrenceDaysOfWeek.isNotEmpty()) {
-            activity.recurrenceDaysOfWeek
-        } else {
-            listOf(startCal.get(Calendar.DAY_OF_WEEK))
-        }
-        var count = 0
-        val cal = (startCal.clone() as Calendar).apply {
-            set(Calendar.HOUR_OF_DAY, 0); set(Calendar.MINUTE, 0); set(Calendar.SECOND, 0); set(Calendar.MILLISECOND, 0)
-        }
-        val targetDayMillis = getStartOfDayMillis(targetCal.timeInMillis)
-        while (cal.timeInMillis < targetDayMillis) {
-            val dow = cal.get(Calendar.DAY_OF_WEEK)
-            if (dow in daysList) {
-                count++
-            }
-            cal.add(Calendar.DAY_OF_YEAR, 1)
-        }
-        return count
     }
 
     private fun getStartOfDayMillis(millis: Long): Long {
