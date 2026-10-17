@@ -20,6 +20,7 @@ import java.util.Date
 import android.media.AudioAttributes
 import android.media.RingtoneManager
 import com.shejan.acontinue.domain.model.ActivityPriority
+import com.shejan.acontinue.domain.model.EntryType
 import java.util.Locale
 
 class AlarmReceiver : BroadcastReceiver() {
@@ -29,93 +30,114 @@ class AlarmReceiver : BroadcastReceiver() {
         val title = intent.getStringExtra(AlarmScheduler.EXTRA_ACTIVITY_TITLE) ?: "Upcoming Activity"
         val location = intent.getStringExtra(AlarmScheduler.EXTRA_ACTIVITY_LOCATION).orEmpty()
         val startTime = intent.getLongExtra(AlarmScheduler.EXTRA_ACTIVITY_START_TIME, 0L)
+        val endTime = intent.getLongExtra(AlarmScheduler.EXTRA_ACTIVITY_END_TIME, 0L)
+        val isAllDay = intent.getBooleanExtra(AlarmScheduler.EXTRA_IS_ALL_DAY, false)
         val priorityStr = intent.getStringExtra(AlarmScheduler.EXTRA_ACTIVITY_PRIORITY)
         val priority = runCatching { ActivityPriority.valueOf(priorityStr.orEmpty()) }.getOrDefault(ActivityPriority.MEDIUM)
-
-        val timeString = if (startTime > 0) {
-            SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(startTime))
-        } else ""
-
-        val contentText = buildString {
-            if (timeString.isNotEmpty()) append("Starts at $timeString")
-            if (location.isNotEmpty()) append(" • $location")
-            if (isEmpty()) append("Activity workspace ready.")
-        }
+        val entryTypeStr = intent.getStringExtra(AlarmScheduler.EXTRA_ENTRY_TYPE).orEmpty()
+        val isEvent = entryTypeStr.isEmpty() || entryTypeStr == EntryType.ACTIVITY.name
 
         val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
-        val channelId = when (priority) {
-            ActivityPriority.LOW -> AlarmScheduler.CHANNEL_ID_LIGHT
-            ActivityPriority.MEDIUM -> AlarmScheduler.CHANNEL_ID_MEDIUM
-            ActivityPriority.HIGH -> AlarmScheduler.CHANNEL_ID_STRONG
+        val channelId = if (isEvent) {
+            AlarmScheduler.CHANNEL_ID_EVENTS
+        } else {
+            when (priority) {
+                ActivityPriority.LOW -> AlarmScheduler.CHANNEL_ID_LIGHT
+                ActivityPriority.MEDIUM -> AlarmScheduler.CHANNEL_ID_MEDIUM
+                ActivityPriority.HIGH -> AlarmScheduler.CHANNEL_ID_STRONG
+            }
         }
 
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            when (priority) {
-                ActivityPriority.LOW -> {
-                    val lightSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                    val channel = NotificationChannel(
-                        channelId,
-                        "Light Reminders",
-                        NotificationManager.IMPORTANCE_DEFAULT
-                    ).apply {
-                        description = "Standard notification and short sound"
-                        setSound(
-                            lightSound,
-                            AudioAttributes.Builder()
-                                .setUsage(AudioAttributes.USAGE_NOTIFICATION)
-                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                                .build()
-                        )
-                    }
-                    notificationManager.createNotificationChannel(channel)
+            if (isEvent) {
+                val soundUri = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                val channel = NotificationChannel(
+                    AlarmScheduler.CHANNEL_ID_EVENTS,
+                    "Event Alerts",
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = "Alerts and notifications for scheduled events"
+                    enableVibration(true)
+                    setSound(
+                        soundUri,
+                        AudioAttributes.Builder()
+                            .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                            .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                            .build()
+                    )
                 }
-                ActivityPriority.MEDIUM -> {
-                    val mediumSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                    val channel = NotificationChannel(
-                        channelId,
-                        "Medium Reminders",
-                        NotificationManager.IMPORTANCE_HIGH
-                    ).apply {
-                        description = "Full screen alert and short sound"
-                        enableVibration(true)
-                        setSound(
-                            mediumSound,
-                            AudioAttributes.Builder()
-                                .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
-                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                                .build()
-                        )
+                notificationManager.createNotificationChannel(channel)
+            } else {
+                when (priority) {
+                    ActivityPriority.LOW -> {
+                        val lightSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                        val channel = NotificationChannel(
+                            channelId,
+                            "Light Reminders",
+                            NotificationManager.IMPORTANCE_DEFAULT
+                        ).apply {
+                            description = "Standard notification and short sound"
+                            setSound(
+                                lightSound,
+                                AudioAttributes.Builder()
+                                    .setUsage(AudioAttributes.USAGE_NOTIFICATION)
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                    .build()
+                            )
+                        }
+                        notificationManager.createNotificationChannel(channel)
                     }
-                    notificationManager.createNotificationChannel(channel)
-                }
-                ActivityPriority.HIGH -> {
-                    val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                    val channel = NotificationChannel(
-                        channelId,
-                        "Strong Reminders",
-                        NotificationManager.IMPORTANCE_HIGH
-                    ).apply {
-                        description = "Full screen alert and long sound"
-                        enableVibration(true)
-                        vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 500)
-                        setSound(
-                            alarmSound,
-                            AudioAttributes.Builder()
-                                .setUsage(AudioAttributes.USAGE_ALARM)
-                                .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
-                                .build()
-                        )
+                    ActivityPriority.MEDIUM -> {
+                        val mediumSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                        val channel = NotificationChannel(
+                            channelId,
+                            "Medium Reminders",
+                            NotificationManager.IMPORTANCE_HIGH
+                        ).apply {
+                            description = "Full screen alert and short sound"
+                            enableVibration(true)
+                            setSound(
+                                mediumSound,
+                                AudioAttributes.Builder()
+                                    .setUsage(AudioAttributes.USAGE_NOTIFICATION_EVENT)
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                    .build()
+                            )
+                        }
+                        notificationManager.createNotificationChannel(channel)
                     }
-                    notificationManager.createNotificationChannel(channel)
+                    ActivityPriority.HIGH -> {
+                        val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                            ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                        val channel = NotificationChannel(
+                            channelId,
+                            "Strong Reminders",
+                            NotificationManager.IMPORTANCE_HIGH
+                        ).apply {
+                            description = "Full screen alert and long sound"
+                            enableVibration(true)
+                            vibrationPattern = longArrayOf(0, 500, 250, 500, 250, 500)
+                            setSound(
+                                alarmSound,
+                                AudioAttributes.Builder()
+                                    .setUsage(AudioAttributes.USAGE_ALARM)
+                                    .setContentType(AudioAttributes.CONTENT_TYPE_SONIFICATION)
+                                    .build()
+                            )
+                        }
+                        notificationManager.createNotificationChannel(channel)
+                    }
                 }
             }
         }
 
+        // Tapping event alert opens directly to the home screen without navigating away
         val openIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            putExtra(AlarmScheduler.EXTRA_ACTIVITY_ID, activityId)
+            if (!isEvent) {
+                putExtra(AlarmScheduler.EXTRA_ACTIVITY_ID, activityId)
+            }
         }
 
         val pendingIntent = PendingIntent.getActivity(
@@ -125,39 +147,74 @@ class AlarmReceiver : BroadcastReceiver() {
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
         )
 
-        val reminderCategory = intent.getStringExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY) ?: ""
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentTitle(title)
-            .setContentText(contentText)
             .setContentIntent(pendingIntent)
             .setAutoCancel(true)
 
-        if (reminderCategory.isNotBlank()) {
-            notificationBuilder.setSubText(reminderCategory)
-        }
+        if (isEvent) {
+            val eventTimeString = EventNotificationFormatter.formatEventDateTime(startTime, endTime, isAllDay)
+            val displayTitle = title.ifBlank { "Event" }
+            val cleanLocation = EventNotificationFormatter.formatSingleLineLocation(location)
 
-        when (priority) {
-            ActivityPriority.LOW -> {
-                notificationBuilder
-                    .setPriority(NotificationCompat.PRIORITY_DEFAULT)
-                    .setCategory(NotificationCompat.CATEGORY_REMINDER)
+            notificationBuilder
+                .setSubText("EVENT")
+                .setContentTitle(displayTitle)
+                .setContentText(eventTimeString)
+                .setPriority(NotificationCompat.PRIORITY_HIGH)
+                .setCategory(NotificationCompat.CATEGORY_EVENT)
+
+            val expandedText = if (cleanLocation.isNotEmpty()) {
+                "$eventTimeString\n📍 $cleanLocation"
+            } else {
+                eventTimeString
             }
-            ActivityPriority.MEDIUM -> {
-                notificationBuilder
-                    .setPriority(NotificationCompat.PRIORITY_HIGH)
-                    .setCategory(NotificationCompat.CATEGORY_REMINDER)
-                    .setFullScreenIntent(pendingIntent, false)
+            notificationBuilder.setStyle(
+                NotificationCompat.BigTextStyle()
+                    .bigText(expandedText)
+            )
+        } else {
+            val timeString = if (startTime > 0) {
+                SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(startTime))
+            } else ""
+
+            val contentText = buildString {
+                if (timeString.isNotEmpty()) append("Starts at $timeString")
+                if (location.isNotEmpty()) append(" • $location")
+                if (isEmpty()) append("Activity workspace ready.")
             }
-            ActivityPriority.HIGH -> {
-                val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
-                    ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
-                notificationBuilder
-                    .setPriority(NotificationCompat.PRIORITY_MAX)
-                    .setCategory(NotificationCompat.CATEGORY_ALARM)
-                    .setVibrate(longArrayOf(0, 500, 250, 500, 250, 500))
-                    .setSound(alarmSound)
-                    .setFullScreenIntent(pendingIntent, true)
+
+            val reminderCategory = intent.getStringExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY) ?: ""
+            notificationBuilder
+                .setContentTitle(title)
+                .setContentText(contentText)
+
+            if (reminderCategory.isNotBlank()) {
+                notificationBuilder.setSubText(reminderCategory)
+            }
+
+            when (priority) {
+                ActivityPriority.LOW -> {
+                    notificationBuilder
+                        .setPriority(NotificationCompat.PRIORITY_DEFAULT)
+                        .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                }
+                ActivityPriority.MEDIUM -> {
+                    notificationBuilder
+                        .setPriority(NotificationCompat.PRIORITY_HIGH)
+                        .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                        .setFullScreenIntent(pendingIntent, false)
+                }
+                ActivityPriority.HIGH -> {
+                    val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
+                        ?: RingtoneManager.getDefaultUri(RingtoneManager.TYPE_NOTIFICATION)
+                    notificationBuilder
+                        .setPriority(NotificationCompat.PRIORITY_MAX)
+                        .setCategory(NotificationCompat.CATEGORY_ALARM)
+                        .setVibrate(longArrayOf(0, 500, 250, 500, 250, 500))
+                        .setSound(alarmSound)
+                        .setFullScreenIntent(pendingIntent, true)
+                }
             }
         }
 
