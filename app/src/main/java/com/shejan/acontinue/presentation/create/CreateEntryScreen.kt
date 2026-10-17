@@ -1109,7 +1109,8 @@ fun CreateEntryScreen(
             BottomEmojiKeyboard(
                 recentEmojis = state.recentEmojis,
                 onEmojiSelected = { emoji ->
-                    viewModel.appendEmojiToTitle(emoji)
+                    viewModel.selectEmoji(emoji)
+                    showEmojiKeyboard = false
                 },
                 onClose = { showEmojiKeyboard = false }
             )
@@ -1565,7 +1566,7 @@ private fun SelectablePill(
     Surface(
         shape = RoundedCornerShape(16.dp),
         color = if (isActive) Color(0xFF282828) else Color.Transparent,
-        border = if (isActive) BorderStroke(1.dp, Color(0xFF404040)) else null,
+        border = if (isActive) BorderStroke(1.dp, colors.textPrimary) else null,
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
             .clickable(onClick = onClick)

@@ -168,21 +168,18 @@ class CreateEntryViewModel(
     fun updateEntryType(type: EntryType) = _state.update { it.copy(entryType = type) }
     fun updateTitle(title: String) = _state.update { it.copy(title = title) }
     fun updateEmoji(emoji: String) = _state.update { it.copy(emoji = emoji) }
-    fun appendEmojiToTitle(emoji: String) {
+    fun selectEmoji(emoji: String) {
         if (emoji.isBlank()) return
         _state.update { current ->
-            val updatedTitle = if (current.title.isBlank()) {
-                emoji
-            } else {
-                "$emoji ${current.title.trim()}"
-            }
+            val newEmoji = if (current.emoji == emoji) "" else emoji
             val updatedRecents = (listOf(emoji) + current.recentEmojis).distinct().take(30)
-            current.copy(title = updatedTitle, emoji = emoji, recentEmojis = updatedRecents)
+            current.copy(emoji = newEmoji, recentEmojis = updatedRecents)
         }
         viewModelScope.launch {
             settingsRepository?.addRecentEmoji(emoji)
         }
     }
+    fun appendEmojiToTitle(emoji: String) = selectEmoji(emoji)
     fun updateCategory(category: ActivityCategory) = _state.update { it.copy(category = category) }
     fun updateAllDay(isAllDay: Boolean) = _state.update { it.copy(isAllDay = isAllDay) }
     fun updateStartMillis(millis: Long) = _state.update { it.copy(startMillis = millis) }

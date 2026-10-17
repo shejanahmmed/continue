@@ -115,22 +115,22 @@ class CreateEntryViewModelTest {
     }
 
     @Test
-    fun `test appending emoji updates title and state`() = runTest(testDispatcher) {
+    fun `test selecting emoji updates emoji state without modifying title`() = runTest(testDispatcher) {
         assertTrue(viewModel.state.value.recentEmojis.isEmpty())
 
-        viewModel.appendEmojiToTitle("🎂")
+        viewModel.selectEmoji("🎂")
         testScheduler.advanceUntilIdle()
 
-        assertEquals("🎂", viewModel.state.value.title)
+        assertEquals("", viewModel.state.value.title)
         assertEquals("🎂", viewModel.state.value.emoji)
         assertEquals(listOf("🎂"), viewModel.state.value.recentEmojis)
         assertEquals(listOf("🎂"), settingsRepository.settingsFlow.value.recentEmojis)
 
         viewModel.updateTitle("Birthday Party")
-        viewModel.appendEmojiToTitle("🎉")
+        viewModel.selectEmoji("🎉")
         testScheduler.advanceUntilIdle()
 
-        assertEquals("🎉 Birthday Party", viewModel.state.value.title)
+        assertEquals("Birthday Party", viewModel.state.value.title)
         assertEquals("🎉", viewModel.state.value.emoji)
         assertEquals(listOf("🎉", "🎂"), viewModel.state.value.recentEmojis)
         assertEquals(listOf("🎉", "🎂"), settingsRepository.settingsFlow.value.recentEmojis)
