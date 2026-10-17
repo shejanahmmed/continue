@@ -69,6 +69,7 @@ import androidx.compose.material.icons.outlined.Description
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.PictureAsPdf
 import androidx.compose.material.icons.outlined.TableChart
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import com.shejan.acontinue.core.util.AttachmentCategory
 import com.shejan.acontinue.core.util.AttachmentHelper
@@ -393,7 +394,7 @@ fun CreateEntryScreen(
                                     if (state.title.isEmpty()) {
                                         Text(
                                             text = "Title",
-                                            color = colors.textDisabled,
+                                            color = colors.textSecondary,
                                             fontSize = 18.sp,
                                             fontWeight = FontWeight.SemiBold
                                         )
@@ -656,14 +657,14 @@ fun CreateEntryScreen(
                             FormOptionRow(
                                 customLeadingIcon = {
                                     Box(
-                                        modifier = Modifier.size(22.dp),
+                                        modifier = Modifier.size(24.dp),
                                         contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Outlined.Notifications,
                                             contentDescription = "Early alert",
                                             tint = colors.textSecondary,
-                                            modifier = Modifier.size(22.dp)
+                                            modifier = Modifier.size(20.dp)
                                         )
                                         Box(
                                             modifier = Modifier
@@ -683,7 +684,7 @@ fun CreateEntryScreen(
                                 },
                                 label = earlyAlertLabel,
                                 textColor = colors.textPrimary,
-                                fontSize = 17.sp,
+                                fontSize = 15.sp,
                                 onClick = { isEarlyAlertScreenVisible = true }
                             )
 
@@ -694,8 +695,8 @@ fun CreateEntryScreen(
                             FormOptionRow(
                                 icon = Icons.Outlined.Repeat,
                                 label = repeatLabel,
-                                textColor = colors.textPrimary,
-                                fontSize = 17.sp,
+                                isPlaceholder = state.recurrenceMode == RecurrenceMode.NONE,
+                                fontSize = 15.sp,
                                 onClick = { isRepeatScreenVisible = true }
                             )
 
@@ -707,7 +708,7 @@ fun CreateEntryScreen(
                                     icon = Icons.AutoMirrored.Outlined.VolumeUp,
                                     label = state.priority.reminderTitle,
                                     textColor = colors.textPrimary,
-                                    fontSize = 17.sp,
+                                    fontSize = 15.sp,
                                     onClick = {
                                         showColorPicker = false
                                         showEmojiKeyboard = false
@@ -746,7 +747,7 @@ fun CreateEntryScreen(
                                 iconTint = Color(state.selectedReminderCategory.colorHex),
                                 label = state.selectedReminderCategory.name,
                                 textColor = colors.textPrimary,
-                                fontSize = 17.sp,
+                                fontSize = 15.sp,
                                 onClick = { isCategoryScreenVisible = true }
                             )
 
@@ -758,15 +759,20 @@ fun CreateEntryScreen(
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 10.dp),
+                                    .padding(vertical = 12.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.LocationOn,
-                                    contentDescription = "Location",
-                                    tint = colors.textSecondary,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Box(
+                                    modifier = Modifier.size(24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.LocationOn,
+                                        contentDescription = "Location",
+                                        tint = colors.textSecondary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
 
                                 Spacer(modifier = Modifier.width(16.dp))
 
@@ -853,6 +859,7 @@ fun CreateEntryScreen(
                                 icon = Icons.Outlined.Notifications,
                                 label = alertLabel,
                                 isPlaceholder = !state.alertsEnabled || state.selectedAlertMinutes.isEmpty(),
+                                fontSize = 15.sp,
                                 onClick = { isAlertScreenVisible = true }
                             )
 
@@ -863,6 +870,7 @@ fun CreateEntryScreen(
                                 icon = Icons.Outlined.Repeat,
                                 label = formatRecurrenceLabel(state),
                                 isPlaceholder = state.recurrenceMode == RecurrenceMode.NONE,
+                                fontSize = 15.sp,
                                 onClick = { isRepeatScreenVisible = true }
                             )
 
@@ -873,14 +881,19 @@ fun CreateEntryScreen(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .padding(vertical = 12.dp),
-                                verticalAlignment = Alignment.Top
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Description,
-                                    contentDescription = "Notes",
-                                    tint = colors.textSecondary,
-                                    modifier = Modifier.size(20.dp)
-                                )
+                                Box(
+                                    modifier = Modifier.size(24.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Description,
+                                        contentDescription = "Notes",
+                                        tint = colors.textSecondary,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column(modifier = Modifier.fillMaxWidth()) {
                                     BasicTextField(
@@ -961,6 +974,7 @@ fun CreateEntryScreen(
                                 icon = Icons.Outlined.AttachFile,
                                 label = if (state.attachments.isEmpty()) "Attachment" else "${state.attachments.size} ${if (state.attachments.size == 1) "File" else "Files"} Attached",
                                 isPlaceholder = state.attachments.isEmpty(),
+                                fontSize = 15.sp,
                                 onClick = {
                                     filePickerLauncher.launch(AttachmentHelper.SUPPORTED_MIME_TYPES)
                                 }
@@ -1441,7 +1455,7 @@ private fun DateTimeRow(
             // Activity: Start -> End 2-column range matching reference
             Column(
                 modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.Start
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 SelectablePill(
                     text = dateFormat.format(Date(startMillis)),
@@ -1469,7 +1483,7 @@ private fun DateTimeRow(
 
             Column(
                 modifier = Modifier.weight(1f),
-                horizontalAlignment = Alignment.End
+                horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 SelectablePill(
                     text = dateFormat.format(Date(endMillis)),
@@ -1509,6 +1523,7 @@ private fun SelectablePill(
             color = colors.textPrimary,
             fontSize = 15.sp,
             fontWeight = FontWeight.Medium,
+            textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp)
         )
     }
@@ -2157,7 +2172,7 @@ private fun FormOptionRow(
     icon: ImageVector? = null,
     label: String,
     isPlaceholder: Boolean = false,
-    fontSize: TextUnit = 17.sp,
+    fontSize: TextUnit = 15.sp,
     textColor: Color? = null,
     leadingDotColor: Color? = null,
     iconTint: Color? = null,
@@ -2170,11 +2185,11 @@ private fun FormOptionRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .padding(vertical = 13.dp),
+            .padding(vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         Box(
-            modifier = Modifier.size(22.dp),
+            modifier = Modifier.size(24.dp),
             contentAlignment = Alignment.Center
         ) {
             if (customLeadingIcon != null) {
@@ -2185,7 +2200,7 @@ private fun FormOptionRow(
                         imageVector = icon,
                         contentDescription = null,
                         tint = iconTint ?: colors.textSecondary,
-                        modifier = Modifier.size(22.dp)
+                        modifier = Modifier.size(20.dp)
                     )
                     if (leadingDotColor != null) {
                         Box(
@@ -2199,7 +2214,7 @@ private fun FormOptionRow(
             }
         }
 
-        Spacer(modifier = Modifier.width(20.dp))
+        Spacer(modifier = Modifier.width(16.dp))
 
         Text(
             text = label,
