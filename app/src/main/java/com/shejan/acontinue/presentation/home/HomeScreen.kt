@@ -119,19 +119,22 @@ fun HomeScreen(
                     onClick = { onActivityClick(focalActivity.id) }
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
+                        val isReminder = focalActivity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val isReminder = focalActivity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER
-                            val catBadgeText = if (isReminder) focalActivity.reminderCategory.uppercase() else focalActivity.category.displayName.uppercase()
-                            val catBadgeColor = if (isReminder) Color(focalActivity.reminderCategoryColorHex) else Color(focalActivity.category.colorHex)
-                            UtilitarianBadge(
-                                text = catBadgeText,
-                                backgroundColor = catBadgeColor.copy(alpha = 0.2f),
-                                textColor = UtilitarianTextPrimary
-                            )
+                            if (isReminder) {
+                                val catBadgeText = focalActivity.reminderCategory.uppercase()
+                                val catBadgeColor = Color(focalActivity.reminderCategoryColorHex)
+                                UtilitarianBadge(
+                                    text = catBadgeText,
+                                    backgroundColor = catBadgeColor.copy(alpha = 0.2f),
+                                    textColor = UtilitarianTextPrimary
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.weight(1f))
 
                             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
                             val timeSpan = "${timeFormat.format(Date(focalActivity.startTimeMillis))} – ${timeFormat.format(Date(focalActivity.endTimeMillis))}"
