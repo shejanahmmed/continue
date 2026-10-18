@@ -832,7 +832,7 @@ fun CreateEntryScreen(
                                     }
                                 },
                                 label = earlyAlertLabel,
-                                textColor = colors.textPrimary,
+                                isPlaceholder = state.earlyAlertMinutes == -1,
                                 fontSize = 15.sp,
                                 onClick = { isEarlyAlertScreenVisible = true }
                             )
