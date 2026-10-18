@@ -8,6 +8,7 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -37,10 +38,12 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.shejan.acontinue.R
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import java.util.Locale
 
@@ -195,7 +198,9 @@ fun UtilitarianDailyMetricCard(
                 outerColor = reminderAccentColor,
                 innerProgress = animatedEventProgress,
                 innerColor = eventAccentColor,
-                trackColor = trackColor
+                trackColor = trackColor,
+                cardBgColor = cardBgColor,
+                isDark = colors.isDark
             )
         }
     }
@@ -276,8 +281,12 @@ private fun ConcentricDualGauge(
     innerProgress: Float,
     innerColor: Color,
     trackColor: Color,
+    cardBgColor: Color,
+    isDark: Boolean,
     modifier: Modifier = Modifier
 ) {
+    val logoResId = if (isDark) R.drawable.app_logo_light else R.drawable.app_logo_dark
+
     Box(
         contentAlignment = Alignment.Center,
         modifier = modifier.size(72.dp)
@@ -345,6 +354,20 @@ private fun ConcentricDualGauge(
                     style = Stroke(width = innerStrokePx, cap = StrokeCap.Round)
                 )
             }
+        }
+
+        // Dedicated inner circular background matching the card surface with scaled-down logo
+        Box(
+            contentAlignment = Alignment.Center,
+            modifier = Modifier
+                .size(36.dp)
+                .background(color = cardBgColor, shape = CircleShape)
+        ) {
+            Image(
+                painter = painterResource(id = logoResId),
+                contentDescription = "App Logo",
+                modifier = Modifier.size(26.dp)
+            )
         }
     }
 }
