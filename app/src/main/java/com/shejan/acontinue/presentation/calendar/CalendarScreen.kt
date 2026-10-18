@@ -319,8 +319,10 @@ fun CalendarScreen(
                         color = UtilitarianTextPrimary
                     )
                     Spacer(modifier = Modifier.width(8.dp))
-                    val countBadge = if (uiState.selectedDayTotalCount > 0) {
-                        "(${uiState.selectedDayCompletedCount}/${uiState.selectedDayTotalCount})"
+                    val countBadge = if (uiState.selectedDayReminderCount > 0) {
+                        "(${uiState.selectedDayCompletedReminderCount}/${uiState.selectedDayReminderCount})"
+                    } else if (uiState.selectedDayTotalCount > 0) {
+                        "(${uiState.selectedDayTotalCount})"
                     } else {
                         "(0)"
                     }
@@ -667,7 +669,7 @@ private fun AllDayActivityCard(
 
     MonochromeCard(
         onClick = onToggleExpansion,
-        borderColor = if (activity.isCompleted) UtilitarianBorderStroke else Color(0xFF2C2C2C),
+        borderColor = if (isReminder && activity.isCompleted) UtilitarianBorderStroke else Color(0xFF2C2C2C),
         modifier = Modifier.animateContentSize()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -687,12 +689,12 @@ private fun AllDayActivityCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = activity.title,
-                        color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                        color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Bold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                        textDecoration = if (isReminder && activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
                     )
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
@@ -755,7 +757,7 @@ private fun TimedAgendaActivityCard(
 
     MonochromeCard(
         onClick = onToggleExpansion,
-        borderColor = if (activity.isCompleted) UtilitarianBorderStroke else Color(0xFF2C2C2C),
+        borderColor = if (isReminder && activity.isCompleted) UtilitarianBorderStroke else Color(0xFF2C2C2C),
         modifier = Modifier.animateContentSize()
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
@@ -790,12 +792,12 @@ private fun TimedAgendaActivityCard(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = activity.title,
-                        color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                        color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.SemiBold,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
-                        textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                        textDecoration = if (isReminder && activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
                     )
                     Spacer(modifier = Modifier.height(1.dp))
                     val subtitle = if (isReminder && activity.location.isNotBlank()) {
@@ -816,15 +818,17 @@ private fun TimedAgendaActivityCard(
                     )
                 }
 
-                Checkbox(
-                    checked = activity.isCompleted,
-                    onCheckedChange = { done -> onToggleCompletion(done) },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = UtilitarianAccentRed,
-                        uncheckedColor = UtilitarianBorderStroke,
-                        checkmarkColor = UtilitarianTextPrimary
+                if (isReminder) {
+                    Checkbox(
+                        checked = activity.isCompleted,
+                        onCheckedChange = { done -> onToggleCompletion(done) },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = UtilitarianAccentRed,
+                            uncheckedColor = UtilitarianBorderStroke,
+                            checkmarkColor = UtilitarianTextPrimary
+                        )
                     )
-                )
+                }
             }
 
             if (isExpanded) {
@@ -1245,10 +1249,10 @@ private fun UtilitarianEventDetailSheet(
 
             Text(
                 text = activity.title,
-                color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
                 fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                textDecoration = if (isReminder && activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
             )
 
             Spacer(modifier = Modifier.height(18.dp))

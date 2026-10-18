@@ -293,7 +293,7 @@ private fun TimelineActivityItem(
 
     MonochromeCard(
         onClick = onActivityClick,
-        borderColor = if (activity.isCompleted) UtilitarianBorderStroke else UtilitarianBorderActive
+        borderColor = if (isReminder && activity.isCompleted) UtilitarianBorderStroke else UtilitarianBorderActive
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -306,7 +306,7 @@ private fun TimelineActivityItem(
                 if (activity.isAllDay) {
                     Text(
                         text = "All day",
-                        color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                        color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold
@@ -322,7 +322,7 @@ private fun TimelineActivityItem(
                 } else {
                     Text(
                         text = startStr,
-                        color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                        color = UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold
@@ -352,10 +352,10 @@ private fun TimelineActivityItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = activity.title,
-                    color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                    color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Medium,
-                    textDecoration = if (activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                    textDecoration = if (isReminder && activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
                 )
                 if (isReminder) {
                     Text(
@@ -373,15 +373,17 @@ private fun TimelineActivityItem(
                 }
             }
 
-            Checkbox(
-                checked = activity.isCompleted,
-                onCheckedChange = onToggleCompletion,
-                colors = CheckboxDefaults.colors(
-                    checkedColor = UtilitarianAccentRed,
-                    uncheckedColor = UtilitarianBorderStroke,
-                    checkmarkColor = UtilitarianTextPrimary
+            if (isReminder) {
+                Checkbox(
+                    checked = activity.isCompleted,
+                    onCheckedChange = onToggleCompletion,
+                    colors = CheckboxDefaults.colors(
+                        checkedColor = UtilitarianAccentRed,
+                        uncheckedColor = UtilitarianBorderStroke,
+                        checkmarkColor = UtilitarianTextPrimary
+                    )
                 )
-            )
+            }
         }
     }
 }

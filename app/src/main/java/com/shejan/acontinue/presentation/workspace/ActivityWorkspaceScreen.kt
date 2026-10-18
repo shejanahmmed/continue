@@ -228,14 +228,16 @@ fun ActivityWorkspaceScreen(
             }
 
             Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(
-                    onClick = { viewModel.toggleActivityCompletion(!activity.isCompleted) }
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.CheckCircle,
-                        contentDescription = "Toggle Complete",
-                        tint = if (activity.isCompleted) UtilitarianAccentRed else UtilitarianTextDisabled
-                    )
+                if (isReminder) {
+                    IconButton(
+                        onClick = { viewModel.toggleActivityCompletion(!activity.isCompleted) }
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.CheckCircle,
+                            contentDescription = "Toggle Complete",
+                            tint = if (activity.isCompleted) UtilitarianAccentRed else UtilitarianTextDisabled
+                        )
+                    }
                 }
 
                 IconButton(onClick = { viewModel.deleteActivity() }) {

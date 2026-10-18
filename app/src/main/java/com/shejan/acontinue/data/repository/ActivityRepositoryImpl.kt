@@ -4,6 +4,7 @@ import com.shejan.acontinue.data.local.dao.ActivityDao
 import com.shejan.acontinue.data.mapper.toDomain
 import com.shejan.acontinue.data.mapper.toEntity
 import com.shejan.acontinue.domain.model.ActivityItem
+import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.util.RecurrenceEvaluator
 import kotlinx.coroutines.flow.Flow
@@ -45,7 +46,10 @@ class ActivityRepositoryImpl(
     }
 
     override suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean) {
-        activityDao.updateCompletionStatus(id, isCompleted)
+        val existing = activityDao.getActivityByIdSync(id)
+        if (existing?.entryType == EntryType.REMINDER.name) {
+            activityDao.updateCompletionStatus(id, isCompleted)
+        }
     }
 
     override fun searchActivities(query: String): Flow<List<ActivityItem>> {

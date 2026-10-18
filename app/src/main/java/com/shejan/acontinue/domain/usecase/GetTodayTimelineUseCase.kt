@@ -39,10 +39,11 @@ class GetTodayTimelineUseCase(
                 it.entryType == EntryType.ACTIVITY && now in it.startTimeMillis..it.endTimeMillis
             }
             val next = sorted.firstOrNull {
-                !it.isCompleted && (
-                    it.startTimeMillis > now ||
-                    (it.entryType == EntryType.REMINDER && it.startTimeMillis <= now)
-                )
+                if (it.entryType == EntryType.REMINDER) {
+                    !it.isCompleted
+                } else {
+                    it.startTimeMillis > now
+                }
             }
 
             TodayTimeline(

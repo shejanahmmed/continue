@@ -143,9 +143,9 @@ class HomeViewModelTest {
             assertEquals(1, state.todayCompletedReminderCount)
             assertEquals(1, state.todayPendingReminderCount)
             assertEquals(0.5f, state.reminderProgress, 0.001f)
-            assertEquals(4, state.todayTotalCount)
+            assertEquals(2, state.todayTotalCount)
             assertEquals(1, state.todayCompletedCount)
-            assertEquals(0.25f, state.completionProgress, 0.001f)
+            assertEquals(0.5f, state.completionProgress, 0.001f)
         }
     }
 

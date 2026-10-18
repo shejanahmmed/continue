@@ -56,6 +56,8 @@ data class CalendarUiState(
     val activities: List<ActivityItem> get() = selectedDayActivities
     val selectedDayCompletedCount: Int get() = selectedDayActivities.count { it.isCompleted }
     val selectedDayTotalCount: Int get() = selectedDayActivities.size
+    val selectedDayReminderCount: Int get() = selectedDayActivities.count { it.entryType == EntryType.REMINDER }
+    val selectedDayCompletedReminderCount: Int get() = selectedDayActivities.count { it.entryType == EntryType.REMINDER && it.isCompleted }
     val allDayActivities: List<ActivityItem> get() = selectedDayActivities.filter { it.isAllDay }
     val timedActivities: List<ActivityItem> get() = selectedDayActivities.filter { !it.isAllDay }
 

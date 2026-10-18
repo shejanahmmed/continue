@@ -2,6 +2,7 @@ package com.shejan.acontinue
 
 import com.shejan.acontinue.domain.model.ActivityAttachment
 import com.shejan.acontinue.domain.model.ActivityItem
+import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.ActivityLink
 import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.ActivityTask
@@ -48,7 +49,7 @@ class FakeActivityRepository : ActivityRepository {
 
     override suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean) {
         activitiesFlow.value = activitiesFlow.value.map {
-            if (it.id == id) it.copy(isCompleted = isCompleted) else it
+            if (it.id == id && it.entryType == EntryType.REMINDER) it.copy(isCompleted = isCompleted) else it
         }
     }
 

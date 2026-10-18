@@ -57,27 +57,26 @@ class HomeViewModel(
             getTodayTimelineUseCase(),
             taskRepository.getPendingTasks()
         ) { timeline, pendingTasks ->
+            val now = System.currentTimeMillis()
             val events = timeline.activities.filter { it.entryType == EntryType.ACTIVITY }
             val eventCount = events.size
-            val completedEvents = events.count { it.isCompleted }
+            val elapsedEvents = events.count { it.endTimeMillis <= now }
 
             val reminders = timeline.activities.filter { it.entryType == EntryType.REMINDER }
             val reminderCount = reminders.size
             val completedReminders = reminders.count { it.isCompleted }
             val pendingReminders = reminderCount - completedReminders
-            val totalCount = timeline.activities.size
-            val totalCompleted = timeline.activities.count { it.isCompleted }
 
             HomeUiState(
                 timeline = timeline,
                 pendingTasks = pendingTasks,
                 todayEventCount = eventCount,
-                todayCompletedEventCount = completedEvents,
+                todayCompletedEventCount = elapsedEvents,
                 todayReminderCount = reminderCount,
                 todayCompletedReminderCount = completedReminders,
                 todayPendingReminderCount = pendingReminders,
-                todayTotalCount = totalCount,
-                todayCompletedCount = totalCompleted,
+                todayTotalCount = reminderCount,
+                todayCompletedCount = completedReminders,
                 isLoading = false
             )
         }.onEach { state ->

@@ -98,4 +98,82 @@ class EntityMappersTest {
         val remappedEntity = domain.toEntity()
         assertEquals(endTime, remappedEntity.endTimeMillis)
     }
+
+    @Test
+    fun `test event normalizes isCompleted to false even if entity had true`() {
+        val eventEntity = ActivityEntity(
+            id = 21L,
+            title = "Completed Event Legacy",
+            description = "",
+            entryType = EntryType.ACTIVITY.name,
+            category = ActivityCategory.MEETING.name,
+            isAllDay = false,
+            startTimeMillis = 1000L,
+            endTimeMillis = 2000L,
+            location = "",
+            priority = ActivityPriority.MEDIUM.name,
+            reminderMinutesBefore = 0,
+            reminderMinutesCsv = "",
+            recurrenceMode = RecurrenceMode.NONE.name,
+            recurrenceInterval = 1,
+            recurrenceDaysOfWeekCsv = "",
+            monthlyRepeatType = "SAME_DAY_OF_MONTH",
+            monthlySelectedDaysCsv = "",
+            yearlyRepeatType = "SAME_DATE",
+            yearlySelectedMonthsCsv = "",
+            recurrenceEndType = "FOREVER",
+            recurrenceEndCount = 0,
+            recurrenceEndDateMillis = 0L,
+            isCompleted = true, // legacy erroneous value
+            reminderCategory = "My reminders",
+            reminderCategoryColorHex = 0xFF9D7BFC,
+            reminderCategoryIcon = "bell",
+            createdAtMillis = 1000L
+        )
+
+        val domain = eventEntity.toDomain()
+        assertEquals(false, domain.isCompleted) // Normalized to false!
+
+        val remapped = domain.copy(isCompleted = true).toEntity()
+        assertEquals(false, remapped.isCompleted) // Event cannot be saved as completed!
+    }
+
+    @Test
+    fun `test reminder preserves isCompleted true`() {
+        val reminderEntity = ActivityEntity(
+            id = 22L,
+            title = "Completed Reminder",
+            description = "",
+            entryType = EntryType.REMINDER.name,
+            category = ActivityCategory.OTHER.name,
+            isAllDay = false,
+            startTimeMillis = 1000L,
+            endTimeMillis = 1000L,
+            location = "",
+            priority = ActivityPriority.MEDIUM.name,
+            reminderMinutesBefore = 0,
+            reminderMinutesCsv = "",
+            recurrenceMode = RecurrenceMode.NONE.name,
+            recurrenceInterval = 1,
+            recurrenceDaysOfWeekCsv = "",
+            monthlyRepeatType = "SAME_DAY_OF_MONTH",
+            monthlySelectedDaysCsv = "",
+            yearlyRepeatType = "SAME_DATE",
+            yearlySelectedMonthsCsv = "",
+            recurrenceEndType = "FOREVER",
+            recurrenceEndCount = 0,
+            recurrenceEndDateMillis = 0L,
+            isCompleted = true,
+            reminderCategory = "My reminders",
+            reminderCategoryColorHex = 0xFF9D7BFC,
+            reminderCategoryIcon = "bell",
+            createdAtMillis = 1000L
+        )
+
+        val domain = reminderEntity.toDomain()
+        assertEquals(true, domain.isCompleted)
+
+        val remapped = domain.toEntity()
+        assertEquals(true, remapped.isCompleted)
+    }
 }

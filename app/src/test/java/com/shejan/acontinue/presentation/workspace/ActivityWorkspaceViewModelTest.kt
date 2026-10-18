@@ -119,4 +119,33 @@ class ActivityWorkspaceViewModelTest {
         val updatedTask = taskRepository.tasksFlow.value.first()
         assertEquals(true, updatedTask.isCompleted)
     }
+
+    @Test
+    fun `test toggle activity completion on event is ignored and remains false`() = runTest(testDispatcher) {
+        viewModel.toggleActivityCompletion(true)
+        testScheduler.advanceUntilIdle()
+
+        val activity = activityRepository.activitiesFlow.value.first { it.id == testActivityId }
+        assertEquals(false, activity.isCompleted)
+    }
+
+    @Test
+    fun `test toggle activity completion on reminder updates status`() = runTest(testDispatcher) {
+        val reminder = ActivityItem(
+            id = 99L,
+            title = "Reminder Task",
+            entryType = com.shejan.acontinue.domain.model.EntryType.REMINDER,
+            startTimeMillis = 1000L,
+            endTimeMillis = 1000L,
+            isCompleted = false
+        )
+        activityRepository.insertActivity(reminder)
+        testScheduler.advanceUntilIdle()
+
+        activityRepository.toggleActivityCompletion(99L, true)
+        testScheduler.advanceUntilIdle()
+
+        val updated = activityRepository.activitiesFlow.value.first { it.id == 99L }
+        assertEquals(true, updated.isCompleted)
+    }
 }
