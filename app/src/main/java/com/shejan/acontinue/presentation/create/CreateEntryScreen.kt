@@ -645,35 +645,48 @@ fun CreateEntryScreen(
                                     color = if (activePickerField == ActivePickerField.START_DATE) colors.accent else colors.textPrimary,
                                     fontSize = 17.sp,
                                     fontWeight = if (activePickerField == ActivePickerField.START_DATE) FontWeight.SemiBold else FontWeight.Normal,
-                                    modifier = Modifier.clickable {
-                                        focusManager.clearFocus()
-                                        keyboardController?.hide()
-                                        showColorPicker = false
-                                        showEmojiKeyboard = false
-                                        activePickerField = if (activePickerField == ActivePickerField.START_DATE) ActivePickerField.NONE else ActivePickerField.START_DATE
-                                        val cal = Calendar.getInstance().apply { timeInMillis = state.startMillis }
-                                        displayedYear = cal.get(Calendar.YEAR)
-                                        displayedMonth = cal.get(Calendar.MONTH)
-                                    }
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
+                                            focusManager.clearFocus()
+                                            keyboardController?.hide()
+                                            showColorPicker = false
+                                            showEmojiKeyboard = false
+                                            activePickerField = if (activePickerField == ActivePickerField.START_DATE) ActivePickerField.NONE else ActivePickerField.START_DATE
+                                            val cal = Calendar.getInstance().apply { timeInMillis = state.startMillis }
+                                            displayedYear = cal.get(Calendar.YEAR)
+                                            displayedMonth = cal.get(Calendar.MONTH)
+                                        }
+                                        .padding(horizontal = 6.dp, vertical = 4.dp)
                                 )
                                 if (!state.isAllDay) {
                                     Text(
-                                        text = "  |  ",
+                                        text = "|",
                                         color = colors.textSecondary.copy(alpha = 0.5f),
-                                        fontSize = 16.sp
+                                        fontSize = 16.sp,
+                                        modifier = Modifier.padding(horizontal = 4.dp)
                                     )
                                     Text(
                                         text = timeFormat.format(Date(state.startMillis)).lowercase(Locale.ENGLISH),
                                         color = if (activePickerField == ActivePickerField.START_TIME) colors.accent else colors.textPrimary,
                                         fontSize = 17.sp,
                                         fontWeight = if (activePickerField == ActivePickerField.START_TIME) FontWeight.SemiBold else FontWeight.Normal,
-                                        modifier = Modifier.clickable {
-                                            focusManager.clearFocus()
-                                            keyboardController?.hide()
-                                            showColorPicker = false
-                                            showEmojiKeyboard = false
-                                            activePickerField = if (activePickerField == ActivePickerField.START_TIME) ActivePickerField.NONE else ActivePickerField.START_TIME
-                                        }
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) {
+                                                focusManager.clearFocus()
+                                                keyboardController?.hide()
+                                                showColorPicker = false
+                                                showEmojiKeyboard = false
+                                                activePickerField = if (activePickerField == ActivePickerField.START_TIME) ActivePickerField.NONE else ActivePickerField.START_TIME
+                                            }
+                                            .padding(horizontal = 6.dp, vertical = 4.dp)
                                     )
                                 }
                             }

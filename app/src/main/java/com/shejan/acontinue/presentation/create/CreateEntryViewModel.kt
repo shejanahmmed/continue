@@ -508,7 +508,11 @@ class CreateEntryViewModel(
 
             val isReminder = current.entryType == EntryType.REMINDER
             val minutesList = if (isReminder) {
-                if (current.earlyAlertMinutes >= 0) listOf(current.earlyAlertMinutes) else emptyList()
+                if (current.earlyAlertMinutes >= 0) {
+                    listOf(0, current.earlyAlertMinutes).distinct().sorted()
+                } else {
+                    listOf(0)
+                }
             } else {
                 if (current.alertsEnabled) current.selectedAlertMinutes.toList().sorted() else emptyList()
             }
@@ -519,14 +523,27 @@ class CreateEntryViewModel(
                 if (minutesList.isNotEmpty()) minutesList.first() else -1
             }
 
+            // For all-day reminders, default alarm trigger is normalized to 9:00 AM on the scheduled date
+            val effectiveStartTime = if (isReminder && current.isAllDay) {
+                Calendar.getInstance().apply {
+                    timeInMillis = current.startMillis
+                    set(Calendar.HOUR_OF_DAY, 9)
+                    set(Calendar.MINUTE, 0)
+                    set(Calendar.SECOND, 0)
+                    set(Calendar.MILLISECOND, 0)
+                }.timeInMillis
+            } else {
+                current.startMillis
+            }
+
             val activity = ActivityItem(
                 title = current.title.trim(),
                 description = if (isReminder) "" else current.notes.trim(),
                 entryType = current.entryType,
                 category = if (isReminder) ActivityCategory.OTHER else current.category,
                 isAllDay = current.isAllDay,
-                startTimeMillis = current.startMillis,
-                endTimeMillis = if (isReminder) current.startMillis + 1800000L else current.endMillis,
+                startTimeMillis = effectiveStartTime,
+                endTimeMillis = if (isReminder) effectiveStartTime + 1800000L else current.endMillis,
                 location = if (isReminder) "" else current.location.trim(),
                 priority = current.priority,
                 reminderMinutesBefore = primaryOffset,

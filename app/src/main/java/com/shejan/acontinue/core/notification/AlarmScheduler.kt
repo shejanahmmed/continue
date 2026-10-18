@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.os.Build
 import com.shejan.acontinue.domain.model.ActivityItem
+import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.RecurrenceMode
 import com.shejan.acontinue.domain.util.RecurrenceEvaluator
 
@@ -35,12 +36,19 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
             activity
         }
 
-        val offsets = if (effectiveActivity.reminderMinutesList.isNotEmpty()) {
+        val rawOffsets = if (effectiveActivity.reminderMinutesList.isNotEmpty()) {
             effectiveActivity.reminderMinutesList
         } else if (effectiveActivity.reminderMinutesBefore >= 0) {
             listOf(effectiveActivity.reminderMinutesBefore)
         } else {
             emptyList()
+        }
+
+        // Reminders must always trigger at their scheduled time (offset 0) alongside any early alerts
+        val offsets = if (effectiveActivity.entryType == EntryType.REMINDER) {
+            (rawOffsets + 0).distinct().sorted()
+        } else {
+            rawOffsets
         }
 
         if (offsets.isEmpty()) return

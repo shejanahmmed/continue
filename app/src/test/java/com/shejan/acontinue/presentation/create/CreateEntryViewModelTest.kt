@@ -392,7 +392,7 @@ class CreateEntryViewModelTest {
             assertEquals("Pick up dry cleaning", saved.title)
             assertEquals(EntryType.REMINDER, saved.entryType)
             assertEquals(15, saved.reminderMinutesBefore)
-            assertEquals(listOf(15), saved.reminderMinutesList)
+            assertEquals(listOf(0, 15), saved.reminderMinutesList)
             assertEquals("", saved.location)
             assertEquals("", saved.description)
         }
@@ -824,6 +824,66 @@ class CreateEntryViewModelTest {
         viewModel.deleteNoteLabel("Work")
         testScheduler.advanceUntilIdle()
         assertEquals(listOf("Personal"), viewModel.state.value.savedNoteLabels)
+    }
+
+    @Test
+    fun `test save reminder schedules alarm at exact target time with offset 0 by default`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.updateEntryType(com.shejan.acontinue.domain.model.EntryType.REMINDER)
+        viewModel.updateTitle("Dentist Appointment")
+        viewModel.updateEarlyAlertMinutes(-1) // Default "No early alert"
+
+        viewModel.saveEntry()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(1, scheduler.scheduledActivities.size)
+        val scheduled = scheduler.scheduledActivities.first()
+        assertEquals("Dentist Appointment", scheduled.title)
+        assertEquals(listOf(0), scheduled.reminderMinutesList)
+        assertEquals(-1, scheduled.reminderMinutesBefore)
+    }
+
+    @Test
+    fun `test save reminder with early alert schedules both early offset and exact time offset 0`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.updateEntryType(com.shejan.acontinue.domain.model.EntryType.REMINDER)
+        viewModel.updateTitle("Take Medication")
+        viewModel.updateEarlyAlertMinutes(15) // 15 mins before
+
+        viewModel.saveEntry()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(1, scheduler.scheduledActivities.size)
+        val scheduled = scheduler.scheduledActivities.first()
+        assertEquals(listOf(0, 15), scheduled.reminderMinutesList)
+        assertEquals(15, scheduled.reminderMinutesBefore)
+    }
+
+    @Test
+    fun `test save all day reminder normalizes start time to 9 AM on target date`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.updateEntryType(com.shejan.acontinue.domain.model.EntryType.REMINDER)
+        viewModel.updateTitle("Tax Filing Deadline")
+        viewModel.updateAllDay(true)
+        viewModel.updateStartDate(2026, java.util.Calendar.OCTOBER, 25)
+
+        viewModel.saveEntry()
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(1, scheduler.scheduledActivities.size)
+        val scheduled = scheduler.scheduledActivities.first()
+        assertTrue(scheduled.isAllDay)
+
+        val cal = java.util.Calendar.getInstance().apply { timeInMillis = scheduled.startTimeMillis }
+        assertEquals(2026, cal.get(java.util.Calendar.YEAR))
+        assertEquals(java.util.Calendar.OCTOBER, cal.get(java.util.Calendar.MONTH))
+        assertEquals(25, cal.get(java.util.Calendar.DAY_OF_MONTH))
+        assertEquals(9, cal.get(java.util.Calendar.HOUR_OF_DAY))
+        assertEquals(0, cal.get(java.util.Calendar.MINUTE))
+        assertEquals(0, cal.get(java.util.Calendar.SECOND))
     }
 }
 
