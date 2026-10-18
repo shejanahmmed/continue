@@ -716,20 +716,6 @@ private fun AllDayActivityCard(
                             checkmarkColor = UtilitarianTextPrimary
                         )
                     )
-                } else {
-                    Surface(
-                        shape = CircleShape,
-                        color = Color(0xFF222222),
-                        border = BorderStroke(1.dp, UtilitarianBorderStroke)
-                    ) {
-                        Text(
-                            text = activity.category.displayName,
-                            color = UtilitarianTextSecondary,
-                            fontSize = 10.sp,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
-                        )
-                    }
                 }
             }
 
@@ -886,7 +872,6 @@ private fun ExpandedCardContent(
         workspace?.notes?.firstOrNull()?.content ?: ""
     }.ifBlank { "None" }
     val alertsStr = formatAlerts(activity) ?: "None"
-    val categoryName = if (isReminder) activity.reminderCategory else activity.category.displayName
 
     Column(
         modifier = Modifier
@@ -1028,19 +1013,21 @@ private fun ExpandedCardContent(
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 8. Category & Priority
+        // 8. Category (Reminders only) & Priority
         Row(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
+            horizontalArrangement = if (isReminder) Arrangement.SpaceBetween else Arrangement.End,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Text(
-                text = "CATEGORY: ${categoryName.uppercase(Locale.getDefault())}",
-                color = UtilitarianTextSecondary,
-                fontSize = 10.sp,
-                fontWeight = FontWeight.Bold,
-                fontFamily = FontFamily.Monospace
-            )
+            if (isReminder) {
+                Text(
+                    text = "CATEGORY: ${activity.reminderCategory.uppercase(Locale.getDefault())}",
+                    color = UtilitarianTextSecondary,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    fontFamily = FontFamily.Monospace
+                )
+            }
             Text(
                 text = "PRIORITY: ${activity.priority.name}",
                 color = UtilitarianTextSecondary,
@@ -1209,7 +1196,6 @@ internal fun UtilitarianEventDetailSheet(
     val isReminder = activity.entryType == EntryType.REMINDER
     val accentColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
     val typeTitle = if (isReminder) "REMINDER" else "EVENT"
-    val categoryName = if (isReminder) activity.reminderCategory else activity.category.displayName
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1248,13 +1234,15 @@ internal fun UtilitarianEventDetailSheet(
                             .size(10.dp)
                             .background(accentColor, CircleShape)
                     )
-                    Text(
-                        text = categoryName.uppercase(Locale.getDefault()),
-                        color = UtilitarianTextPrimary,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
-                    )
+                    if (isReminder) {
+                        Text(
+                            text = activity.reminderCategory.uppercase(Locale.getDefault()),
+                            color = UtilitarianTextPrimary,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                    }
                     Surface(
                         shape = RoundedCornerShape(4.dp),
                         color = Color(0xFF222222),

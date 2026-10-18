@@ -165,8 +165,7 @@ fun ActivityWorkspaceScreen(
             modifier = Modifier.padding(vertical = 4.dp)
         )
 
-        val categoryText = activity.category.displayName.uppercase()
-        val categoryColor = Color(activity.category.colorHex)
+        val accentColor = Color(activity.category.colorHex)
 
         Row(
             modifier = Modifier
@@ -174,10 +173,10 @@ fun ActivityWorkspaceScreen(
                 .padding(bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            UtilitarianBadge(
-                text = categoryText,
-                backgroundColor = categoryColor.copy(alpha = 0.2f),
-                textColor = UtilitarianTextPrimary
+            Box(
+                modifier = Modifier
+                    .size(8.dp)
+                    .background(accentColor, CircleShape)
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -348,7 +347,6 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                     Text(text = "• Resource links: ${aggregate.links.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     Text(text = "• Attachments: ${aggregate.attachments.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     Text(text = "• Reminder: ${if (activity.reminderMinutesBefore >= 0) "${activity.reminderMinutesBefore}m prior" else "None"}", color = UtilitarianTextPrimary, fontSize = 13.sp)
-                    Text(text = "• Category: ${activity.category.displayName}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     Text(text = "• Priority: ${activity.priority.name}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                 }
             }

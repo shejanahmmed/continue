@@ -226,7 +226,7 @@ private fun DiaryActivityRow(
                 }
             }
             val isReminder = activity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER
-            val badgeText = if (isReminder) activity.reminderCategory.uppercase() else activity.category.displayName.uppercase()
+            val badgeText = if (isReminder) activity.reminderCategory.uppercase() else "EVENT"
             val badgeColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
             UtilitarianBadge(
                 text = badgeText,
