@@ -2,7 +2,6 @@ package com.shejan.acontinue.presentation.workspace
 
 import android.content.Intent
 import android.net.Uri
-import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -25,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
-import androidx.compose.material.icons.outlined.CheckCircle
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
@@ -69,10 +67,6 @@ import com.shejan.acontinue.domain.model.ActivityLink
 import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.ActivityTask
 import com.shejan.acontinue.domain.model.ActivityWorkspaceAggregate
-import com.shejan.acontinue.domain.model.EntryType
-import com.shejan.acontinue.domain.model.ReminderCategory
-import com.shejan.acontinue.presentation.create.AddCategoryScreen
-import com.shejan.acontinue.presentation.create.CategorySelectionScreen
 import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
 import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
@@ -92,11 +86,6 @@ fun ActivityWorkspaceScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    val categories by viewModel.availableReminderCategories.collectAsState()
-    val reminderCounts by viewModel.categoryReminderCounts.collectAsState()
-    var isCategoryScreenVisible by remember { mutableStateOf(false) }
-    var isAddCategoryScreenVisible by remember { mutableStateOf(false) }
-    var editingCategory by remember { mutableStateOf<ReminderCategory?>(null) }
 
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
@@ -104,72 +93,6 @@ fun ActivityWorkspaceScreen(
                 is WorkspaceEvent.ActivityDeleted -> onNavigateBack()
             }
         }
-    }
-
-    BackHandler(enabled = isCategoryScreenVisible || isAddCategoryScreenVisible) {
-        if (isAddCategoryScreenVisible) {
-            editingCategory = null
-            isAddCategoryScreenVisible = false
-        } else if (isCategoryScreenVisible) {
-            isCategoryScreenVisible = false
-        }
-    }
-
-    if (isCategoryScreenVisible && uiState.aggregate != null) {
-        val currentActivity = uiState.aggregate!!.activity
-        val currentCat = categories.find { it.name.equals(currentActivity.reminderCategory, ignoreCase = true) }
-            ?: ReminderCategory(
-                name = currentActivity.reminderCategory,
-                colorHex = currentActivity.reminderCategoryColorHex,
-                iconName = currentActivity.reminderCategoryIcon
-            )
-        CategorySelectionScreen(
-            selectedCategory = currentCat,
-            categories = categories,
-            reminderCounts = reminderCounts,
-            onSelectCategory = { selected ->
-                viewModel.updateReminderCategory(selected)
-                isCategoryScreenVisible = false
-            },
-            onAddCategoryClick = {
-                editingCategory = null
-                isAddCategoryScreenVisible = true
-            },
-            onEditCategory = { category ->
-                editingCategory = category
-                isAddCategoryScreenVisible = true
-            },
-            onDeleteCategory = { category ->
-                viewModel.deleteReminderCategory(category)
-            },
-            onNavigateBack = {
-                isCategoryScreenVisible = false
-            }
-        )
-        return
-    }
-
-    if (isAddCategoryScreenVisible) {
-        AddCategoryScreen(
-            initialCategory = editingCategory,
-            existingCategories = categories,
-            onSaveCategory = { name, colorHex, iconName ->
-                val currentEditing = editingCategory
-                if (currentEditing != null) {
-                    viewModel.editReminderCategory(currentEditing, name, colorHex, iconName)
-                } else {
-                    viewModel.addReminderCategory(name, colorHex, iconName)
-                    isCategoryScreenVisible = false
-                }
-                editingCategory = null
-                isAddCategoryScreenVisible = false
-            },
-            onNavigateBack = {
-                editingCategory = null
-                isAddCategoryScreenVisible = false
-            }
-        )
-        return
     }
 
     if (uiState.isLoading || uiState.aggregate == null) {
@@ -187,13 +110,10 @@ fun ActivityWorkspaceScreen(
     val aggregate = uiState.aggregate!!
     val activity = aggregate.activity
 
-    val isReminder = activity.entryType == EntryType.REMINDER
     val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
     val dateFormat = SimpleDateFormat("EEE, dd MMM", Locale.getDefault())
     val timeSpan = if (activity.isAllDay) {
         "${dateFormat.format(Date(activity.startTimeMillis))} • All day"
-    } else if (isReminder) {
-        "${dateFormat.format(Date(activity.startTimeMillis))} • ${timeFormat.format(Date(activity.startTimeMillis))}"
     } else {
         "${dateFormat.format(Date(activity.startTimeMillis))} • ${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
     }
@@ -227,26 +147,12 @@ fun ActivityWorkspaceScreen(
                 )
             }
 
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                if (isReminder) {
-                    IconButton(
-                        onClick = { viewModel.toggleActivityCompletion(!activity.isCompleted) }
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.CheckCircle,
-                            contentDescription = "Toggle Complete",
-                            tint = if (activity.isCompleted) UtilitarianAccentRed else UtilitarianTextDisabled
-                        )
-                    }
-                }
-
-                IconButton(onClick = { viewModel.deleteActivity() }) {
-                    Icon(
-                        imageVector = Icons.Outlined.Delete,
-                        contentDescription = "Delete",
-                        tint = UtilitarianTextDisabled
-                    )
-                }
+            IconButton(onClick = { viewModel.deleteActivity() }) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = "Delete",
+                    tint = UtilitarianTextDisabled
+                )
             }
         }
 
@@ -259,8 +165,8 @@ fun ActivityWorkspaceScreen(
             modifier = Modifier.padding(vertical = 4.dp)
         )
 
-        val categoryText = if (isReminder) activity.reminderCategory.uppercase() else activity.category.displayName.uppercase()
-        val categoryColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
+        val categoryText = activity.category.displayName.uppercase()
+        val categoryColor = Color(activity.category.colorHex)
 
         Row(
             modifier = Modifier
@@ -271,8 +177,7 @@ fun ActivityWorkspaceScreen(
             UtilitarianBadge(
                 text = categoryText,
                 backgroundColor = categoryColor.copy(alpha = 0.2f),
-                textColor = UtilitarianTextPrimary,
-                modifier = if (isReminder) Modifier.clickable { isCategoryScreenVisible = true } else Modifier
+                textColor = UtilitarianTextPrimary
             )
             Spacer(modifier = Modifier.width(8.dp))
             Text(
@@ -443,10 +348,8 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                     Text(text = "• Resource links: ${aggregate.links.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     Text(text = "• Attachments: ${aggregate.attachments.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     Text(text = "• Reminder: ${if (activity.reminderMinutesBefore >= 0) "${activity.reminderMinutesBefore}m prior" else "None"}", color = UtilitarianTextPrimary, fontSize = 13.sp)
-                    if (activity.entryType == EntryType.REMINDER) {
-                        Text(text = "• Category: ${activity.reminderCategory}", color = UtilitarianTextPrimary, fontSize = 13.sp)
-                        Text(text = "• Alert style: ${activity.priority.reminderTitle}", color = UtilitarianTextPrimary, fontSize = 13.sp)
-                    }
+                    Text(text = "• Category: ${activity.category.displayName}", color = UtilitarianTextPrimary, fontSize = 13.sp)
+                    Text(text = "• Priority: ${activity.priority.name}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                 }
             }
         }

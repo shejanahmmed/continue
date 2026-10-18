@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityNote
+import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.repository.NoteRepository
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -41,14 +42,16 @@ class DiaryViewModel(
                         activityRepository.getAllActivities(),
                         noteRepository.searchNotes("")
                     ) { activities, notes ->
-                        Pair(activities, notes)
+                        val eventActivities = activities.filter { it.entryType == EntryType.ACTIVITY }
+                        Pair(eventActivities, notes)
                     }
                 } else {
                     combine(
                         activityRepository.searchActivities(query),
                         noteRepository.searchNotes(query)
                     ) { activities, notes ->
-                        Pair(activities, notes)
+                        val eventActivities = activities.filter { it.entryType == EntryType.ACTIVITY }
+                        Pair(eventActivities, notes)
                     }
                 }
             }

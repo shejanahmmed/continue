@@ -278,4 +278,28 @@ class HomeViewModelTest {
             assertEquals(focal.startTimeMillis, focal.endTimeMillis)
         }
     }
+
+    @Test
+    fun `test deleteActivity removes activity from timeline`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        testTickerFlow.value = now
+        val reminder = ActivityItem(
+            id = 55L,
+            title = "Disposable Reminder",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now + 5000L,
+            endTimeMillis = now + 5000L
+        )
+        activityRepository.insertActivity(reminder)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.deleteActivity(55L)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(0, state.timeline.activities.size)
+            assertEquals(0, state.todayReminderCount)
+        }
+    }
 }

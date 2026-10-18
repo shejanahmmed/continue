@@ -372,6 +372,7 @@ fun CalendarScreen(
                             isExpanded = isExpanded,
                             workspace = workspace,
                             onToggleExpansion = { viewModel.toggleCardExpansion(activity.id) },
+                            onToggleCompletion = { done -> viewModel.toggleActivityCompletion(activity.id, done) },
                             onDelete = { id -> viewModel.deleteActivity(id) },
                             onOpenWorkspace = { id -> onActivityClick(id) }
                         )
@@ -661,6 +662,7 @@ private fun AllDayActivityCard(
     isExpanded: Boolean,
     workspace: ActivityWorkspaceAggregate?,
     onToggleExpansion: () -> Unit,
+    onToggleCompletion: ((Boolean) -> Unit)? = null,
     onDelete: (Long) -> Unit,
     onOpenWorkspace: (Long) -> Unit
 ) {
@@ -704,18 +706,30 @@ private fun AllDayActivityCard(
                     )
                 }
 
-                Surface(
-                    shape = CircleShape,
-                    color = Color(0xFF222222),
-                    border = BorderStroke(1.dp, UtilitarianBorderStroke)
-                ) {
-                    Text(
-                        text = if (isReminder) activity.reminderCategory else activity.category.displayName,
-                        color = UtilitarianTextSecondary,
-                        fontSize = 10.sp,
-                        fontFamily = FontFamily.Monospace,
-                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                if (isReminder) {
+                    Checkbox(
+                        checked = activity.isCompleted,
+                        onCheckedChange = { done -> onToggleCompletion?.invoke(done) },
+                        colors = CheckboxDefaults.colors(
+                            checkedColor = UtilitarianAccentRed,
+                            uncheckedColor = UtilitarianBorderStroke,
+                            checkmarkColor = UtilitarianTextPrimary
+                        )
                     )
+                } else {
+                    Surface(
+                        shape = CircleShape,
+                        color = Color(0xFF222222),
+                        border = BorderStroke(1.dp, UtilitarianBorderStroke)
+                    ) {
+                        Text(
+                            text = activity.category.displayName,
+                            color = UtilitarianTextSecondary,
+                            fontSize = 10.sp,
+                            fontFamily = FontFamily.Monospace,
+                            modifier = Modifier.padding(horizontal = 8.dp, vertical = 2.dp)
+                        )
+                    }
                 }
             }
 
@@ -724,6 +738,7 @@ private fun AllDayActivityCard(
                     activity = activity,
                     workspace = workspace,
                     onDelete = { onDelete(activity.id) },
+                    onToggleCompletion = { done -> onToggleCompletion?.invoke(done) },
                     onOpenWorkspace = { onOpenWorkspace(activity.id) },
                     onCollapse = onToggleExpansion
                 )
@@ -836,6 +851,7 @@ private fun TimedAgendaActivityCard(
                     activity = activity,
                     workspace = workspace,
                     onDelete = { onDelete(activity.id) },
+                    onToggleCompletion = { done -> onToggleCompletion(done) },
                     onOpenWorkspace = { onOpenWorkspace(activity.id) },
                     onCollapse = onToggleExpansion
                 )
@@ -849,6 +865,7 @@ private fun ExpandedCardContent(
     activity: ActivityItem,
     workspace: ActivityWorkspaceAggregate?,
     onDelete: () -> Unit,
+    onToggleCompletion: ((Boolean) -> Unit)? = null,
     onOpenWorkspace: () -> Unit,
     onCollapse: () -> Unit
 ) {
@@ -911,93 +928,97 @@ private fun ExpandedCardContent(
         )
         Spacer(modifier = Modifier.height(8.dp))
 
-        // 5. Attachments
-        val attachments = workspace?.attachments ?: emptyList()
-        if (attachments.isNotEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.AttachFile,
-                    contentDescription = null,
-                    tint = UtilitarianTextSecondary,
-                    modifier = Modifier.size(16.dp).padding(top = 2.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "ATTACHMENTS (${attachments.size})",
-                        color = UtilitarianTextSecondary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
+        // 5. Attachments (Events only)
+        if (!isReminder) {
+            val attachments = workspace?.attachments ?: emptyList()
+            if (attachments.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.AttachFile,
+                        contentDescription = null,
+                        tint = UtilitarianTextSecondary,
+                        modifier = Modifier.size(16.dp).padding(top = 2.dp)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    attachments.forEach { att ->
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
                         Text(
-                            text = "• ${att.fileName}",
-                            color = UtilitarianTextPrimary,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis
+                            text = "ATTACHMENTS (${attachments.size})",
+                            color = UtilitarianTextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        attachments.forEach { att ->
+                            Text(
+                                text = "• ${att.fileName}",
+                                color = UtilitarianTextPrimary,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis
+                            )
+                        }
                     }
                 }
+            } else {
+                ExpandedFieldRow(
+                    label = "ATTACHMENTS",
+                    icon = Icons.Outlined.AttachFile,
+                    value = "None"
+                )
             }
-        } else {
-            ExpandedFieldRow(
-                label = "ATTACHMENTS",
-                icon = Icons.Outlined.AttachFile,
-                value = "None"
-            )
+            Spacer(modifier = Modifier.height(8.dp))
         }
-        Spacer(modifier = Modifier.height(8.dp))
 
-        // 6. Checklist / Tasks
-        val tasks = workspace?.tasks ?: emptyList()
-        if (tasks.isNotEmpty()) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Check,
-                    contentDescription = null,
-                    tint = UtilitarianTextSecondary,
-                    modifier = Modifier.size(16.dp).padding(top = 2.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Column(modifier = Modifier.weight(1f)) {
-                    val completedTasks = tasks.count { it.isCompleted }
-                    Text(
-                        text = "TASKS ($completedTasks/${tasks.size})",
-                        color = UtilitarianTextSecondary,
-                        fontSize = 10.sp,
-                        fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
+        // 6. Checklist / Tasks (Events only)
+        if (!isReminder) {
+            val tasks = workspace?.tasks ?: emptyList()
+            if (tasks.isNotEmpty()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Check,
+                        contentDescription = null,
+                        tint = UtilitarianTextSecondary,
+                        modifier = Modifier.size(16.dp).padding(top = 2.dp)
                     )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    tasks.forEach { task ->
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Column(modifier = Modifier.weight(1f)) {
+                        val completedTasks = tasks.count { it.isCompleted }
                         Text(
-                            text = if (task.isCompleted) "[✓] ${task.title}" else "[ ] ${task.title}",
-                            color = if (task.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
-                            fontSize = 12.sp,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                            text = "TASKS ($completedTasks/${tasks.size})",
+                            color = UtilitarianTextSecondary,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
                         )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        tasks.forEach { task ->
+                            Text(
+                                text = if (task.isCompleted) "[✓] ${task.title}" else "[ ] ${task.title}",
+                                color = if (task.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                                fontSize = 12.sp,
+                                maxLines = 1,
+                                overflow = TextOverflow.Ellipsis,
+                                textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None
+                            )
+                        }
                     }
                 }
+            } else {
+                ExpandedFieldRow(
+                    label = "TASKS",
+                    icon = Icons.Outlined.Check,
+                    value = "None"
+                )
             }
-        } else {
-            ExpandedFieldRow(
-                label = "TASKS",
-                icon = Icons.Outlined.Check,
-                value = "None"
-            )
+            Spacer(modifier = Modifier.height(8.dp))
         }
-        Spacer(modifier = Modifier.height(8.dp))
 
         // 7. Alerts
         ExpandedFieldRow(
@@ -1066,30 +1087,48 @@ private fun ExpandedCardContent(
                 }
             }
 
-            Surface(
-                onClick = onOpenWorkspace,
-                shape = RoundedCornerShape(6.dp),
-                color = Color.White,
-                border = BorderStroke(1.dp, Color.White)
-            ) {
-                Row(
-                    modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
-                    verticalAlignment = Alignment.CenterVertically
+            if (isReminder) {
+                Surface(
+                    onClick = { onToggleCompletion?.invoke(!activity.isCompleted) },
+                    shape = RoundedCornerShape(6.dp),
+                    color = if (activity.isCompleted) Color(0xFF1A2E1A) else Color(0xFF222222),
+                    border = BorderStroke(1.dp, if (activity.isCompleted) Color(0xFF2E5E2E) else UtilitarianBorderStroke)
                 ) {
                     Text(
-                        text = "OPEN",
-                        color = Color.Black,
+                        text = if (activity.isCompleted) "COMPLETED" else "MARK DONE",
+                        color = if (activity.isCompleted) Color(0xFF4CAF50) else UtilitarianTextPrimary,
                         fontSize = 10.sp,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp)
                     )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                        contentDescription = "Open Workspace",
-                        tint = Color.Black,
-                        modifier = Modifier.size(12.dp)
-                    )
+                }
+            } else {
+                Surface(
+                    onClick = onOpenWorkspace,
+                    shape = RoundedCornerShape(6.dp),
+                    color = Color.White,
+                    border = BorderStroke(1.dp, Color.White)
+                ) {
+                    Row(
+                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 7.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "OPEN",
+                            color = Color.Black,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            fontFamily = FontFamily.Monospace
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                            contentDescription = "Open Workspace",
+                            tint = Color.Black,
+                            modifier = Modifier.size(12.dp)
+                        )
+                    }
                 }
             }
         }
@@ -1159,12 +1198,12 @@ private fun ExpandedFieldRow(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun UtilitarianEventDetailSheet(
+internal fun UtilitarianEventDetailSheet(
     activity: ActivityItem,
     onDismiss: () -> Unit,
     onDelete: (Long) -> Unit,
     onToggleCompletion: (Long, Boolean) -> Unit,
-    onOpenWorkspace: (Long) -> Unit
+    onOpenWorkspace: (Long) -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isReminder = activity.entryType == EntryType.REMINDER
@@ -1373,30 +1412,32 @@ private fun UtilitarianEventDetailSheet(
                         }
                     }
 
-                    Surface(
-                        onClick = { onOpenWorkspace(activity.id) },
-                        shape = RoundedCornerShape(8.dp),
-                        color = Color.White,
-                        border = BorderStroke(1.dp, Color.White)
-                    ) {
-                        Row(
-                            modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    if (!isReminder) {
+                        Surface(
+                            onClick = { onOpenWorkspace(activity.id) },
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color.White,
+                            border = BorderStroke(1.dp, Color.White)
                         ) {
-                            Text(
-                                text = "OPEN",
-                                color = Color.Black,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                                contentDescription = "Open Workspace",
-                                tint = Color.Black,
-                                modifier = Modifier.size(14.dp)
-                            )
+                            Row(
+                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "OPEN",
+                                    color = Color.Black,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                                    contentDescription = "Open Workspace",
+                                    tint = Color.Black,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
                         }
                     }
                 }

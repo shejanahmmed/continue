@@ -148,4 +148,33 @@ class ActivityWorkspaceViewModelTest {
         val updated = activityRepository.activitiesFlow.value.first { it.id == 99L }
         assertEquals(true, updated.isCompleted)
     }
+
+    @Test
+    fun `test workspace gracefully exits if loaded activity is a reminder`() = runTest(testDispatcher) {
+        val reminderId = 101L
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = reminderId,
+                title = "Doctor Appointment Alert",
+                entryType = com.shejan.acontinue.domain.model.EntryType.REMINDER,
+                startTimeMillis = 5000L,
+                endTimeMillis = 5000L
+            )
+        )
+
+        val reminderViewModel = ActivityWorkspaceViewModel(
+            reminderId,
+            getActivityWorkspaceUseCase,
+            activityRepository,
+            taskRepository,
+            noteRepository,
+            linkRepository
+        )
+
+        reminderViewModel.events.test {
+            testScheduler.advanceUntilIdle()
+            val event = awaitItem()
+            assertEquals(WorkspaceEvent.ActivityDeleted, event)
+        }
+    }
 }

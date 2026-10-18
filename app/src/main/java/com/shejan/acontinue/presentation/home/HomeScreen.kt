@@ -32,6 +32,9 @@ import androidx.compose.material.icons.outlined.Home
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -46,6 +49,8 @@ import com.shejan.acontinue.core.designsystem.components.UtilitarianBadge
 import com.shejan.acontinue.core.designsystem.components.UtilitarianDailyMetricCard
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityTask
+import com.shejan.acontinue.domain.model.EntryType
+import com.shejan.acontinue.presentation.calendar.UtilitarianEventDetailSheet
 import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
 import com.shejan.acontinue.ui.theme.UtilitarianBorderActive
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
@@ -66,6 +71,7 @@ fun HomeScreen(
     onNavigateToCalendar: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    var selectedReminderForDetail by remember { mutableStateOf<ActivityItem?>(null) }
 
     val dateHeader = SimpleDateFormat("EEE, dd MMM", Locale.getDefault()).format(Date())
 
@@ -122,7 +128,13 @@ fun HomeScreen(
 
                 MonochromeCard(
                     borderColor = if (uiState.timeline.currentActivity != null) UtilitarianAccentRed else UtilitarianBorderActive,
-                    onClick = { onActivityClick(focalActivity.id) }
+                    onClick = {
+                        if (isReminder) {
+                            selectedReminderForDetail = focalActivity
+                        } else {
+                            onActivityClick(focalActivity.id)
+                        }
+                    }
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
@@ -188,25 +200,41 @@ fun HomeScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "OPEN WORKSPACE",
-                                color = if (uiState.timeline.currentActivity != null) UtilitarianAccentRed else UtilitarianTextPrimary,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                                contentDescription = null,
-                                tint = if (uiState.timeline.currentActivity != null) UtilitarianAccentRed else UtilitarianTextPrimary,
-                                modifier = Modifier.size(13.dp)
-                            )
+                        if (!isReminder) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "OPEN WORKSPACE",
+                                    color = if (uiState.timeline.currentActivity != null) UtilitarianAccentRed else UtilitarianTextPrimary,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                                    contentDescription = null,
+                                    tint = if (uiState.timeline.currentActivity != null) UtilitarianAccentRed else UtilitarianTextPrimary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
+                        } else {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.End,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "VIEW REMINDER",
+                                    color = UtilitarianTextSecondary,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                            }
                         }
                     }
                 }
@@ -242,9 +270,16 @@ fun HomeScreen(
             }
         } else {
             items(uiState.timeline.activities, key = { it.id }) { activity ->
+                val isReminder = activity.entryType == EntryType.REMINDER
                 TimelineActivityItem(
                     activity = activity,
-                    onActivityClick = { onActivityClick(activity.id) },
+                    onActivityClick = {
+                        if (isReminder) {
+                            selectedReminderForDetail = activity
+                        } else {
+                            onActivityClick(activity.id)
+                        }
+                    },
                     onToggleCompletion = { isCompleted ->
                         viewModel.toggleActivityCompletion(activity.id, isCompleted)
                     }
@@ -277,6 +312,21 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(6.dp))
             }
         }
+    }
+
+    if (selectedReminderForDetail != null) {
+        UtilitarianEventDetailSheet(
+            activity = selectedReminderForDetail!!,
+            onDismiss = { selectedReminderForDetail = null },
+            onDelete = { id ->
+                viewModel.deleteActivity(id)
+                selectedReminderForDetail = null
+            },
+            onToggleCompletion = { id, done ->
+                viewModel.toggleActivityCompletion(id, done)
+                selectedReminderForDetail = selectedReminderForDetail?.copy(isCompleted = done)
+            }
+        )
     }
 }
 

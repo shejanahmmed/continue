@@ -116,6 +116,12 @@ class HomeViewModel(
         }
     }
 
+    fun deleteActivity(activityId: Long) {
+        viewModelScope.launch {
+            activityRepository.deleteActivity(activityId)
+        }
+    }
+
     companion object {
         fun defaultForegroundTicker(intervalMillis: Long = 30_000L): Flow<Long> = flow {
             while (true) {

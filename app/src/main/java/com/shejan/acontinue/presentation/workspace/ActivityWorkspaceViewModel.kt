@@ -99,6 +99,10 @@ class ActivityWorkspaceViewModel(
     private fun loadWorkspace() {
         getActivityWorkspaceUseCase(activityId)
             .onEach { agg ->
+                if (agg?.activity?.entryType == EntryType.REMINDER) {
+                    _events.emit(WorkspaceEvent.ActivityDeleted)
+                    return@onEach
+                }
                 _uiState.value = _uiState.value.copy(
                     aggregate = agg,
                     isLoading = false

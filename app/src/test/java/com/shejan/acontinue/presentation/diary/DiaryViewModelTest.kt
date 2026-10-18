@@ -78,4 +78,33 @@ class DiaryViewModelTest {
             assertEquals("Software Engineering Project", state.activities.first().title)
         }
     }
+
+    @Test
+    fun `test diary excludes reminders and shows only events`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 1L,
+                title = "Software Engineering Event",
+                entryType = com.shejan.acontinue.domain.model.EntryType.ACTIVITY,
+                startTimeMillis = 1000L,
+                endTimeMillis = 2000L
+            )
+        )
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 2L,
+                title = "Pay Utility Bill Reminder",
+                entryType = com.shejan.acontinue.domain.model.EntryType.REMINDER,
+                startTimeMillis = 3000L,
+                endTimeMillis = 3000L
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(1, state.activities.size)
+            assertEquals("Software Engineering Event", state.activities.first().title)
+        }
+    }
 }
