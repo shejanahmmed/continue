@@ -885,6 +885,35 @@ class CreateEntryViewModelTest {
         assertEquals(0, cal.get(java.util.Calendar.MINUTE))
         assertEquals(0, cal.get(java.util.Calendar.SECOND))
     }
+
+    @Test
+    fun `test addReminderCategory trims input and prevents duplicate categories`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        // Add "Health" with leading/trailing spaces
+        viewModel.addReminderCategory("  Health  ", 0xFF4DD0E1, "heart")
+        testScheduler.advanceUntilIdle()
+
+        assertEquals("Health", viewModel.state.value.selectedReminderCategory.name)
+        val initialCategories = viewModel.state.value.savedReminderCategories
+        assertTrue(initialCategories.any { it.name == "Health" })
+
+        // Adding duplicate "health" with different case should update color/icon and not create duplicate
+        viewModel.addReminderCategory("health", 0xFFFA7268, "medical")
+        testScheduler.advanceUntilIdle()
+
+        val updatedCategories = viewModel.state.value.savedReminderCategories
+        val healthCount = updatedCategories.count { it.name.equals("Health", ignoreCase = true) }
+        assertEquals(1, healthCount)
+        assertEquals("Health", viewModel.state.value.selectedReminderCategory.name)
+        assertEquals(0xFFFA7268, viewModel.state.value.selectedReminderCategory.colorHex)
+    }
+
+    @Test
+    fun `test AlarmScheduler category extra constants are properly declared`() {
+        assertEquals("extra_reminder_category_color", com.shejan.acontinue.core.notification.AlarmScheduler.EXTRA_REMINDER_CATEGORY_COLOR)
+        assertEquals("extra_reminder_category_icon", com.shejan.acontinue.core.notification.AlarmScheduler.EXTRA_REMINDER_CATEGORY_ICON)
+    }
 }
 
 

@@ -242,6 +242,7 @@ fun CreateEntryScreen(
     if (isAddCategoryScreenVisible) {
         AddCategoryScreen(
             initialCategory = editingCategory,
+            existingCategories = state.savedReminderCategories,
             onSaveCategory = { name, colorHex, iconName ->
                 val currentEditing = editingCategory
                 if (currentEditing != null) {

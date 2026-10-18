@@ -80,13 +80,26 @@ class SettingsRepositoryImpl(
     }
 
     override suspend fun addReminderCategory(name: String, colorHex: Long, iconName: String): ReminderCategory {
+        val trimmed = name.trim()
+        val current = _settings.value.reminderCategories
+        val existing = current.find { it.name.equals(trimmed, ignoreCase = true) }
+        if (existing != null) {
+            val updated = current.map { item ->
+                if (item.id == existing.id) {
+                    item.copy(colorHex = colorHex, iconName = iconName)
+                } else item
+            }
+            saveReminderCategories(updated)
+            _settings.update { it.copy(reminderCategories = updated) }
+            return existing.copy(colorHex = colorHex, iconName = iconName)
+        }
+
         val newCategory = ReminderCategory(
-            name = name,
+            name = trimmed,
             colorHex = colorHex,
             iconName = iconName,
             isDefault = false
         )
-        val current = _settings.value.reminderCategories
         val updated = current + newCategory
         saveReminderCategories(updated)
         _settings.update { it.copy(reminderCategories = updated) }
@@ -94,16 +107,17 @@ class SettingsRepositoryImpl(
     }
 
     override suspend fun updateReminderCategory(id: String, newName: String, newColorHex: Long, newIconName: String): ReminderCategory {
+        val trimmed = newName.trim()
         val current = _settings.value.reminderCategories
         var updatedItem: ReminderCategory? = null
         val updated = current.map { item ->
             if (item.id == id && !item.isDefault) {
-                val modified = item.copy(name = newName, colorHex = newColorHex, iconName = newIconName)
+                val modified = item.copy(name = trimmed, colorHex = newColorHex, iconName = newIconName)
                 updatedItem = modified
                 modified
             } else item
         }
-        val result = updatedItem ?: ReminderCategory(id = id, name = newName, colorHex = newColorHex, iconName = newIconName)
+        val result = updatedItem ?: ReminderCategory(id = id, name = trimmed, colorHex = newColorHex, iconName = newIconName)
         saveReminderCategories(updated)
         _settings.update { it.copy(reminderCategories = updated) }
         return result

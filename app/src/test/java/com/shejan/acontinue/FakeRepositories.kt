@@ -249,13 +249,26 @@ class FakeSettingsRepository : com.shejan.acontinue.domain.repository.SettingsRe
         colorHex: Long,
         iconName: String
     ): com.shejan.acontinue.domain.model.ReminderCategory {
+        val trimmed = name.trim()
+        val current = settingsFlow.value.reminderCategories
+        val existing = current.find { it.name.equals(trimmed, ignoreCase = true) }
+        if (existing != null) {
+            val updated = current.map { item ->
+                if (item.id == existing.id) {
+                    item.copy(colorHex = colorHex, iconName = iconName)
+                } else item
+            }
+            settingsFlow.value = settingsFlow.value.copy(reminderCategories = updated)
+            return existing.copy(colorHex = colorHex, iconName = iconName)
+        }
+
         val category = com.shejan.acontinue.domain.model.ReminderCategory(
-            name = name,
+            name = trimmed,
             colorHex = colorHex,
             iconName = iconName,
             isDefault = false
         )
-        val updated = settingsFlow.value.reminderCategories + category
+        val updated = current + category
         settingsFlow.value = settingsFlow.value.copy(reminderCategories = updated)
         return category
     }
@@ -266,16 +279,17 @@ class FakeSettingsRepository : com.shejan.acontinue.domain.repository.SettingsRe
         newColorHex: Long,
         newIconName: String
     ): com.shejan.acontinue.domain.model.ReminderCategory {
+        val trimmed = newName.trim()
         val current = settingsFlow.value.reminderCategories
         var updatedItem: com.shejan.acontinue.domain.model.ReminderCategory? = null
         val updated = current.map { item ->
             if (item.id == id && !item.isDefault) {
-                val modified = item.copy(name = newName, colorHex = newColorHex, iconName = newIconName)
+                val modified = item.copy(name = trimmed, colorHex = newColorHex, iconName = newIconName)
                 updatedItem = modified
                 modified
             } else item
         }
-        val result = updatedItem ?: com.shejan.acontinue.domain.model.ReminderCategory(id = id, name = newName, colorHex = newColorHex, iconName = newIconName)
+        val result = updatedItem ?: com.shejan.acontinue.domain.model.ReminderCategory(id = id, name = trimmed, colorHex = newColorHex, iconName = newIconName)
         settingsFlow.value = settingsFlow.value.copy(reminderCategories = updated)
         return result
     }

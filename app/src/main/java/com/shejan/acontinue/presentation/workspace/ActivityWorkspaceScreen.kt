@@ -2,6 +2,7 @@ package com.shejan.acontinue.presentation.workspace
 
 import android.content.Intent
 import android.net.Uri
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -105,6 +106,15 @@ fun ActivityWorkspaceScreen(
         }
     }
 
+    BackHandler(enabled = isCategoryScreenVisible || isAddCategoryScreenVisible) {
+        if (isAddCategoryScreenVisible) {
+            editingCategory = null
+            isAddCategoryScreenVisible = false
+        } else if (isCategoryScreenVisible) {
+            isCategoryScreenVisible = false
+        }
+    }
+
     if (isCategoryScreenVisible && uiState.aggregate != null) {
         val currentActivity = uiState.aggregate!!.activity
         val currentCat = categories.find { it.name.equals(currentActivity.reminderCategory, ignoreCase = true) }
@@ -142,6 +152,7 @@ fun ActivityWorkspaceScreen(
     if (isAddCategoryScreenVisible) {
         AddCategoryScreen(
             initialCategory = editingCategory,
+            existingCategories = categories,
             onSaveCategory = { name, colorHex, iconName ->
                 val currentEditing = editingCategory
                 if (currentEditing != null) {
@@ -425,6 +436,7 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                     Text(text = "• Attachments: ${aggregate.attachments.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     Text(text = "• Reminder: ${if (activity.reminderMinutesBefore >= 0) "${activity.reminderMinutesBefore}m prior" else "None"}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     if (activity.entryType == EntryType.REMINDER) {
+                        Text(text = "• Category: ${activity.reminderCategory}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                         Text(text = "• Alert style: ${activity.priority.reminderTitle}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     }
                 }

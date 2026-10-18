@@ -120,10 +120,11 @@ fun CategorySelectionScreen(
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 categories.forEachIndexed { index, category ->
-                    val isSelected = category.id == selectedCategory.id || category.name == selectedCategory.name
-                    val count = reminderCounts[category.name] ?: 0
+                    val isSelected = category.id == selectedCategory.id || category.name.equals(selectedCategory.name, ignoreCase = true)
+                    val count = reminderCounts.entries.find { it.key.equals(category.name, ignoreCase = true) }?.value ?: 0
+                    val isDefaultCategory = category.isDefault || category.name.equals(ReminderCategory.DEFAULT.name, ignoreCase = true)
 
-                    val rowClickModifier = if (category.isDefault) {
+                    val rowClickModifier = if (isDefaultCategory) {
                         Modifier.clickable { onSelectCategory(category) }
                     } else {
                         Modifier.combinedClickable(
@@ -277,7 +278,7 @@ fun CategorySelectionScreen(
                             fontWeight = FontWeight.Bold
                         )
 
-                        val count = reminderCounts[targetCat.name] ?: 0
+                        val count = reminderCounts.entries.find { it.key.equals(targetCat.name, ignoreCase = true) }?.value ?: 0
                         Text(
                             text = "$count reminder${if (count == 1) "" else "s"}",
                             color = colors.textSecondary,

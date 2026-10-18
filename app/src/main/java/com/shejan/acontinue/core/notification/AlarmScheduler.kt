@@ -68,6 +68,8 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
                 putExtra(EXTRA_ACTIVITY_PRIORITY, effectiveActivity.priority.name)
                 putExtra(EXTRA_ENTRY_TYPE, effectiveActivity.entryType.name)
                 putExtra(EXTRA_REMINDER_CATEGORY, effectiveActivity.reminderCategory)
+                putExtra(EXTRA_REMINDER_CATEGORY_COLOR, effectiveActivity.reminderCategoryColorHex)
+                putExtra(EXTRA_REMINDER_CATEGORY_ICON, effectiveActivity.reminderCategoryIcon)
             }
 
             val requestCode = getRequestCode(activity.id, minutes)
@@ -149,6 +151,8 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
         const val EXTRA_ACTIVITY_PRIORITY = "extra_activity_priority"
         const val EXTRA_ENTRY_TYPE = "extra_entry_type"
         const val EXTRA_REMINDER_CATEGORY = "extra_reminder_category"
+        const val EXTRA_REMINDER_CATEGORY_COLOR = "extra_reminder_category_color"
+        const val EXTRA_REMINDER_CATEGORY_ICON = "extra_reminder_category_icon"
         const val CHANNEL_ID = "activity_reminders_channel"
         const val CHANNEL_ID_LIGHT = "activity_reminders_light"
         const val CHANNEL_ID_MEDIUM = "activity_reminders_medium"

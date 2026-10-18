@@ -98,6 +98,8 @@ class ReminderAlertActivity : ComponentActivity() {
         val priorityStr = intent.getStringExtra(AlarmScheduler.EXTRA_ACTIVITY_PRIORITY)
         val priority = runCatching { ActivityPriority.valueOf(priorityStr.orEmpty()) }.getOrDefault(ActivityPriority.MEDIUM)
         val categoryName = intent.getStringExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY) ?: "My reminders"
+        val categoryColorHex = intent.getLongExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY_COLOR, 0xFF9D7BFC)
+        val categoryIconName = intent.getStringExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY_ICON) ?: "bell"
 
         // Trigger priority-appropriate audio & haptic feedback
         if (priority == ActivityPriority.HIGH) {
@@ -113,6 +115,8 @@ class ReminderAlertActivity : ComponentActivity() {
                 startTime = startTime,
                 priority = priority,
                 categoryName = categoryName,
+                categoryColorHex = categoryColorHex,
+                categoryIconName = categoryIconName,
                 onComplete = { completeReminder() },
                 onSnooze = { snoozeReminder() },
                 onDismiss = { dismissAlert() }
@@ -195,6 +199,8 @@ private fun ReminderAlertContent(
     startTime: Long,
     priority: ActivityPriority,
     categoryName: String,
+    categoryColorHex: Long = 0xFF9D7BFC,
+    categoryIconName: String = "bell",
     onComplete: () -> Unit,
     onSnooze: () -> Unit,
     onDismiss: () -> Unit
@@ -307,10 +313,10 @@ private fun ReminderAlertContent(
                         .padding(horizontal = 14.dp, vertical = 6.dp)
                 ) {
                     Icon(
-                        imageVector = getCategoryIcon(categoryName.lowercase()),
+                        imageVector = getCategoryIcon(categoryIconName),
                         contentDescription = null,
-                        tint = Color.White,
-                        modifier = Modifier.size(14.dp)
+                        tint = Color(categoryColorHex),
+                        modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(6.dp))
                     Text(

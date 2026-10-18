@@ -20,8 +20,10 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.automirrored.outlined.DirectionsRun
 import androidx.compose.material.icons.automirrored.outlined.FormatListBulleted
@@ -83,6 +85,8 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardCapitalization
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shejan.acontinue.domain.model.ReminderCategory
@@ -169,6 +173,7 @@ fun getCategoryIcon(name: String): ImageVector {
 @Composable
 fun AddCategoryScreen(
     initialCategory: ReminderCategory? = null,
+    existingCategories: List<ReminderCategory> = emptyList(),
     onSaveCategory: (name: String, colorHex: Long, iconName: String) -> Unit,
     onNavigateBack: () -> Unit,
     modifier: Modifier = Modifier
@@ -177,7 +182,7 @@ fun AddCategoryScreen(
     val scrollState = rememberScrollState()
 
     var categoryName by remember(initialCategory) {
-        mutableStateOf(initialCategory?.name ?: "Category 1")
+        mutableStateOf(initialCategory?.name ?: "")
     }
     var selectedColorHex by remember(initialCategory) {
         mutableLongStateOf(initialCategory?.colorHex ?: 0xFFB39DDB)
@@ -185,6 +190,18 @@ fun AddCategoryScreen(
     var selectedIconName by remember(initialCategory) {
         mutableStateOf(initialCategory?.iconName ?: "bell")
     }
+
+    val trimmedName = categoryName.trim()
+    val isDefaultConflict = trimmedName.equals(ReminderCategory.DEFAULT.name, ignoreCase = true)
+    val isDuplicateConflict = existingCategories.any {
+        it.id != initialCategory?.id && it.name.trim().equals(trimmedName, ignoreCase = true)
+    }
+    val errorMessage = when {
+        isDefaultConflict -> "Cannot use default category name"
+        isDuplicateConflict -> "Category name already in use"
+        else -> null
+    }
+    val isSaveEnabled = trimmedName.isNotBlank() && errorMessage == null
 
     Box(
         modifier = modifier
@@ -197,9 +214,41 @@ fun AddCategoryScreen(
                 .statusBarsPadding()
                 .verticalScroll(scrollState)
                 .padding(horizontal = 16.dp)
-                .padding(top = 24.dp, bottom = 100.dp),
+                .padding(top = 16.dp, bottom = 100.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
+            // Navigation Header: Chevron Left + Title
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 16.dp, top = 4.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Box(
+                    modifier = Modifier
+                        .size(36.dp)
+                        .clip(CircleShape)
+                        .clickable(onClick = onNavigateBack),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.ChevronLeft,
+                        contentDescription = "Back",
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(28.dp)
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                Text(
+                    text = if (initialCategory != null) "Edit category" else "Add category",
+                    color = colors.textPrimary,
+                    fontSize = 20.sp,
+                    fontWeight = FontWeight.Bold
+                )
+            }
+
             // Top Card with overlapping circular icon preview badge
             Box(
                 modifier = Modifier.fillMaxWidth(),
@@ -238,14 +287,41 @@ fun AddCategoryScreen(
                                 fontWeight = FontWeight.Normal
                             ),
                             cursorBrush = SolidColor(Color(0xFF3897F0)),
-                            singleLine = true
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                capitalization = KeyboardCapitalization.Words,
+                                imeAction = ImeAction.Done
+                            ),
+                            decorationBox = { innerTextField ->
+                                Box(modifier = Modifier.fillMaxWidth()) {
+                                    if (categoryName.isEmpty()) {
+                                        Text(
+                                            text = "Category name",
+                                            color = colors.textDisabled,
+                                            fontSize = 18.sp,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
                         )
 
                         HorizontalDivider(
-                            color = colors.textPrimary.copy(alpha = 0.8f),
+                            color = if (errorMessage != null) Color(0xFFEF5350) else colors.textPrimary.copy(alpha = 0.8f),
                             thickness = 1.dp,
                             modifier = Modifier.padding(top = 8.dp)
                         )
+
+                        if (errorMessage != null) {
+                            Text(
+                                text = errorMessage,
+                                color = Color(0xFFEF5350),
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.padding(top = 4.dp)
+                            )
+                        }
                     }
                 }
 
@@ -415,12 +491,11 @@ fun AddCategoryScreen(
                         .background(colors.borderStroke.copy(alpha = 0.6f))
                 )
 
-                val isSaveEnabled = categoryName.isNotBlank()
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(22.dp))
                         .clickable(enabled = isSaveEnabled) {
-                            onSaveCategory(categoryName.trim(), selectedColorHex, selectedIconName)
+                            onSaveCategory(trimmedName, selectedColorHex, selectedIconName)
                         }
                         .padding(horizontal = 22.dp, vertical = 9.dp),
                     contentAlignment = Alignment.Center

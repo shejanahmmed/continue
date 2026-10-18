@@ -171,6 +171,8 @@ class AlarmReceiver : BroadcastReceiver() {
             )
         } else {
             val reminderCategory = intent.getStringExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY) ?: ""
+            val reminderCategoryColor = intent.getLongExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY_COLOR, 0xFF9D7BFC)
+            val reminderCategoryIcon = intent.getStringExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY_ICON) ?: "bell"
             val timeString = if (startTime > 0) {
                 SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(startTime))
             } else ""
@@ -189,6 +191,8 @@ class AlarmReceiver : BroadcastReceiver() {
                 putExtra(AlarmScheduler.EXTRA_ACTIVITY_START_TIME, startTime)
                 putExtra(AlarmScheduler.EXTRA_ACTIVITY_PRIORITY, priority.name)
                 putExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY, reminderCategory)
+                putExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY_COLOR, reminderCategoryColor)
+                putExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY_ICON, reminderCategoryIcon)
             }
             val alertPendingIntent = PendingIntent.getActivity(
                 context,
