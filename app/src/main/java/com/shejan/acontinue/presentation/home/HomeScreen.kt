@@ -157,10 +157,15 @@ fun HomeScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(Color(focalEvent.category.colorHex), CircleShape)
-                            )
+                                modifier = Modifier.size(14.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(Color(focalEvent.category.colorHex), CircleShape)
+                                )
+                            }
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = focalEvent.title,
@@ -184,13 +189,18 @@ fun HomeScreen(
                                 "${timeFormat.format(Date(focalEvent.startTimeMillis))} – ${timeFormat.format(Date(focalEvent.endTimeMillis))}"
                             }
 
-                            Icon(
-                                imageVector = Icons.Outlined.AccessTime,
-                                contentDescription = null,
-                                tint = UtilitarianTextSecondary,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(6.dp))
+                            Box(
+                                modifier = Modifier.size(14.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AccessTime,
+                                    contentDescription = null,
+                                    tint = UtilitarianTextSecondary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = timeSpan,
                                 color = UtilitarianTextPrimary,
@@ -203,13 +213,18 @@ fun HomeScreen(
                         if (focalEvent.location.isNotBlank()) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Outlined.LocationOn,
-                                    contentDescription = null,
-                                    tint = UtilitarianTextSecondary,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier.size(14.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.LocationOn,
+                                        contentDescription = null,
+                                        tint = UtilitarianTextSecondary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = focalEvent.location,
                                     color = UtilitarianTextSecondary,
@@ -223,13 +238,18 @@ fun HomeScreen(
                         if (focalEvent.description.isNotBlank()) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.Notes,
-                                    contentDescription = null,
-                                    tint = UtilitarianTextSecondary,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                                Spacer(modifier = Modifier.width(6.dp))
+                                Box(
+                                    modifier = Modifier.size(14.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Outlined.Notes,
+                                        contentDescription = null,
+                                        tint = UtilitarianTextSecondary,
+                                        modifier = Modifier.size(14.dp)
+                                    )
+                                }
+                                Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = focalEvent.description,
                                     color = UtilitarianTextSecondary,
@@ -272,13 +292,13 @@ fun HomeScreen(
                                     Icon(
                                         imageVector = if (isEventNow) Icons.Outlined.Timer else Icons.Outlined.HourglassEmpty,
                                         contentDescription = null,
-                                        tint = if (isEventNow) UtilitarianAccentRed else UtilitarianTextPrimary,
+                                        tint = if (isEventNow) UtilitarianAccentRed else UtilitarianTextSecondary,
                                         modifier = Modifier.size(12.dp)
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
                                         text = timerText,
-                                        color = if (isEventNow) UtilitarianAccentRed else UtilitarianTextPrimary,
+                                        color = if (isEventNow) UtilitarianAccentRed else UtilitarianTextSecondary,
                                         fontFamily = FontFamily.Monospace,
                                         fontSize = 11.sp,
                                         fontWeight = FontWeight.SemiBold
