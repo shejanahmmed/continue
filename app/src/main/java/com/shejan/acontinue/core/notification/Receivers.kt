@@ -178,7 +178,7 @@ class AlarmReceiver : BroadcastReceiver() {
             } else ""
 
             val contentText = buildString {
-                if (timeString.isNotEmpty()) append("Starts at $timeString")
+                if (timeString.isNotEmpty()) append("At $timeString")
                 if (location.isNotEmpty()) append(" • $location")
                 if (isEmpty()) append("Activity workspace ready.")
             }

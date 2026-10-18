@@ -740,11 +740,17 @@ private fun TimedAgendaActivityCard(
     onDelete: (Long) -> Unit,
     onOpenWorkspace: (Long) -> Unit
 ) {
+    val isReminder = activity.entryType == EntryType.REMINDER
     val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
     val shortTimeFormat = SimpleDateFormat("h:mm", Locale.getDefault())
-    val startTimeReadout = shortTimeFormat.format(Date(activity.startTimeMillis))
-    val timeSpan = "${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
-    val isReminder = activity.entryType == EntryType.REMINDER
+    val startTimeReadout = if (activity.isAllDay) "ALL" else shortTimeFormat.format(Date(activity.startTimeMillis))
+    val timeSpan = if (activity.isAllDay) {
+        "All day"
+    } else if (isReminder) {
+        timeFormat.format(Date(activity.startTimeMillis))
+    } else {
+        "${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
+    }
     val accentColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
 
     MonochromeCard(
@@ -844,15 +850,21 @@ private fun ExpandedCardContent(
 ) {
     val fullDateFormat = SimpleDateFormat("EEEE, d MMMM yyyy", Locale.getDefault())
     val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+    val isReminder = activity.entryType == EntryType.REMINDER
     val dateStr = fullDateFormat.format(Date(activity.startTimeMillis))
-    val timeStr = if (activity.isAllDay) "All day" else "${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
+    val timeStr = if (activity.isAllDay) {
+        "All day"
+    } else if (isReminder) {
+        timeFormat.format(Date(activity.startTimeMillis))
+    } else {
+        "${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
+    }
     val repeatStr = if (activity.recurrenceMode != RecurrenceMode.NONE) formatRecurrenceRule(activity) else "None"
     val locationStr = if (activity.location.isNotBlank()) activity.location else "None"
     val noteStr = activity.description.ifBlank {
         workspace?.notes?.firstOrNull()?.content ?: ""
     }.ifBlank { "None" }
     val alertsStr = formatAlerts(activity) ?: "None"
-    val isReminder = activity.entryType == EntryType.REMINDER
     val categoryName = if (isReminder) activity.reminderCategory else activity.category.displayName
 
     Column(
@@ -1246,7 +1258,13 @@ private fun UtilitarianEventDetailSheet(
             val fullDateFormat = SimpleDateFormat("EEEE, d MMMM yyyy", Locale.getDefault())
             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
             val dateStr = fullDateFormat.format(Date(activity.startTimeMillis))
-            val timeStr = if (activity.isAllDay) "All day" else "${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
+            val timeStr = if (activity.isAllDay) {
+                "All day"
+            } else if (isReminder) {
+                timeFormat.format(Date(activity.startTimeMillis))
+            } else {
+                "${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
+            }
 
             DetailInfoRow(
                 icon = Icons.Outlined.AccessTime,

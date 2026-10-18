@@ -111,6 +111,7 @@ class CreateEntryViewModelTest {
             val saved = activityRepository.activitiesFlow.value.first()
             assertEquals(EntryType.REMINDER, saved.entryType)
             assertEquals("Submit Assignment", saved.title)
+            assertEquals(saved.startTimeMillis, saved.endTimeMillis)
         }
     }
 

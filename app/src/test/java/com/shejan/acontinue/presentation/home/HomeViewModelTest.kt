@@ -167,4 +167,28 @@ class HomeViewModelTest {
             assertEquals(0f, state.completionProgress, 0.001f)
         }
     }
+
+    @Test
+    fun `test reminder point in time semantics and focal card representation`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        val reminder = ActivityItem(
+            id = 50L,
+            title = "Drink Water",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now + 5000L,
+            endTimeMillis = now + 5000L,
+            isCompleted = false
+        )
+        activityRepository.insertActivity(reminder)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val focal = state.timeline.nextActivity
+            assertNotNull(focal)
+            assertEquals(50L, focal!!.id)
+            assertEquals(EntryType.REMINDER, focal.entryType)
+            assertEquals(focal.startTimeMillis, focal.endTimeMillis)
+        }
+    }
 }

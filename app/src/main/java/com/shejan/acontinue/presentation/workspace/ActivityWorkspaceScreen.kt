@@ -187,9 +187,16 @@ fun ActivityWorkspaceScreen(
     val aggregate = uiState.aggregate!!
     val activity = aggregate.activity
 
+    val isReminder = activity.entryType == EntryType.REMINDER
     val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
     val dateFormat = SimpleDateFormat("EEE, dd MMM", Locale.getDefault())
-    val timeSpan = "${dateFormat.format(Date(activity.startTimeMillis))} • ${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
+    val timeSpan = if (activity.isAllDay) {
+        "${dateFormat.format(Date(activity.startTimeMillis))} • All day"
+    } else if (isReminder) {
+        "${dateFormat.format(Date(activity.startTimeMillis))} • ${timeFormat.format(Date(activity.startTimeMillis))}"
+    } else {
+        "${dateFormat.format(Date(activity.startTimeMillis))} • ${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
+    }
 
     Column(
         modifier = modifier
@@ -250,7 +257,6 @@ fun ActivityWorkspaceScreen(
             modifier = Modifier.padding(vertical = 4.dp)
         )
 
-        val isReminder = activity.entryType == EntryType.REMINDER
         val categoryText = if (isReminder) activity.reminderCategory.uppercase() else activity.category.displayName.uppercase()
         val categoryColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
 

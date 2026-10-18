@@ -543,7 +543,7 @@ class CreateEntryViewModel(
                 category = if (isReminder) ActivityCategory.OTHER else current.category,
                 isAllDay = current.isAllDay,
                 startTimeMillis = effectiveStartTime,
-                endTimeMillis = if (isReminder) effectiveStartTime + 1800000L else current.endMillis,
+                endTimeMillis = if (isReminder) effectiveStartTime else current.endMillis,
                 location = if (isReminder) "" else current.location.trim(),
                 priority = current.priority,
                 reminderMinutesBefore = primaryOffset,

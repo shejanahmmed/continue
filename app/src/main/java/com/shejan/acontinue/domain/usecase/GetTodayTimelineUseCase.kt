@@ -1,6 +1,7 @@
 package com.shejan.acontinue.domain.usecase
 
 import com.shejan.acontinue.domain.model.ActivityItem
+import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -34,8 +35,15 @@ class GetTodayTimelineUseCase(
 
         return activityRepository.getActivitiesForDateRange(startOfDay, endOfDay).map { list ->
             val sorted = list.sortedBy { it.startTimeMillis }
-            val current = sorted.firstOrNull { now in it.startTimeMillis..it.endTimeMillis }
-            val next = sorted.firstOrNull { it.startTimeMillis > now && !it.isCompleted }
+            val current = sorted.firstOrNull {
+                it.entryType == EntryType.ACTIVITY && now in it.startTimeMillis..it.endTimeMillis
+            }
+            val next = sorted.firstOrNull {
+                !it.isCompleted && (
+                    it.startTimeMillis > now ||
+                    (it.entryType == EntryType.REMINDER && it.startTimeMillis <= now)
+                )
+            }
 
             TodayTimeline(
                 activities = sorted,

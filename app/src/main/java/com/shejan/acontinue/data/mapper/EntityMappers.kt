@@ -42,15 +42,17 @@ fun ActivityEntity.toDomain(): ActivityItem {
         emptyList()
     }
 
+    val parsedEntryType = runCatching { EntryType.valueOf(entryType) }.getOrDefault(EntryType.ACTIVITY)
+
     return ActivityItem(
         id = id,
         title = title,
         description = description,
-        entryType = runCatching { EntryType.valueOf(entryType) }.getOrDefault(EntryType.ACTIVITY),
+        entryType = parsedEntryType,
         category = runCatching { ActivityCategory.valueOf(category) }.getOrDefault(ActivityCategory.OTHER),
         isAllDay = isAllDay,
         startTimeMillis = startTimeMillis,
-        endTimeMillis = endTimeMillis,
+        endTimeMillis = if (parsedEntryType == EntryType.REMINDER) startTimeMillis else endTimeMillis,
         location = location,
         priority = runCatching { ActivityPriority.valueOf(priority) }.getOrDefault(ActivityPriority.MEDIUM),
         reminderMinutesBefore = reminderMinutesBefore,
@@ -83,7 +85,7 @@ fun ActivityItem.toEntity(): ActivityEntity {
         category = category.name,
         isAllDay = isAllDay,
         startTimeMillis = startTimeMillis,
-        endTimeMillis = endTimeMillis,
+        endTimeMillis = if (entryType == EntryType.REMINDER) startTimeMillis else endTimeMillis,
         location = location,
         priority = priority.name,
         reminderMinutesBefore = reminderMinutesList.firstOrNull() ?: reminderMinutesBefore,

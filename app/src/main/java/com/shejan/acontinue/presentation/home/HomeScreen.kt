@@ -104,8 +104,14 @@ fun HomeScreen(
         val focalActivity = uiState.timeline.currentActivity ?: uiState.timeline.nextActivity
         if (focalActivity != null) {
             item {
+                val isReminder = focalActivity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER
+                val headerText = if (uiState.timeline.currentActivity != null) {
+                    if (isReminder) "REMINDER" else "CURRENT EVENT"
+                } else {
+                    if (isReminder) "UPCOMING REMINDER" else "UP NEXT"
+                }
                 Text(
-                    text = if (uiState.timeline.currentActivity != null) "CURRENT ACTIVITY" else "UP NEXT",
+                    text = headerText,
                     color = UtilitarianTextSecondary,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
@@ -119,7 +125,6 @@ fun HomeScreen(
                     onClick = { onActivityClick(focalActivity.id) }
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        val isReminder = focalActivity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
@@ -137,7 +142,13 @@ fun HomeScreen(
                             Spacer(modifier = Modifier.weight(1f))
 
                             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-                            val timeSpan = "${timeFormat.format(Date(focalActivity.startTimeMillis))} – ${timeFormat.format(Date(focalActivity.endTimeMillis))}"
+                            val timeSpan = if (focalActivity.isAllDay) {
+                                "All day"
+                            } else if (isReminder) {
+                                timeFormat.format(Date(focalActivity.startTimeMillis))
+                            } else {
+                                "${timeFormat.format(Date(focalActivity.startTimeMillis))} – ${timeFormat.format(Date(focalActivity.endTimeMillis))}"
+                            }
                             Text(
                                 text = timeSpan,
                                 color = UtilitarianTextPrimary,
@@ -275,6 +286,7 @@ private fun TimelineActivityItem(
     onActivityClick: () -> Unit,
     onToggleCompletion: (Boolean) -> Unit
 ) {
+    val isReminder = activity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER
     val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
     val startStr = timeFormat.format(Date(activity.startTimeMillis))
     val endStr = timeFormat.format(Date(activity.endTimeMillis))
@@ -287,23 +299,43 @@ private fun TimelineActivityItem(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column(modifier = Modifier.width(76.dp)) {
-                Text(
-                    text = startStr,
-                    color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold
-                )
-                Text(
-                    text = endStr,
-                    color = UtilitarianTextDisabled,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 10.sp
-                )
+            Column(
+                modifier = Modifier.width(76.dp),
+                verticalArrangement = Arrangement.Center
+            ) {
+                if (activity.isAllDay) {
+                    Text(
+                        text = "All day",
+                        color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                } else if (isReminder) {
+                    Text(
+                        text = startStr,
+                        color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                } else {
+                    Text(
+                        text = startStr,
+                        color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold
+                    )
+                    Text(
+                        text = endStr,
+                        color = UtilitarianTextDisabled,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 10.sp
+                    )
+                }
             }
 
-            val isReminder = activity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER
             val catColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
 
             Spacer(modifier = Modifier.width(6.dp))
