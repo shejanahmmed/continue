@@ -2,6 +2,7 @@ package com.shejan.acontinue.presentation.home
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -20,27 +21,35 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Check
-import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.automirrored.outlined.Notes
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.HourglassEmpty
+import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
@@ -48,6 +57,7 @@ import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.core.designsystem.components.UtilitarianBadge
 import com.shejan.acontinue.core.designsystem.components.UtilitarianDailyMetricCard
 import com.shejan.acontinue.domain.model.ActivityItem
+import com.shejan.acontinue.domain.model.ActivityPriority
 import com.shejan.acontinue.domain.model.ActivityTask
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.presentation.calendar.UtilitarianEventDetailSheet
@@ -72,8 +82,20 @@ fun HomeScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     var selectedReminderForDetail by remember { mutableStateOf<ActivityItem?>(null) }
+    var liveNow by remember { mutableLongStateOf(System.currentTimeMillis()) }
 
     val dateHeader = SimpleDateFormat("EEE, dd MMM", Locale.getDefault()).format(Date())
+
+    val focalEvent = uiState.currentEvent ?: uiState.nextEvent
+    val isEventNow = uiState.currentEvent != null
+    val focalReminder = uiState.nextReminder
+
+    LaunchedEffect(isEventNow, focalEvent?.id) {
+        while (true) {
+            liveNow = System.currentTimeMillis()
+            delay(if (isEventNow) 1000L else 30_000L)
+        }
+    }
 
     LazyColumn(
         modifier = modifier
@@ -107,16 +129,11 @@ fun HomeScreen(
         }
 
         // Card 2: Current / Upcoming Event Focus
-        val focalEvent = uiState.currentEvent ?: uiState.nextEvent
-        val isEventNow = uiState.currentEvent != null
-        val focalReminder = uiState.nextReminder
-
         if (focalEvent != null) {
             item {
                 val headerText = if (isEventNow) "NOW" else "UPCOMING EVENT"
                 val headerColor = if (isEventNow) UtilitarianAccentRed else UtilitarianTextSecondary
                 val cardBorderColor = if (isEventNow) UtilitarianAccentRed else UtilitarianBorderActive
-                val actionColor = if (isEventNow) UtilitarianAccentRed else UtilitarianTextPrimary
 
                 Text(
                     text = headerText,
@@ -139,6 +156,27 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(Color(focalEvent.category.colorHex), CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = focalEvent.title,
+                                color = UtilitarianTextPrimary,
+                                fontFamily = FontFamily.SansSerif,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 18.sp
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(6.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
                             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
                             val timeSpan = if (focalEvent.isAllDay) {
                                 "All day"
@@ -146,10 +184,11 @@ fun HomeScreen(
                                 "${timeFormat.format(Date(focalEvent.startTimeMillis))} – ${timeFormat.format(Date(focalEvent.endTimeMillis))}"
                             }
 
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(Color(focalEvent.category.colorHex), CircleShape)
+                            Icon(
+                                imageVector = Icons.Outlined.AccessTime,
+                                contentDescription = null,
+                                tint = UtilitarianTextSecondary,
+                                modifier = Modifier.size(13.dp)
                             )
                             Spacer(modifier = Modifier.width(6.dp))
                             Text(
@@ -161,30 +200,42 @@ fun HomeScreen(
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(10.dp))
-
-                        Text(
-                            text = focalEvent.title,
-                            color = UtilitarianTextPrimary,
-                            fontFamily = FontFamily.SansSerif,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
-
-                        if (focalEvent.location.isNotEmpty()) {
+                        if (focalEvent.location.isNotBlank()) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Outlined.LocationOn,
                                     contentDescription = null,
                                     tint = UtilitarianTextSecondary,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(13.dp)
                                 )
-                                Spacer(modifier = Modifier.width(4.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
                                 Text(
                                     text = focalEvent.location,
                                     color = UtilitarianTextSecondary,
-                                    fontSize = 12.sp
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
+                                )
+                            }
+                        }
+
+                        if (focalEvent.description.isNotBlank()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.Notes,
+                                    contentDescription = null,
+                                    tint = UtilitarianTextSecondary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(
+                                    text = focalEvent.description,
+                                    color = UtilitarianTextSecondary,
+                                    fontSize = 12.sp,
+                                    maxLines = 1,
+                                    overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
@@ -193,23 +244,66 @@ fun HomeScreen(
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "OPEN WORKSPACE",
-                                color = actionColor,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                                contentDescription = null,
-                                tint = actionColor,
-                                modifier = Modifier.size(13.dp)
-                            )
+                            val timerText = if (isEventNow) {
+                                val elapsed = formatElapsedStopwatch(focalEvent.startTimeMillis, liveNow)
+                                val remaining = formatTimeRemaining(getEffectiveEnd(focalEvent), liveNow)
+                                "$elapsed ($remaining)"
+                            } else {
+                                formatTimeRemaining(focalEvent.startTimeMillis, liveNow)
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .background(
+                                        color = if (isEventNow) UtilitarianAccentRed.copy(alpha = 0.12f) else Color(0xFF1E1E1E),
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isEventNow) UtilitarianAccentRed.copy(alpha = 0.5f) else UtilitarianBorderStroke,
+                                        shape = RoundedCornerShape(4.dp)
+                                    )
+                                    .padding(horizontal = 8.dp, vertical = 4.dp)
+                            ) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = if (isEventNow) Icons.Outlined.Timer else Icons.Outlined.HourglassEmpty,
+                                        contentDescription = null,
+                                        tint = if (isEventNow) UtilitarianAccentRed else UtilitarianTextPrimary,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = timerText,
+                                        color = if (isEventNow) UtilitarianAccentRed else UtilitarianTextPrimary,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 11.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
+
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "OPEN WORKSPACE",
+                                    color = if (isEventNow) UtilitarianAccentRed else UtilitarianTextPrimary,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                                    contentDescription = null,
+                                    tint = if (isEventNow) UtilitarianAccentRed else UtilitarianTextPrimary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                            }
                         }
                     }
                 }
@@ -238,33 +332,6 @@ fun HomeScreen(
                     }
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            val catBadgeText = focalReminder.reminderCategory.uppercase()
-                            val catBadgeColor = Color(focalReminder.reminderCategoryColorHex)
-                            UtilitarianBadge(
-                                text = catBadgeText,
-                                backgroundColor = catBadgeColor.copy(alpha = 0.2f),
-                                textColor = UtilitarianTextPrimary
-                            )
-
-                            Spacer(modifier = Modifier.weight(1f))
-
-                            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-                            val alertTime = timeFormat.format(Date(focalReminder.startTimeMillis))
-                            Text(
-                                text = alertTime,
-                                color = UtilitarianTextPrimary,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 12.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.height(10.dp))
-
                         Text(
                             text = focalReminder.title,
                             color = UtilitarianTextPrimary,
@@ -273,39 +340,39 @@ fun HomeScreen(
                             fontSize = 18.sp
                         )
 
-                        if (focalReminder.location.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Icon(
-                                    imageVector = Icons.Outlined.LocationOn,
-                                    contentDescription = null,
-                                    tint = UtilitarianTextSecondary,
-                                    modifier = Modifier.size(14.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = focalReminder.location,
-                                    color = UtilitarianTextSecondary,
-                                    fontSize = 12.sp
-                                )
-                            }
-                        }
-
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End,
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text(
-                                text = "VIEW REMINDER",
-                                color = UtilitarianTextSecondary,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
+                            val isStrong = focalReminder.priority == ActivityPriority.HIGH
+                            UtilitarianBadge(
+                                text = focalReminder.priority.reminderTitle.uppercase(Locale.getDefault()),
+                                backgroundColor = if (isStrong) UtilitarianAccentRed.copy(alpha = 0.15f) else Color(0xFF222222),
+                                textColor = if (isStrong) UtilitarianAccentRed else UtilitarianTextSecondary
+                            )
+
+                            val catBadgeText = focalReminder.reminderCategory.uppercase(Locale.getDefault())
+                            val catBadgeColor = Color(focalReminder.reminderCategoryColorHex)
+                            UtilitarianBadge(
+                                text = catBadgeText,
+                                backgroundColor = catBadgeColor.copy(alpha = 0.2f),
+                                textColor = UtilitarianTextPrimary
                             )
                         }
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+                        val alertTime = timeFormat.format(Date(focalReminder.startTimeMillis))
+                        Text(
+                            text = alertTime,
+                            color = UtilitarianTextSecondary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
                 }
 
@@ -554,3 +621,47 @@ private fun PendingTaskRow(
         }
     }
 }
+
+private fun getEffectiveEnd(event: ActivityItem): Long = if (event.isAllDay) {
+    java.util.Calendar.getInstance().apply {
+        timeInMillis = if (event.endTimeMillis > event.startTimeMillis) event.endTimeMillis else event.startTimeMillis
+        set(java.util.Calendar.HOUR_OF_DAY, 23)
+        set(java.util.Calendar.MINUTE, 59)
+        set(java.util.Calendar.SECOND, 59)
+        set(java.util.Calendar.MILLISECOND, 999)
+    }.timeInMillis
+} else if (event.endTimeMillis > event.startTimeMillis) {
+    event.endTimeMillis
+} else {
+    event.startTimeMillis
+}
+
+private fun formatTimeRemaining(targetMillis: Long, now: Long): String {
+    val diffMillis = targetMillis - now
+    if (diffMillis <= 0L) return "<1m left"
+    val totalSeconds = diffMillis / 1000L
+    val totalMinutes = totalSeconds / 60L
+    val hours = totalMinutes / 60L
+    val minutes = totalMinutes % 60L
+
+    return when {
+        hours > 0L && minutes > 0L -> "${hours}h ${minutes}m left"
+        hours > 0L -> "${hours}h left"
+        minutes > 0L -> "${minutes}m left"
+        else -> "<1m left"
+    }
+}
+
+private fun formatElapsedStopwatch(startMillis: Long, now: Long): String {
+    val elapsedSeconds = ((now - startMillis) / 1000L).coerceAtLeast(0L)
+    val hours = elapsedSeconds / 3600L
+    val minutes = (elapsedSeconds % 3600L) / 60L
+    val seconds = elapsedSeconds % 60L
+
+    return if (hours > 0L) {
+        String.format(Locale.getDefault(), "%02d:%02d:%02d elapsed", hours, minutes, seconds)
+    } else {
+        String.format(Locale.getDefault(), "%02d:%02d elapsed", minutes, seconds)
+    }
+}
+
