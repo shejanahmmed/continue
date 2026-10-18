@@ -183,4 +183,115 @@ class RecurrenceEvaluatorTest {
         assertEquals(13, nextCal.get(Calendar.DAY_OF_MONTH))
         assertEquals(9, nextCal.get(Calendar.HOUR_OF_DAY))
     }
+
+    @Test
+    fun `minutely recurring reminder calculates accurate next occurrence in same hour`() {
+        val startCal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 18, 10, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val reminder = createBaseActivity(
+            startCal = startCal,
+            durationMinutes = 0,
+            recurrenceMode = RecurrenceMode.MINUTELY,
+            interval = 15
+        ).copy(entryType = EntryType.REMINDER)
+
+        // Query after 10:05 AM -> next occurrence should be 10:15 AM
+        val afterTime = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 18, 10, 5, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val nextStart = RecurrenceEvaluator.getNextOccurrenceStart(reminder, afterTime)
+        assertNotNull(nextStart)
+
+        val nextCal = Calendar.getInstance().apply { timeInMillis = nextStart!! }
+        assertEquals(18, nextCal.get(Calendar.DAY_OF_MONTH))
+        assertEquals(10, nextCal.get(Calendar.HOUR_OF_DAY))
+        assertEquals(15, nextCal.get(Calendar.MINUTE))
+    }
+
+    @Test
+    fun `hourly recurring reminder calculates accurate next occurrence`() {
+        val startCal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 18, 9, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val reminder = createBaseActivity(
+            startCal = startCal,
+            durationMinutes = 0,
+            recurrenceMode = RecurrenceMode.HOURLY,
+            interval = 2
+        ).copy(entryType = EntryType.REMINDER)
+
+        // Query after 10:30 AM -> next occurrence should be 11:00 AM (9 + 2 = 11)
+        val afterTime = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 18, 10, 30, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val nextStart = RecurrenceEvaluator.getNextOccurrenceStart(reminder, afterTime)
+        assertNotNull(nextStart)
+
+        val nextCal = Calendar.getInstance().apply { timeInMillis = nextStart!! }
+        assertEquals(18, nextCal.get(Calendar.DAY_OF_MONTH))
+        assertEquals(11, nextCal.get(Calendar.HOUR_OF_DAY))
+        assertEquals(0, nextCal.get(Calendar.MINUTE))
+    }
+
+    @Test
+    fun `minutely recurring reminder expands multiple occurrences across date range`() {
+        val startCal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 18, 10, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val reminder = createBaseActivity(
+            startCal = startCal,
+            durationMinutes = 0,
+            recurrenceMode = RecurrenceMode.MINUTELY,
+            interval = 30
+        ).copy(entryType = EntryType.REMINDER)
+
+        // Range from 10:00 AM to 12:00 PM (should generate: 10:00, 10:30, 11:00, 11:30, 12:00 -> 5 occurrences)
+        val rangeStart = startCal.timeInMillis
+        val rangeEnd = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 18, 12, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val occurrences = RecurrenceEvaluator.expandOccurrencesForRange(reminder, rangeStart, rangeEnd)
+        assertEquals(5, occurrences.size)
+        assertEquals(10, Calendar.getInstance().apply { timeInMillis = occurrences[0].startTimeMillis }.get(Calendar.HOUR_OF_DAY))
+        assertEquals(0, Calendar.getInstance().apply { timeInMillis = occurrences[0].startTimeMillis }.get(Calendar.MINUTE))
+        assertEquals(12, Calendar.getInstance().apply { timeInMillis = occurrences[4].startTimeMillis }.get(Calendar.HOUR_OF_DAY))
+        assertEquals(0, Calendar.getInstance().apply { timeInMillis = occurrences[4].startTimeMillis }.get(Calendar.MINUTE))
+    }
+
+    @Test
+    fun `minutely recurring reminder respects count limit`() {
+        val startCal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 18, 10, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val reminder = createBaseActivity(
+            startCal = startCal,
+            durationMinutes = 0,
+            recurrenceMode = RecurrenceMode.MINUTELY,
+            interval = 15
+        ).copy(
+            entryType = EntryType.REMINDER,
+            recurrenceEndType = RecurrenceEndType.COUNT,
+            recurrenceEndCount = 2 // Only 10:00 and 10:15
+        )
+
+        // After 10:15, no further occurrences should exist
+        val afterSecond = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 18, 10, 15, 0)
+            set(Calendar.MILLISECOND, 0)
+        }.timeInMillis
+
+        val nextStart = RecurrenceEvaluator.getNextOccurrenceStart(reminder, afterSecond)
+        assertNull(nextStart)
+    }
 }

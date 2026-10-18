@@ -52,8 +52,25 @@ object RecurrenceEvaluator {
 
         return when (activity.recurrenceMode) {
             RecurrenceMode.NONE -> false
-            RecurrenceMode.MINUTELY, RecurrenceMode.HOURLY, RecurrenceMode.DAILY -> {
-                val daysDiff = ((targetDayStart - activityStartDate) / (24 * 60 * 60 * 1000L)).toInt()
+            RecurrenceMode.MINUTELY, RecurrenceMode.HOURLY -> {
+                if (activity.recurrenceEndType == RecurrenceEndType.UNTIL_DATE && activity.recurrenceEndDateMillis > 0L) {
+                    val endLimit = getEndOfDayMillis(activity.recurrenceEndDateMillis)
+                    if (targetDayStart > endLimit) return false
+                }
+                if (activity.recurrenceEndType == RecurrenceEndType.COUNT) {
+                    val stepMillis = if (activity.recurrenceMode == RecurrenceMode.MINUTELY) {
+                        interval * 60 * 1000L
+                    } else {
+                        interval * 3600 * 1000L
+                    }
+                    val finalOccurrence = activity.startTimeMillis + ((activity.recurrenceEndCount - 1).coerceAtLeast(0) * stepMillis)
+                    if (targetDayStart > getEndOfDayMillis(finalOccurrence)) return false
+                }
+                true
+            }
+            RecurrenceMode.DAILY -> {
+                // Rounding protects against 23h/25h transitions caused by daylight saving time shifts
+                val daysDiff = Math.round((targetDayStart - activityStartDate).toDouble() / (24 * 60 * 60 * 1000L)).toInt()
                 if (daysDiff < 0 || daysDiff % interval != 0) return false
                 if (activity.recurrenceEndType == RecurrenceEndType.COUNT) {
                     val occurrenceIndex = daysDiff / interval
@@ -193,6 +210,50 @@ object RecurrenceEvaluator {
             }
         }
 
+        if (activity.recurrenceMode == RecurrenceMode.MINUTELY || activity.recurrenceMode == RecurrenceMode.HOURLY) {
+            val interval = activity.recurrenceInterval.coerceAtLeast(1)
+            val stepMillis = if (activity.recurrenceMode == RecurrenceMode.MINUTELY) {
+                interval * 60 * 1000L
+            } else {
+                interval * 3600 * 1000L
+            }
+            if (stepMillis <= 0L) return emptyList()
+
+            val duration = (activity.endTimeMillis - activity.startTimeMillis).coerceAtLeast(0L)
+            val maxCount = if (activity.recurrenceEndType == RecurrenceEndType.COUNT) activity.recurrenceEndCount else Int.MAX_VALUE
+            val endLimit = if (activity.recurrenceEndType == RecurrenceEndType.UNTIL_DATE && activity.recurrenceEndDateMillis > 0L) {
+                getEndOfDayMillis(activity.recurrenceEndDateMillis)
+            } else {
+                Long.MAX_VALUE
+            }
+
+            var currentOccur = activity.startTimeMillis
+            var count = 0
+
+            if (currentOccur < rangeStartMillis) {
+                val elapsed = rangeStartMillis - currentOccur
+                val stepsToSkip = elapsed / stepMillis
+                currentOccur += stepsToSkip * stepMillis
+                count += stepsToSkip.toInt()
+            }
+
+            val results = mutableListOf<ActivityItem>()
+            val maxResults = 500
+            while (currentOccur <= rangeEndMillis && currentOccur <= endLimit && count < maxCount && results.size < maxResults) {
+                if (currentOccur + duration >= rangeStartMillis && currentOccur <= rangeEndMillis) {
+                    results.add(
+                        activity.copy(
+                            startTimeMillis = currentOccur,
+                            endTimeMillis = currentOccur + duration
+                        )
+                    )
+                }
+                currentOccur += stepMillis
+                count++
+            }
+            return results
+        }
+
         val results = mutableListOf<ActivityItem>()
         val startDay = getStartOfDayMillis(rangeStartMillis.coerceAtLeast(activity.startTimeMillis))
         val endDay = getStartOfDayMillis(rangeEndMillis)
@@ -213,6 +274,37 @@ object RecurrenceEvaluator {
         val baseOccurrence = activity.startTimeMillis
         if (activity.recurrenceMode == RecurrenceMode.NONE) {
             return if (baseOccurrence > afterMillis) baseOccurrence else null
+        }
+
+        if (activity.recurrenceMode == RecurrenceMode.MINUTELY || activity.recurrenceMode == RecurrenceMode.HOURLY) {
+            val interval = activity.recurrenceInterval.coerceAtLeast(1)
+            val stepMillis = if (activity.recurrenceMode == RecurrenceMode.MINUTELY) {
+                interval * 60 * 1000L
+            } else {
+                interval * 3600 * 1000L
+            }
+            if (stepMillis <= 0L) return null
+
+            val startMillis = activity.startTimeMillis
+            val nextTime = if (afterMillis < startMillis) {
+                startMillis
+            } else {
+                val elapsed = afterMillis - startMillis
+                val stepsPassed = (elapsed / stepMillis) + 1
+                startMillis + (stepsPassed * stepMillis)
+            }
+
+            if (activity.recurrenceEndType == RecurrenceEndType.COUNT) {
+                val occurrenceIndex = ((nextTime - startMillis) / stepMillis).toInt()
+                if (occurrenceIndex >= activity.recurrenceEndCount) return null
+            }
+
+            if (activity.recurrenceEndType == RecurrenceEndType.UNTIL_DATE && activity.recurrenceEndDateMillis > 0L) {
+                val endLimit = getEndOfDayMillis(activity.recurrenceEndDateMillis)
+                if (nextTime > endLimit) return null
+            }
+
+            return nextTime
         }
 
         val searchStart = getStartOfDayMillis(afterMillis.coerceAtLeast(activity.startTimeMillis))
