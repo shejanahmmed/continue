@@ -1,7 +1,10 @@
 package com.shejan.acontinue.core.util
 
+import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.provider.OpenableColumns
 import android.webkit.MimeTypeMap
@@ -163,24 +166,82 @@ object AttachmentHelper {
 
     fun openAttachmentInDefaultApp(context: Context, filePath: String, mimeType: String): Result<Unit> {
         return runCatching {
-            val file = File(filePath)
-            if (!file.exists()) {
-                throw IllegalStateException("File no longer exists on device.")
+            val (contentUri, fileName) = if (filePath.startsWith("content://")) {
+                val uri = Uri.parse(filePath)
+                var name = "attachment"
+                context.contentResolver.query(uri, null, null, null, null)?.use { cursor ->
+                    val nameIdx = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    if (cursor.moveToFirst() && nameIdx != -1) {
+                        val nameStr = cursor.getString(nameIdx)
+                        if (!nameStr.isNullOrBlank()) name = nameStr
+                    }
+                }
+                Pair(uri, name)
+            } else {
+                val file = File(filePath)
+                if (!file.exists()) {
+                    throw IllegalStateException("File no longer exists on device.")
+                }
+                val uri = FileProvider.getUriForFile(
+                    context,
+                    "${context.packageName}.fileprovider",
+                    file
+                )
+                Pair(uri, file.name)
             }
 
-            val contentUri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file
-            )
+            // Derive specific MIME type from extension if picker passed generic stream type
+            val ext = getFileExtension(fileName)
+            val resolvedMime = when {
+                ext.isNotEmpty() -> MimeTypeMap.getSingleton().getMimeTypeFromExtension(ext)
+                    ?: (if (mimeType.isNotBlank() && mimeType != "application/octet-stream") mimeType else "*/*")
+                mimeType.isNotBlank() && mimeType != "application/octet-stream" -> mimeType
+                else -> "*/*"
+            }
 
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(contentUri, mimeType)
+            val viewIntent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(contentUri, resolvedMime)
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                // ClipData is required on API 29+ to pass URI read permission across IPC boundaries
+                clipData = ClipData.newUri(context.contentResolver, fileName, contentUri)
             }
 
-            context.startActivity(intent)
+            // Explicitly grant read permission to candidate activity packages for target URI
+            val resInfoList = if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.TIRAMISU) {
+                context.packageManager.queryIntentActivities(
+                    viewIntent,
+                    PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong())
+                )
+            } else {
+                @Suppress("DEPRECATION")
+                context.packageManager.queryIntentActivities(viewIntent, PackageManager.MATCH_DEFAULT_ONLY)
+            }
+            for (resolveInfo in resInfoList) {
+                context.grantUriPermission(
+                    resolveInfo.activityInfo.packageName,
+                    contentUri,
+                    Intent.FLAG_GRANT_READ_URI_PERMISSION
+                )
+            }
+
+            try {
+                context.startActivity(viewIntent)
+            } catch (_: ActivityNotFoundException) {
+                // If specific viewer isn't registered, fallback to generic chooser
+                val fallbackIntent = Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(contentUri, "*/*")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    clipData = ClipData.newUri(context.contentResolver, fileName, contentUri)
+                }
+                val chooser = Intent.createChooser(fallbackIntent, "Open with").apply {
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    clipData = ClipData.newUri(context.contentResolver, fileName, contentUri)
+                }
+                context.startActivity(chooser)
+            }
         }
     }
 

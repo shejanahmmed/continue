@@ -2620,7 +2620,11 @@ private fun FormOptionRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable {
+            .clip(RoundedCornerShape(8.dp))
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
                 focusManager.clearFocus()
                 keyboardController?.hide()
                 onClick()
@@ -2835,10 +2839,9 @@ private fun AttachmentItemCard(
     }
 
     Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(12.dp))
-            .clickable { onOpen() },
+        onClick = onOpen,
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
         color = Color(0xFF1E1E20),
         border = BorderStroke(1.dp, colors.borderStroke)
     ) {

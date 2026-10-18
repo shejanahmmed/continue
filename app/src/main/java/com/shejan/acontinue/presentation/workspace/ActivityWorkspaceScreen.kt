@@ -445,23 +445,23 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         val context = LocalContext.current
                         aggregate.attachments.forEach { att ->
                             Surface(
+                                onClick = {
+                                    AttachmentHelper.openAttachmentInDefaultApp(
+                                        context = context,
+                                        filePath = att.uriString,
+                                        mimeType = att.mimeType
+                                    ).onFailure { error ->
+                                        android.widget.Toast.makeText(
+                                            context,
+                                            error.message ?: "Cannot open file",
+                                            android.widget.Toast.LENGTH_SHORT
+                                        ).show()
+                                    }
+                                },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .padding(vertical = 4.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .clickable {
-                                        AttachmentHelper.openAttachmentInDefaultApp(
-                                            context = context,
-                                            filePath = att.uriString,
-                                            mimeType = att.mimeType
-                                        ).onFailure { error ->
-                                            android.widget.Toast.makeText(
-                                                context,
-                                                error.message ?: "Cannot open file",
-                                                android.widget.Toast.LENGTH_SHORT
-                                            ).show()
-                                        }
-                                    },
+                                    .padding(vertical = 4.dp),
+                                shape = RoundedCornerShape(8.dp),
                                 color = Color(0xFF1E1E20),
                                 border = BorderStroke(1.dp, Color(0xFF2C2C2E))
                             ) {
