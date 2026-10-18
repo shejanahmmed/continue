@@ -10,6 +10,7 @@ import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.usecase.GetTodayTimelineUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.runTest
@@ -27,6 +28,7 @@ class HomeViewModelTest {
     private lateinit var activityRepository: FakeActivityRepository
     private lateinit var taskRepository: FakeTaskRepository
     private lateinit var getTodayTimelineUseCase: GetTodayTimelineUseCase
+    private lateinit var testTickerFlow: MutableStateFlow<Long>
     private lateinit var viewModel: HomeViewModel
 
     @Before
@@ -35,7 +37,13 @@ class HomeViewModelTest {
         activityRepository = FakeActivityRepository()
         taskRepository = FakeTaskRepository()
         getTodayTimelineUseCase = GetTodayTimelineUseCase(activityRepository)
-        viewModel = HomeViewModel(getTodayTimelineUseCase, taskRepository, activityRepository)
+        testTickerFlow = MutableStateFlow(System.currentTimeMillis())
+        viewModel = HomeViewModel(
+            getTodayTimelineUseCase = getTodayTimelineUseCase,
+            taskRepository = taskRepository,
+            activityRepository = activityRepository,
+            tickerFlow = testTickerFlow
+        )
     }
 
     @After
@@ -46,6 +54,7 @@ class HomeViewModelTest {
     @Test
     fun `test home view model loads activities and pending tasks`() = runTest(testDispatcher) {
         val now = System.currentTimeMillis()
+        testTickerFlow.value = now
         val activity = ActivityItem(
             id = 1L,
             title = "University Class",
@@ -96,6 +105,7 @@ class HomeViewModelTest {
     @Test
     fun `test home view model calculates distinct event and reminder counts for today`() = runTest(testDispatcher) {
         val now = System.currentTimeMillis()
+        testTickerFlow.value = now
         val event1 = ActivityItem(
             id = 1L,
             title = "Team Standup",
@@ -150,6 +160,82 @@ class HomeViewModelTest {
     }
 
     @Test
+    fun `test event timetable progression automatically updates elapsed events based on end time`() = runTest(testDispatcher) {
+        val baseTime = System.currentTimeMillis()
+        testTickerFlow.value = baseTime
+
+        // Event 1 has already finished today (ended 10s before baseTime)
+        val pastEvent = ActivityItem(
+            id = 1L,
+            title = "Morning Standup",
+            entryType = EntryType.ACTIVITY,
+            startTimeMillis = baseTime - 30_000L,
+            endTimeMillis = baseTime - 10_000L
+        )
+        // Event 2 is still upcoming today (ends 50s after baseTime)
+        val futureEvent = ActivityItem(
+            id = 2L,
+            title = "Design Sync",
+            entryType = EntryType.ACTIVITY,
+            startTimeMillis = baseTime + 10_000L,
+            endTimeMillis = baseTime + 50_000L
+        )
+
+        activityRepository.insertActivity(pastEvent)
+        activityRepository.insertActivity(futureEvent)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(2, state.todayEventCount)
+            assertEquals(1, state.todayCompletedEventCount)
+            assertEquals(0.5f, state.eventProgress, 0.001f)
+
+            // Dynamic progression: advance ticker past Event 2's end time
+            testTickerFlow.value = baseTime + 60_000L
+            testScheduler.advanceUntilIdle()
+
+            val updatedState = awaitItem()
+            assertEquals(2, updatedState.todayEventCount)
+            assertEquals(2, updatedState.todayCompletedEventCount)
+            assertEquals(1.0f, updatedState.eventProgress, 0.001f)
+        }
+    }
+
+    @Test
+    fun `test reminder tick mark completion updates count interactively`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        testTickerFlow.value = now
+
+        val reminder = ActivityItem(
+            id = 10L,
+            title = "Buy Groceries",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now + 10_000L,
+            endTimeMillis = now + 10_000L,
+            isCompleted = false
+        )
+        activityRepository.insertActivity(reminder)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val initialState = awaitItem()
+            assertEquals(1, initialState.todayReminderCount)
+            assertEquals(0, initialState.todayCompletedReminderCount)
+            assertEquals(0f, initialState.reminderProgress, 0.001f)
+
+            // User toggles tick mark completion
+            viewModel.toggleActivityCompletion(10L, true)
+            testScheduler.advanceUntilIdle()
+
+            val completedState = awaitItem()
+            assertEquals(1, completedState.todayReminderCount)
+            assertEquals(1, completedState.todayCompletedReminderCount)
+            assertEquals(1.0f, completedState.reminderProgress, 0.001f)
+        }
+    }
+
+    @Test
     fun `test empty day calculates zero metrics`() = runTest(testDispatcher) {
         testScheduler.advanceUntilIdle()
 
@@ -160,8 +246,8 @@ class HomeViewModelTest {
             assertEquals(0f, state.eventProgress, 0.001f)
             assertEquals(0, state.todayReminderCount)
             assertEquals(0, state.todayCompletedReminderCount)
-            assertEquals(0, state.todayPendingReminderCount)
             assertEquals(0f, state.reminderProgress, 0.001f)
+            assertEquals(0, state.todayPendingReminderCount)
             assertEquals(0, state.todayTotalCount)
             assertEquals(0, state.todayCompletedCount)
             assertEquals(0f, state.completionProgress, 0.001f)
@@ -171,6 +257,7 @@ class HomeViewModelTest {
     @Test
     fun `test reminder point in time semantics and focal card representation`() = runTest(testDispatcher) {
         val now = System.currentTimeMillis()
+        testTickerFlow.value = now
         val reminder = ActivityItem(
             id = 50L,
             title = "Drink Water",

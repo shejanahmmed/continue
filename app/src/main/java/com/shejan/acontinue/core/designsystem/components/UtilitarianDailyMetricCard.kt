@@ -15,20 +15,15 @@ import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.IntrinsicSize
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.Event
-import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -37,21 +32,23 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import java.util.Locale
 
 /**
- * Compact, low-profile daily overview card featuring two dedicated light solid circular
- * progress bars: one for Events and one for Reminders. Strictly center-aligned with zero visual bloat.
+ * Utilitarian overview card featuring left-aligned event and reminder counts
+ * paired with a concentric dual-circular progress gauge on the right.
+ * The outer ring visualizes interactive reminder completion, while the inner
+ * ring reflects automatic timetable schedule progression.
  */
 @Composable
 fun UtilitarianDailyMetricCard(
@@ -60,9 +57,9 @@ fun UtilitarianDailyMetricCard(
     eventProgress: Float,
     reminderCount: Int,
     completedReminderCount: Int,
-    pendingReminderCount: Int,
     reminderProgress: Float,
     modifier: Modifier = Modifier,
+    pendingReminderCount: Int = (reminderCount - completedReminderCount).coerceAtLeast(0),
     onEventsClick: (() -> Unit)? = null,
     onRemindersClick: (() -> Unit)? = null
 ) {
@@ -80,19 +77,29 @@ fun UtilitarianDailyMetricCard(
         label = "metricCardPressScale"
     )
 
-    // Animated number transitions
-    val animatedEvents by animateIntAsState(
+    // Animated number transitions for counts
+    val animatedCompletedEvents by animateIntAsState(
+        targetValue = completedEventCount,
+        animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing),
+        label = "animatedCompletedEvents"
+    )
+    val animatedTotalEvents by animateIntAsState(
         targetValue = eventCount,
         animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing),
-        label = "animatedEvents"
+        label = "animatedTotalEvents"
     )
-    val animatedReminders by animateIntAsState(
+    val animatedCompletedReminders by animateIntAsState(
+        targetValue = completedReminderCount,
+        animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing),
+        label = "animatedCompletedReminders"
+    )
+    val animatedTotalReminders by animateIntAsState(
         targetValue = reminderCount,
         animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing),
-        label = "animatedReminders"
+        label = "animatedTotalReminders"
     )
 
-    // Distinct progress animations for Events and Reminders
+    // Animated progress arcs for concentric rings
     val animatedEventProgress by animateFloatAsState(
         targetValue = eventProgress.coerceIn(0f, 1f),
         animationSpec = tween(durationMillis = 450, easing = FastOutSlowInEasing),
@@ -104,95 +111,105 @@ fun UtilitarianDailyMetricCard(
         label = "animatedReminderProgress"
     )
 
-    // Elevated "light dark" card surface to pop against the deep black canvas
+    // Surface and border colors calibrated for dark canvas contrast
     val cardBgColor = if (colors.isDark) Color(0xFF1E1E22) else Color(0xFFFFFFFF)
     val cardBorderColor = if (colors.isDark) Color(0xFF323238) else colors.borderStroke
 
-    // Defined empty track color: noticeable & finished, but distinctly inactive/empty
-    val trackColor = if (colors.isDark) Color(0xFF38383F) else Color(0xFFE2E2E6)
+    // Subtle dark slate track for uncompleted progress
+    val trackColor = if (colors.isDark) Color(0xFF2C2C32) else Color(0xFFE5E5EA)
 
-    // Stark high-contrast solid color for active filled progress
-    val lightSolidProgressColor = if (colors.isDark) Color(0xFFFFFFFF) else Color(0xFF18181B)
+    // Outer ring accent (Reminders): vibrant utilitarian red
+    val reminderAccentColor = if (colors.isDark) Color(0xFFFF3B30) else Color(0xFFE02E24)
+    // Inner ring accent (Events): electric sky blue
+    val eventAccentColor = if (colors.isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
+
+    val cardClickableModifier = if (onEventsClick != null || onRemindersClick != null) {
+        Modifier.clickable(
+            interactionSource = cardInteractionSource,
+            indication = null
+        ) {
+            onEventsClick?.invoke() ?: onRemindersClick?.invoke()
+        }
+    } else {
+        Modifier
+    }
 
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .scale(pressScale),
+            .scale(pressScale)
+            .then(cardClickableModifier),
         shape = RoundedCornerShape(14.dp),
         color = cardBgColor,
         border = BorderStroke(1.dp, cardBorderColor)
     ) {
-        Column(
+        Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(vertical = 14.dp, horizontal = 12.dp),
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 16.dp, vertical = 13.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
         ) {
-            // Clean, Center-Aligned Card Header
-            Text(
-                text = "TODAY'S OVERVIEW",
-                color = colors.textSecondary,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.3.sp,
-                textAlign = TextAlign.Center
-            )
-
-            Spacer(modifier = Modifier.height(12.dp))
-
-            // Symmetrical Dual Metric Columns: One Progress Ring for Events, One for Reminders
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(IntrinsicSize.Min),
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
+            // Left Column: Header + Event Row + Reminder Row
+            Column(
+                modifier = Modifier.weight(1f),
+                verticalArrangement = Arrangement.Center
             ) {
-                // Section 1: EVENTS (Circular Progress Bar + Metric)
-                CompactMetricGaugeColumn(
-                    title = "EVENTS",
-                    count = animatedEvents,
-                    progress = animatedEventProgress,
-                    icon = Icons.Outlined.Event,
-                    progressColor = lightSolidProgressColor,
-                    trackColor = trackColor,
-                    onClick = onEventsClick,
-                    modifier = Modifier.weight(1f)
+                Text(
+                    text = "TODAY'S OVERVIEW",
+                    color = colors.textSecondary,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.2.sp
                 )
 
-                // Hairline Vertical Divider
-                Box(
-                    modifier = Modifier
-                        .fillMaxHeight(0.85f)
-                        .width(1.dp)
-                        .background(cardBorderColor.copy(alpha = 0.8f))
+                Spacer(modifier = Modifier.height(10.dp))
+
+                // Line 1: Events Row
+                MetricCountRow(
+                    dotColor = eventAccentColor,
+                    label = "EVENTS",
+                    completed = animatedCompletedEvents,
+                    total = animatedTotalEvents,
+                    onClick = onEventsClick
                 )
 
-                // Section 2: REMINDERS (Circular Progress Bar + Metric)
-                CompactMetricGaugeColumn(
-                    title = "REMINDERS",
-                    count = animatedReminders,
-                    progress = animatedReminderProgress,
-                    icon = Icons.Outlined.Notifications,
-                    progressColor = lightSolidProgressColor,
-                    trackColor = trackColor,
-                    onClick = onRemindersClick,
-                    modifier = Modifier.weight(1f)
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Line 2: Reminders Row
+                MetricCountRow(
+                    dotColor = reminderAccentColor,
+                    label = "REMINDERS",
+                    completed = animatedCompletedReminders,
+                    total = animatedTotalReminders,
+                    onClick = onRemindersClick
                 )
             }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // Right Column: Concentric Dual Circular Progress Gauge
+            ConcentricDualGauge(
+                outerProgress = animatedReminderProgress,
+                outerColor = reminderAccentColor,
+                innerProgress = animatedEventProgress,
+                innerColor = eventAccentColor,
+                trackColor = trackColor
+            )
         }
     }
 }
 
+/**
+ * Single metric row displaying a color dot, label, and formatted 00/00 count readout.
+ */
 @Composable
-private fun CompactMetricGaugeColumn(
-    title: String,
-    count: Int,
-    progress: Float,
-    icon: ImageVector,
-    progressColor: Color,
-    trackColor: Color,
+private fun MetricCountRow(
+    dotColor: Color,
+    label: String,
+    completed: Int,
+    total: Int,
     modifier: Modifier = Modifier,
     onClick: (() -> Unit)? = null
 ) {
@@ -203,78 +220,131 @@ private fun CompactMetricGaugeColumn(
         Modifier
     }
 
-    Column(
+    Row(
         modifier = modifier
+            .fillMaxWidth()
             .then(clickableModifier)
-            .padding(horizontal = 4.dp, vertical = 2.dp),
-        horizontalAlignment = Alignment.CenterHorizontally,
-        verticalArrangement = Arrangement.Center
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        // Compact Light Solid Circular Progress Gauge with Number Enclosed
+        // Indicator dot tied directly to the corresponding gauge ring color
         Box(
-            contentAlignment = Alignment.Center,
-            modifier = Modifier.size(56.dp)
-        ) {
-            Canvas(modifier = Modifier.size(56.dp)) {
-                val strokeWidth = 5.dp.toPx()
+            modifier = Modifier
+                .size(7.dp)
+                .background(color = dotColor, shape = CircleShape)
+        )
 
-                // Muted Background Track
+        Spacer(modifier = Modifier.width(8.dp))
+
+        // Fixed column width for label ensures counts align perfectly in a vertical column
+        Text(
+            text = label,
+            color = colors.textSecondary,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.sp,
+            maxLines = 1,
+            modifier = Modifier.width(82.dp)
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Text(
+            text = String.format(Locale.US, "%02d / %02d", completed, total),
+            color = colors.textPrimary,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp,
+            maxLines = 1
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+    }
+}
+
+/**
+ * Concentric dual-circular progress bar rendered on a clean Canvas.
+ * Outer ring represents Reminders, Inner ring represents Events.
+ * Zero text or clutter is drawn inside the circle.
+ */
+@Composable
+private fun ConcentricDualGauge(
+    outerProgress: Float,
+    outerColor: Color,
+    innerProgress: Float,
+    innerColor: Color,
+    trackColor: Color,
+    modifier: Modifier = Modifier
+) {
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = modifier.size(72.dp)
+    ) {
+        Canvas(modifier = Modifier.size(72.dp)) {
+            val outerStrokePx = 5.dp.toPx()
+            val gapPx = 3.dp.toPx()
+            val innerStrokePx = 4.5.dp.toPx()
+
+            // 1. Outer Ring: Reminders
+            val outerTopLeft = Offset(outerStrokePx / 2f, outerStrokePx / 2f)
+            val outerArcSize = Size(size.width - outerStrokePx, size.height - outerStrokePx)
+
+            // Outer background track
+            drawArc(
+                color = trackColor,
+                startAngle = 0f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = outerTopLeft,
+                size = outerArcSize,
+                style = Stroke(width = outerStrokePx)
+            )
+
+            // Outer progress arc
+            val outerSweep = (outerProgress * 360f).coerceIn(0f, 360f)
+            if (outerSweep > 0f) {
                 drawArc(
-                    color = trackColor,
-                    startAngle = 0f,
-                    sweepAngle = 360f,
+                    color = outerColor,
+                    startAngle = -90f,
+                    sweepAngle = outerSweep,
                     useCenter = false,
-                    style = Stroke(width = strokeWidth)
+                    topLeft = outerTopLeft,
+                    size = outerArcSize,
+                    style = Stroke(width = outerStrokePx, cap = StrokeCap.Round)
                 )
-
-                // Light Solid Progress Arc
-                val sweepAngle = progress * 360f
-                if (sweepAngle > 0f) {
-                    drawArc(
-                        color = progressColor,
-                        startAngle = -90f,
-                        sweepAngle = sweepAngle,
-                        useCenter = false,
-                        style = Stroke(width = strokeWidth, cap = StrokeCap.Round)
-                    )
-                }
             }
 
-            // Tabular Monospaced Count inside the Progress Circle
-            Text(
-                text = String.format(Locale.US, "%02d", count),
-                color = colors.textPrimary,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.Bold,
-                letterSpacing = 0.5.sp,
-                textAlign = TextAlign.Center
-            )
-        }
+            // 2. Inner Ring: Events
+            val innerInset = outerStrokePx + gapPx + (innerStrokePx / 2f)
+            val innerTopLeft = Offset(innerInset, innerInset)
+            val innerArcSize = Size(size.width - (2f * innerInset), size.height - (2f * innerInset))
 
-        Spacer(modifier = Modifier.height(7.dp))
+            // Inner background track
+            drawArc(
+                color = trackColor,
+                startAngle = 0f,
+                sweepAngle = 360f,
+                useCenter = false,
+                topLeft = innerTopLeft,
+                size = innerArcSize,
+                style = Stroke(width = innerStrokePx)
+            )
 
-        // Center-Aligned Icon + Category Label
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Icon(
-                imageVector = icon,
-                contentDescription = null,
-                tint = colors.textSecondary,
-                modifier = Modifier.size(12.dp)
-            )
-            Spacer(modifier = Modifier.width(5.dp))
-            Text(
-                text = title,
-                color = colors.textSecondary,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.SemiBold,
-                letterSpacing = 1.sp,
-                textAlign = TextAlign.Center
-            )
+            // Inner progress arc
+            val innerSweep = (innerProgress * 360f).coerceIn(0f, 360f)
+            if (innerSweep > 0f) {
+                drawArc(
+                    color = innerColor,
+                    startAngle = -90f,
+                    sweepAngle = innerSweep,
+                    useCenter = false,
+                    topLeft = innerTopLeft,
+                    size = innerArcSize,
+                    style = Stroke(width = innerStrokePx, cap = StrokeCap.Round)
+                )
+            }
         }
     }
 }

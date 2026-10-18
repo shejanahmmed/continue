@@ -4,15 +4,18 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityTask
+import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.repository.TaskRepository
 import com.shejan.acontinue.domain.usecase.GetTodayTimelineUseCase
 import com.shejan.acontinue.domain.usecase.TodayTimeline
-import com.shejan.acontinue.domain.model.EntryType
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -42,7 +45,8 @@ data class HomeUiState(
 class HomeViewModel(
     private val getTodayTimelineUseCase: GetTodayTimelineUseCase,
     private val taskRepository: TaskRepository,
-    private val activityRepository: ActivityRepository
+    private val activityRepository: ActivityRepository,
+    private val tickerFlow: Flow<Long> = defaultForegroundTicker()
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
@@ -55,17 +59,33 @@ class HomeViewModel(
     private fun loadHomeData() {
         combine(
             getTodayTimelineUseCase(),
-            taskRepository.getPendingTasks()
-        ) { timeline, pendingTasks ->
-            val now = System.currentTimeMillis()
+            taskRepository.getPendingTasks(),
+            tickerFlow
+        ) { timeline, pendingTasks, now ->
             val events = timeline.activities.filter { it.entryType == EntryType.ACTIVITY }
             val eventCount = events.size
-            val elapsedEvents = events.count { it.endTimeMillis <= now }
+            // Events conclude automatically once their scheduled timetable end time has elapsed
+            val elapsedEvents = events.count { event ->
+                val effectiveEnd = if (event.isAllDay) {
+                    java.util.Calendar.getInstance().apply {
+                        timeInMillis = if (event.endTimeMillis > event.startTimeMillis) event.endTimeMillis else event.startTimeMillis
+                        set(java.util.Calendar.HOUR_OF_DAY, 23)
+                        set(java.util.Calendar.MINUTE, 59)
+                        set(java.util.Calendar.SECOND, 59)
+                        set(java.util.Calendar.MILLISECOND, 999)
+                    }.timeInMillis
+                } else if (event.endTimeMillis > event.startTimeMillis) {
+                    event.endTimeMillis
+                } else {
+                    event.startTimeMillis
+                }
+                effectiveEnd <= now
+            }
 
             val reminders = timeline.activities.filter { it.entryType == EntryType.REMINDER }
             val reminderCount = reminders.size
             val completedReminders = reminders.count { it.isCompleted }
-            val pendingReminders = reminderCount - completedReminders
+            val pendingReminders = (reminderCount - completedReminders).coerceAtLeast(0)
 
             HomeUiState(
                 timeline = timeline,
@@ -93,6 +113,15 @@ class HomeViewModel(
     fun toggleActivityCompletion(activityId: Long, isCompleted: Boolean) {
         viewModelScope.launch {
             activityRepository.toggleActivityCompletion(activityId, isCompleted)
+        }
+    }
+
+    companion object {
+        fun defaultForegroundTicker(intervalMillis: Long = 30_000L): Flow<Long> = flow {
+            while (true) {
+                emit(System.currentTimeMillis())
+                delay(intervalMillis)
+            }
         }
     }
 }
