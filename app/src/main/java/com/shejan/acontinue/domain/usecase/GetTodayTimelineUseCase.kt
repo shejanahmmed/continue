@@ -9,8 +9,11 @@ import java.util.Calendar
 
 data class TodayTimeline(
     val activities: List<ActivityItem>,
-    val currentActivity: ActivityItem?,
-    val nextActivity: ActivityItem?
+    val currentActivity: ActivityItem? = null,
+    val nextActivity: ActivityItem? = null,
+    val currentEvent: ActivityItem? = null,
+    val nextEvent: ActivityItem? = null,
+    val nextReminder: ActivityItem? = null
 )
 
 class GetTodayTimelineUseCase(
@@ -46,10 +49,18 @@ class GetTodayTimelineUseCase(
                 }
             }
 
+            val events = sorted.filter { it.entryType == EntryType.ACTIVITY }
+            val currentEvt = events.firstOrNull { now in it.startTimeMillis..it.endTimeMillis }
+            val nextEvt = events.firstOrNull { it.startTimeMillis > now }
+            val nextRem = sorted.firstOrNull { it.entryType == EntryType.REMINDER && !it.isCompleted }
+
             TodayTimeline(
                 activities = sorted,
                 currentActivity = current,
-                nextActivity = next
+                nextActivity = next,
+                currentEvent = currentEvt,
+                nextEvent = nextEvt,
+                nextReminder = nextRem
             )
         }
     }

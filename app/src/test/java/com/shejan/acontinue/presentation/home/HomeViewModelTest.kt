@@ -18,6 +18,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertNull
 import org.junit.Before
 import org.junit.Test
 
@@ -300,6 +301,95 @@ class HomeViewModelTest {
             val state = awaitItem()
             assertEquals(0, state.timeline.activities.size)
             assertEquals(0, state.todayReminderCount)
+        }
+    }
+
+    @Test
+    fun `test currentEvent and nextReminder separation and dynamic transition to NOW`() = runTest(testDispatcher) {
+        val baseTime = System.currentTimeMillis()
+        testTickerFlow.value = baseTime
+
+        val upcomingEvent = ActivityItem(
+            id = 101L,
+            title = "Distributed Systems Lecture",
+            entryType = EntryType.ACTIVITY,
+            startTimeMillis = baseTime + 10_000L,
+            endTimeMillis = baseTime + 50_000L
+        )
+        val pendingReminder = ActivityItem(
+            id = 201L,
+            title = "Check Lab Assignment",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = baseTime + 20_000L,
+            endTimeMillis = baseTime + 20_000L,
+            isCompleted = false
+        )
+
+        activityRepository.insertActivity(upcomingEvent)
+        activityRepository.insertActivity(pendingReminder)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            // Initial state: before start time -> upcomingEvent is nextEvent, currentEvent is null
+            val stateBefore = awaitItem()
+            assertNull(stateBefore.currentEvent)
+            assertNotNull(stateBefore.nextEvent)
+            assertEquals(101L, stateBefore.nextEvent?.id)
+            assertNotNull(stateBefore.nextReminder)
+            assertEquals(201L, stateBefore.nextReminder?.id)
+
+            // Dynamic progression: advance time into event window -> transitions to currentEvent (NOW)
+            testTickerFlow.value = baseTime + 15_000L
+            testScheduler.advanceUntilIdle()
+
+            val stateDuring = awaitItem()
+            assertNotNull(stateDuring.currentEvent)
+            assertEquals(101L, stateDuring.currentEvent?.id)
+            assertNull(stateDuring.nextEvent)
+            assertEquals(201L, stateDuring.nextReminder?.id)
+
+            // Dynamic progression: advance time past event end time -> event concludes
+            testTickerFlow.value = baseTime + 60_000L
+            testScheduler.advanceUntilIdle()
+
+            val stateAfter = awaitItem()
+            assertNull(stateAfter.currentEvent)
+            assertNull(stateAfter.nextEvent)
+            assertEquals(201L, stateAfter.nextReminder?.id)
+        }
+    }
+
+    @Test
+    fun `test completed reminders are excluded from nextReminder`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        testTickerFlow.value = now
+
+        val completedReminder = ActivityItem(
+            id = 301L,
+            title = "Already Done",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now + 5000L,
+            endTimeMillis = now + 5000L,
+            isCompleted = true
+        )
+        val pendingReminder = ActivityItem(
+            id = 302L,
+            title = "Still To Do",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now + 15000L,
+            endTimeMillis = now + 15000L,
+            isCompleted = false
+        )
+
+        activityRepository.insertActivity(completedReminder)
+        activityRepository.insertActivity(pendingReminder)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertNotNull(state.nextReminder)
+            assertEquals(302L, state.nextReminder?.id)
+            assertEquals("Still To Do", state.nextReminder?.title)
         }
     }
 }

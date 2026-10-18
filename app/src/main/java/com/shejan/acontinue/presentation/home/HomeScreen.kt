@@ -106,19 +106,21 @@ fun HomeScreen(
             Spacer(modifier = Modifier.height(16.dp))
         }
 
-        // Section 1: Next Up or Current Focus
-        val focalActivity = uiState.timeline.currentActivity ?: uiState.timeline.nextActivity
-        if (focalActivity != null) {
+        // Card 2: Current / Upcoming Event Focus
+        val focalEvent = uiState.currentEvent ?: uiState.nextEvent
+        val isEventNow = uiState.currentEvent != null
+        val focalReminder = uiState.nextReminder
+
+        if (focalEvent != null) {
             item {
-                val isReminder = focalActivity.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER
-                val headerText = if (uiState.timeline.currentActivity != null) {
-                    if (isReminder) "REMINDER" else "CURRENT EVENT"
-                } else {
-                    if (isReminder) "UPCOMING REMINDER" else "UP NEXT"
-                }
+                val headerText = if (isEventNow) "NOW" else "UPCOMING EVENT"
+                val headerColor = if (isEventNow) UtilitarianAccentRed else UtilitarianTextSecondary
+                val cardBorderColor = if (isEventNow) UtilitarianAccentRed else UtilitarianBorderActive
+                val actionColor = if (isEventNow) UtilitarianAccentRed else UtilitarianTextPrimary
+
                 Text(
                     text = headerText,
-                    color = UtilitarianTextSecondary,
+                    color = headerColor,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -127,13 +129,9 @@ fun HomeScreen(
                 )
 
                 MonochromeCard(
-                    borderColor = if (uiState.timeline.currentActivity != null) UtilitarianAccentRed else UtilitarianBorderActive,
+                    borderColor = cardBorderColor,
                     onClick = {
-                        if (isReminder) {
-                            selectedReminderForDetail = focalActivity
-                        } else {
-                            onActivityClick(focalActivity.id)
-                        }
+                        onActivityClick(focalEvent.id)
                     }
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
@@ -141,26 +139,19 @@ fun HomeScreen(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (isReminder) {
-                                val catBadgeText = focalActivity.reminderCategory.uppercase()
-                                val catBadgeColor = Color(focalActivity.reminderCategoryColorHex)
-                                UtilitarianBadge(
-                                    text = catBadgeText,
-                                    backgroundColor = catBadgeColor.copy(alpha = 0.2f),
-                                    textColor = UtilitarianTextPrimary
-                                )
-                            }
-
-                            Spacer(modifier = Modifier.weight(1f))
-
                             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-                            val timeSpan = if (focalActivity.isAllDay) {
+                            val timeSpan = if (focalEvent.isAllDay) {
                                 "All day"
-                            } else if (isReminder) {
-                                timeFormat.format(Date(focalActivity.startTimeMillis))
                             } else {
-                                "${timeFormat.format(Date(focalActivity.startTimeMillis))} – ${timeFormat.format(Date(focalActivity.endTimeMillis))}"
+                                "${timeFormat.format(Date(focalEvent.startTimeMillis))} – ${timeFormat.format(Date(focalEvent.endTimeMillis))}"
                             }
+
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(Color(focalEvent.category.colorHex), CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
                             Text(
                                 text = timeSpan,
                                 color = UtilitarianTextPrimary,
@@ -173,14 +164,14 @@ fun HomeScreen(
                         Spacer(modifier = Modifier.height(10.dp))
 
                         Text(
-                            text = focalActivity.title,
+                            text = focalEvent.title,
                             color = UtilitarianTextPrimary,
                             fontFamily = FontFamily.SansSerif,
                             fontWeight = FontWeight.Bold,
                             fontSize = 18.sp
                         )
 
-                        if (focalActivity.location.isNotEmpty()) {
+                        if (focalEvent.location.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
@@ -191,7 +182,7 @@ fun HomeScreen(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = focalActivity.location,
+                                    text = focalEvent.location,
                                     color = UtilitarianTextSecondary,
                                     fontSize = 12.sp
                                 )
@@ -200,41 +191,120 @@ fun HomeScreen(
 
                         Spacer(modifier = Modifier.height(14.dp))
 
-                        if (!isReminder) {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "OPEN WORKSPACE",
-                                    color = if (uiState.timeline.currentActivity != null) UtilitarianAccentRed else UtilitarianTextPrimary,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "OPEN WORKSPACE",
+                                color = actionColor,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                                contentDescription = null,
+                                tint = actionColor,
+                                modifier = Modifier.size(13.dp)
+                            )
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(if (focalReminder != null) 16.dp else 24.dp))
+            }
+        }
+
+        // Card 3: Upcoming Reminder Focus
+        if (focalReminder != null) {
+            item {
+                Text(
+                    text = "UPCOMING REMINDER",
+                    color = UtilitarianTextSecondary,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(bottom = 6.dp)
+                )
+
+                MonochromeCard(
+                    borderColor = UtilitarianBorderActive,
+                    onClick = {
+                        selectedReminderForDetail = focalReminder
+                    }
+                ) {
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val catBadgeText = focalReminder.reminderCategory.uppercase()
+                            val catBadgeColor = Color(focalReminder.reminderCategoryColorHex)
+                            UtilitarianBadge(
+                                text = catBadgeText,
+                                backgroundColor = catBadgeColor.copy(alpha = 0.2f),
+                                textColor = UtilitarianTextPrimary
+                            )
+
+                            Spacer(modifier = Modifier.weight(1f))
+
+                            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+                            val alertTime = timeFormat.format(Date(focalReminder.startTimeMillis))
+                            Text(
+                                text = alertTime,
+                                color = UtilitarianTextPrimary,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        Text(
+                            text = focalReminder.title,
+                            color = UtilitarianTextPrimary,
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 18.sp
+                        )
+
+                        if (focalReminder.location.isNotEmpty()) {
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Outlined.LocationOn,
+                                    contentDescription = null,
+                                    tint = UtilitarianTextSecondary,
+                                    modifier = Modifier.size(14.dp)
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                                    contentDescription = null,
-                                    tint = if (uiState.timeline.currentActivity != null) UtilitarianAccentRed else UtilitarianTextPrimary,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                            }
-                        } else {
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.End,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
                                 Text(
-                                    text = "VIEW REMINDER",
+                                    text = focalReminder.location,
                                     color = UtilitarianTextSecondary,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 11.sp,
-                                    fontWeight = FontWeight.Bold
+                                    fontSize = 12.sp
                                 )
                             }
+                        }
+
+                        Spacer(modifier = Modifier.height(14.dp))
+
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "VIEW REMINDER",
+                                color = UtilitarianTextSecondary,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
                         }
                     }
                 }
