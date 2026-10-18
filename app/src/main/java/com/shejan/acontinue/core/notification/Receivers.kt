@@ -133,27 +133,22 @@ class AlarmReceiver : BroadcastReceiver() {
             }
         }
 
-        // Tapping event alert opens directly to the home screen without navigating away
-        val openIntent = Intent(context, MainActivity::class.java).apply {
-            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
-            if (!isEvent) {
-                putExtra(AlarmScheduler.EXTRA_ACTIVITY_ID, activityId)
-            }
-        }
-
-        val pendingIntent = PendingIntent.getActivity(
-            context,
-            activityId.toInt(),
-            openIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
-        )
-
         val notificationBuilder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.mipmap.ic_launcher)
-            .setContentIntent(pendingIntent)
             .setAutoCancel(true)
 
         if (isEvent) {
+            val openIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            val pendingIntent = PendingIntent.getActivity(
+                context,
+                activityId.toInt(),
+                openIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+            notificationBuilder.setContentIntent(pendingIntent)
+
             val eventTimeString = EventNotificationFormatter.formatEventDateTime(startTime, endTime, isAllDay)
             val displayTitle = title.ifBlank { "Event" }
             val cleanLocation = EventNotificationFormatter.formatSingleLineLocation(location)
@@ -175,6 +170,7 @@ class AlarmReceiver : BroadcastReceiver() {
                     .bigText(expandedText)
             )
         } else {
+            val reminderCategory = intent.getStringExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY) ?: ""
             val timeString = if (startTime > 0) {
                 SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(startTime))
             } else ""
@@ -185,10 +181,50 @@ class AlarmReceiver : BroadcastReceiver() {
                 if (isEmpty()) append("Activity workspace ready.")
             }
 
-            val reminderCategory = intent.getStringExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY) ?: ""
+            val alertIntent = Intent(context, com.shejan.acontinue.presentation.alert.ReminderAlertActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(AlarmScheduler.EXTRA_ACTIVITY_ID, activityId)
+                putExtra(AlarmScheduler.EXTRA_ACTIVITY_TITLE, title)
+                putExtra(AlarmScheduler.EXTRA_ACTIVITY_LOCATION, location)
+                putExtra(AlarmScheduler.EXTRA_ACTIVITY_START_TIME, startTime)
+                putExtra(AlarmScheduler.EXTRA_ACTIVITY_PRIORITY, priority.name)
+                putExtra(AlarmScheduler.EXTRA_REMINDER_CATEGORY, reminderCategory)
+            }
+            val alertPendingIntent = PendingIntent.getActivity(
+                context,
+                activityId.toInt(),
+                alertIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val completeIntent = Intent(context, ReminderActionReceiver::class.java).apply {
+                action = ReminderActionReceiver.ACTION_COMPLETE
+                putExtra(AlarmScheduler.EXTRA_ACTIVITY_ID, activityId)
+            }
+            val completePendingIntent = PendingIntent.getBroadcast(
+                context,
+                activityId.toInt() + 2000000,
+                completeIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
+            val snoozeIntent = Intent(context, ReminderActionReceiver::class.java).apply {
+                action = ReminderActionReceiver.ACTION_SNOOZE
+                putExtra(AlarmScheduler.EXTRA_ACTIVITY_ID, activityId)
+            }
+            val snoozePendingIntent = PendingIntent.getBroadcast(
+                context,
+                activityId.toInt() + 3000000,
+                snoozeIntent,
+                PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
+            )
+
             notificationBuilder
+                .setContentIntent(alertPendingIntent)
                 .setContentTitle(title)
                 .setContentText(contentText)
+                .addAction(0, "Complete", completePendingIntent)
+                .addAction(0, "Snooze 10m", snoozePendingIntent)
 
             if (reminderCategory.isNotBlank()) {
                 notificationBuilder.setSubText(reminderCategory)
@@ -204,6 +240,7 @@ class AlarmReceiver : BroadcastReceiver() {
                     notificationBuilder
                         .setPriority(NotificationCompat.PRIORITY_HIGH)
                         .setCategory(NotificationCompat.CATEGORY_REMINDER)
+                        .setFullScreenIntent(alertPendingIntent, true)
                 }
                 ActivityPriority.HIGH -> {
                     val alarmSound = RingtoneManager.getDefaultUri(RingtoneManager.TYPE_ALARM)
@@ -213,6 +250,7 @@ class AlarmReceiver : BroadcastReceiver() {
                         .setCategory(NotificationCompat.CATEGORY_ALARM)
                         .setVibrate(longArrayOf(0, 500, 250, 500, 250, 500))
                         .setSound(alarmSound)
+                        .setFullScreenIntent(alertPendingIntent, true)
                 }
             }
         }

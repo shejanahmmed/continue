@@ -424,6 +424,9 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                     Text(text = "• Resource links: ${aggregate.links.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     Text(text = "• Attachments: ${aggregate.attachments.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
                     Text(text = "• Reminder: ${if (activity.reminderMinutesBefore >= 0) "${activity.reminderMinutesBefore}m prior" else "None"}", color = UtilitarianTextPrimary, fontSize = 13.sp)
+                    if (activity.entryType == EntryType.REMINDER) {
+                        Text(text = "• Alert style: ${activity.priority.reminderTitle}", color = UtilitarianTextPrimary, fontSize = 13.sp)
+                    }
                 }
             }
         }
