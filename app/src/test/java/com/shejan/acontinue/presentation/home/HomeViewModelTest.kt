@@ -426,6 +426,8 @@ class HomeViewModelTest {
             assertEquals(2, initialState.todayReminderCount)
             assertEquals(1, initialState.todayMissedReminderCount)
             assertEquals(0, initialState.todayCompletedReminderCount)
+            assertEquals(true, initialState.isReminderMissed)
+            assertEquals(401L, initialState.nextReminder?.id)
 
             // When user completes the overdue reminder
             viewModel.toggleActivityCompletion(401L, true)
@@ -435,6 +437,231 @@ class HomeViewModelTest {
             assertEquals(2, updatedState.todayReminderCount)
             assertEquals(0, updatedState.todayMissedReminderCount)
             assertEquals(1, updatedState.todayCompletedReminderCount)
+            assertEquals(false, updatedState.isReminderMissed)
+            assertEquals(402L, updatedState.nextReminder?.id)
+        }
+    }
+
+    @Test
+    fun `test overdue reminder from past day is excluded and current date upcoming reminder is shown`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        testTickerFlow.value = now
+
+        // Uncompleted reminder from yesterday - must be excluded as it is not the current date
+        val yesterdayReminder = ActivityItem(
+            id = 501L,
+            title = "Yesterday Medicine",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now - (24 * 3600 * 1000L),
+            endTimeMillis = now - (24 * 3600 * 1000L),
+            isCompleted = false
+        )
+        // Future reminder scheduled for today
+        val todayUpcomingReminder = ActivityItem(
+            id = 502L,
+            title = "Tonight Dinner",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now + (2 * 3600 * 1000L),
+            endTimeMillis = now + (2 * 3600 * 1000L),
+            isCompleted = false
+        )
+
+        activityRepository.insertActivity(yesterdayReminder)
+        activityRepository.insertActivity(todayUpcomingReminder)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val initialState = awaitItem()
+            // Strictly current date activities
+            assertEquals(1, initialState.timeline.activities.size)
+            assertEquals(502L, initialState.timeline.activities.first().id)
+            // Yesterday's reminder is ignored on the current date's focus card
+            assertNotNull(initialState.nextReminder)
+            assertEquals(502L, initialState.nextReminder?.id)
+            assertEquals("Tonight Dinner", initialState.nextReminder?.title)
+            assertEquals(false, initialState.isReminderMissed)
+            assertEquals(0, initialState.todayMissedReminderCount)
+        }
+    }
+
+    @Test
+    fun `test skipping current date missed reminder transitions to upcoming reminder`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        testTickerFlow.value = now
+
+        // Overdue reminder from earlier today
+        val todayOverdueReminder = ActivityItem(
+            id = 601L,
+            title = "Morning Medicine",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now - (3600 * 1000L),
+            endTimeMillis = now - (3600 * 1000L),
+            isCompleted = false
+        )
+        // Upcoming reminder later today
+        val todayUpcomingReminder = ActivityItem(
+            id = 602L,
+            title = "Afternoon Walk",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now + (3600 * 1000L),
+            endTimeMillis = now + (3600 * 1000L),
+            isCompleted = false
+        )
+
+        activityRepository.insertActivity(todayOverdueReminder)
+        activityRepository.insertActivity(todayUpcomingReminder)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val initialState = awaitItem()
+            assertEquals(601L, initialState.nextReminder?.id)
+            assertEquals(true, initialState.isReminderMissed)
+            assertEquals(1, initialState.todayMissedReminderCount)
+
+            // User taps SKIP on the missed reminder
+            viewModel.skipReminder(601L)
+            testScheduler.advanceUntilIdle()
+
+            val updatedState = awaitItem()
+            assertEquals(602L, updatedState.nextReminder?.id)
+            assertEquals("Afternoon Walk", updatedState.nextReminder?.title)
+            assertEquals(false, updatedState.isReminderMissed)
+            assertEquals(0, updatedState.todayMissedReminderCount)
+        }
+    }
+
+    @Test
+    fun `test activities are correctly partitioned into todayActivities and pastActivities based on current time`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        testTickerFlow.value = now
+
+        // Concluded event earlier today
+        val pastEvent = ActivityItem(
+            id = 701L,
+            title = "Morning Standup",
+            entryType = EntryType.ACTIVITY,
+            startTimeMillis = now - 7200_000L,
+            endTimeMillis = now - 3600_000L
+        )
+        // Active ongoing event right now
+        val activeEvent = ActivityItem(
+            id = 702L,
+            title = "Current Workshop",
+            entryType = EntryType.ACTIVITY,
+            startTimeMillis = now - 1800_000L,
+            endTimeMillis = now + 1800_000L
+        )
+        // Future upcoming event later today
+        val futureEvent = ActivityItem(
+            id = 703L,
+            title = "Evening Lecture",
+            entryType = EntryType.ACTIVITY,
+            startTimeMillis = now + 7200_000L,
+            endTimeMillis = now + 10800_000L
+        )
+        // Completed reminder from earlier
+        val pastReminder = ActivityItem(
+            id = 704L,
+            title = "Pay Tuition Fee",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now - 5400_000L,
+            endTimeMillis = now - 5400_000L,
+            isCompleted = true
+        )
+        // Upcoming reminder later today
+        val futureReminder = ActivityItem(
+            id = 705L,
+            title = "Call Home",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now + 3600_000L,
+            endTimeMillis = now + 3600_000L,
+            isCompleted = false
+        )
+
+        activityRepository.insertActivity(pastEvent)
+        activityRepository.insertActivity(activeEvent)
+        activityRepository.insertActivity(futureEvent)
+        activityRepository.insertActivity(pastReminder)
+        activityRepository.insertActivity(futureReminder)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+
+            // Ongoing and upcoming items must be in todayActivities
+            val todayIds = state.todayActivities.map { it.id }
+            assertEquals(listOf(702L, 705L, 703L), todayIds)
+
+            // Concluded events and past/completed reminders must be in pastActivities
+            val pastIds = state.pastActivities.map { it.id }
+            assertEquals(listOf(701L, 704L), pastIds)
+        }
+    }
+
+    @Test
+    fun `test toggling completion on reminder transitions it from todayActivities to pastActivities`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        testTickerFlow.value = now
+
+        val futureReminder = ActivityItem(
+            id = 801L,
+            title = "Submit Assignment",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now + 3600_000L,
+            endTimeMillis = now + 3600_000L,
+            isCompleted = false
+        )
+
+        activityRepository.insertActivity(futureReminder)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val initialState = awaitItem()
+            assertEquals(1, initialState.todayActivities.size)
+            assertEquals(801L, initialState.todayActivities.first().id)
+            assertEquals(0, initialState.pastActivities.size)
+
+            // User completes reminder early
+            viewModel.toggleActivityCompletion(801L, true)
+            testScheduler.advanceUntilIdle()
+
+            val updatedState = awaitItem()
+            assertEquals(0, updatedState.todayActivities.size)
+            assertEquals(1, updatedState.pastActivities.size)
+            assertEquals(801L, updatedState.pastActivities.first().id)
+            assertEquals(true, updatedState.pastActivities.first().isCompleted)
+        }
+    }
+
+    @Test
+    fun `test advancing ticker moves elapsed event from todayActivities to pastActivities`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        testTickerFlow.value = now
+
+        val timedEvent = ActivityItem(
+            id = 901L,
+            title = "Quick Sync",
+            entryType = EntryType.ACTIVITY,
+            startTimeMillis = now - 600_000L,
+            endTimeMillis = now + 600_000L
+        )
+
+        activityRepository.insertActivity(timedEvent)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val activeState = awaitItem()
+            assertEquals(1, activeState.todayActivities.size)
+            assertEquals(0, activeState.pastActivities.size)
+
+            // Advance time past the event's end time
+            testTickerFlow.value = now + 1200_000L
+            testScheduler.advanceUntilIdle()
+
+            val pastState = awaitItem()
+            assertEquals(0, pastState.todayActivities.size)
+            assertEquals(1, pastState.pastActivities.size)
+            assertEquals(901L, pastState.pastActivities.first().id)
         }
     }
 }

@@ -23,6 +23,8 @@ import kotlinx.coroutines.launch
 data class HomeUiState(
     val timeline: TodayTimeline = TodayTimeline(emptyList(), null, null),
     val pendingTasks: List<ActivityTask> = emptyList(),
+    val todayActivities: List<ActivityItem> = emptyList(),
+    val pastActivities: List<ActivityItem> = emptyList(),
     val todayEventCount: Int = 0,
     val todayCompletedEventCount: Int = 0,
     val todayReminderCount: Int = 0,
@@ -34,6 +36,7 @@ data class HomeUiState(
     val currentEvent: ActivityItem? = null,
     val nextEvent: ActivityItem? = null,
     val nextReminder: ActivityItem? = null,
+    val isReminderMissed: Boolean = false,
     val isLoading: Boolean = false
 ) {
     val eventProgress: Float
@@ -56,6 +59,8 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
+    private val _skippedReminderIds = MutableStateFlow<Set<Long>>(emptySet())
+
     init {
         loadHomeData()
     }
@@ -64,8 +69,9 @@ class HomeViewModel(
         combine(
             getTodayTimelineUseCase(),
             taskRepository.getPendingTasks(),
-            tickerFlow
-        ) { timeline, pendingTasks, now ->
+            tickerFlow,
+            _skippedReminderIds
+        ) { timeline, pendingTasks, now, skippedIds ->
             val events = timeline.activities.filter { it.entryType == EntryType.ACTIVITY }
             val eventCount = events.size
 
@@ -100,36 +106,66 @@ class HomeViewModel(
             val nextEvt = events.filter { it.startTimeMillis > now }
                 .minByOrNull { it.startTimeMillis }
 
-            val reminders = timeline.activities.filter { it.entryType == EntryType.REMINDER }
-            val reminderCount = reminders.size
-            val completedReminders = reminders.count { it.isCompleted }
-            val pendingReminders = (reminderCount - completedReminders).coerceAtLeast(0)
-            val missedReminders = reminders.count { !it.isCompleted && it.startTimeMillis < now }
+            val todayReminders = timeline.activities.filter { it.entryType == EntryType.REMINDER }
 
-            // Upcoming reminder is the earliest pending reminder
-            val nextRem = reminders.filter { !it.isCompleted }
-                .minByOrNull { it.startTimeMillis }
+            // Current date's uncompleted reminders whose scheduled alert time has passed and not skipped
+            val missedReminders = todayReminders
+                .filter { !it.isCompleted && it.startTimeMillis < now && it.id !in skippedIds }
+                .sortedBy { it.startTimeMillis }
+
+            // Current date's future uncompleted reminders not skipped
+            val upcomingReminders = todayReminders
+                .filter { !it.isCompleted && it.startTimeMillis >= now && it.id !in skippedIds }
+                .sortedBy { it.startTimeMillis }
+
+            // Prioritize displaying the current date's earliest missed reminder; otherwise the next upcoming reminder
+            val focalRem = missedReminders.firstOrNull() ?: upcomingReminders.firstOrNull()
+            val hasMissed = focalRem != null && !focalRem.isCompleted && focalRem.startTimeMillis < now
+
+            val reminderCount = todayReminders.size
+            val completedReminders = todayReminders.count { it.isCompleted }
+            val pendingReminders = (reminderCount - completedReminders).coerceAtLeast(0)
+            val totalMissedReminders = missedReminders.size
+
+            fun isItemPast(item: ActivityItem, currentTime: Long): Boolean {
+                return if (item.entryType == EntryType.ACTIVITY) {
+                    getEffectiveEnd(item) <= currentTime
+                } else {
+                    item.isCompleted || item.startTimeMillis < currentTime
+                }
+            }
+
+            val activeActivities = timeline.activities
+                .filter { !isItemPast(it, now) }
+                .sortedBy { it.startTimeMillis }
+
+            val pastActivities = timeline.activities
+                .filter { isItemPast(it, now) }
+                .sortedBy { it.startTimeMillis }
 
             val updatedTimeline = timeline.copy(
                 currentEvent = currentEvt,
                 nextEvent = nextEvt,
-                nextReminder = nextRem
+                nextReminder = focalRem
             )
 
             HomeUiState(
                 timeline = updatedTimeline,
                 pendingTasks = pendingTasks,
+                todayActivities = activeActivities,
+                pastActivities = pastActivities,
                 todayEventCount = eventCount,
                 todayCompletedEventCount = elapsedEvents,
                 todayReminderCount = reminderCount,
                 todayCompletedReminderCount = completedReminders,
                 todayPendingReminderCount = pendingReminders,
-                todayMissedReminderCount = missedReminders,
+                todayMissedReminderCount = totalMissedReminders,
                 todayTotalCount = reminderCount,
                 todayCompletedCount = completedReminders,
                 currentEvent = currentEvt,
                 nextEvent = nextEvt,
-                nextReminder = nextRem,
+                nextReminder = focalRem,
+                isReminderMissed = hasMissed,
                 isLoading = false
             )
         }.onEach { state ->
@@ -147,6 +183,10 @@ class HomeViewModel(
         viewModelScope.launch {
             activityRepository.toggleActivityCompletion(activityId, isCompleted)
         }
+    }
+
+    fun skipReminder(activityId: Long) {
+        _skippedReminderIds.value = _skippedReminderIds.value + activityId
     }
 
     fun deleteActivity(activityId: Long) {

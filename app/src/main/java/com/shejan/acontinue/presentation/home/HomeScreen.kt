@@ -25,6 +25,7 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.HourglassEmpty
@@ -101,10 +102,10 @@ fun HomeScreen(
     val isEventNow = uiState.currentEvent != null
     val focalReminder = uiState.nextReminder
 
-    LaunchedEffect(isEventNow, focalEvent?.id) {
+    LaunchedEffect(isEventNow, focalEvent?.id, focalReminder?.id) {
         while (true) {
             liveNow = System.currentTimeMillis()
-            delay(if (isEventNow) 1000L else 30_000L)
+            delay(if (isEventNow || focalReminder != null) 1000L else 30_000L)
         }
     }
 
@@ -327,12 +328,17 @@ fun HomeScreen(
             }
         }
 
-        // Card 3: Upcoming Reminder Focus
+        // Card 3: Upcoming / Missed Reminder Focus
         if (focalReminder != null) {
             item {
+                val isReminderMissed = uiState.isReminderMissed || (!focalReminder.isCompleted && focalReminder.startTimeMillis < liveNow)
+                val reminderHeader = if (isReminderMissed) "MISSED REMINDER" else "UPCOMING REMINDER"
+                val reminderAccent = if (isReminderMissed) UtilitarianAccentRed else UtilitarianTextSecondary
+                val reminderBorder = if (isReminderMissed) UtilitarianAccentRed else UtilitarianBorderActive
+
                 Text(
-                    text = "UPCOMING REMINDER",
-                    color = UtilitarianTextSecondary,
+                    text = reminderHeader,
+                    color = reminderAccent,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
@@ -341,7 +347,7 @@ fun HomeScreen(
                 )
 
                 MonochromeCard(
-                    borderColor = UtilitarianBorderActive,
+                    borderColor = reminderBorder,
                     onClick = {
                         selectedReminderForDetail = focalReminder
                     }
@@ -359,7 +365,7 @@ fun HomeScreen(
                                 Icon(
                                     imageVector = Icons.Outlined.Notifications,
                                     contentDescription = null,
-                                    tint = UtilitarianTextSecondary,
+                                    tint = reminderAccent,
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
@@ -382,6 +388,15 @@ fun HomeScreen(
                         ) {
                             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
                             val alertTime = timeFormat.format(Date(focalReminder.startTimeMillis))
+                            val isSameDay = android.text.format.DateUtils.isToday(focalReminder.startTimeMillis)
+                            val alertTimeText = when {
+                                isReminderMissed && !isSameDay -> {
+                                    val dateFormat = SimpleDateFormat("MMM d, h:mm a", Locale.getDefault())
+                                    "${dateFormat.format(Date(focalReminder.startTimeMillis))} (MISSED)"
+                                }
+                                isReminderMissed -> "$alertTime (MISSED)"
+                                else -> alertTime
+                            }
 
                             Box(
                                 modifier = Modifier.size(14.dp),
@@ -390,14 +405,14 @@ fun HomeScreen(
                                 Icon(
                                     imageVector = Icons.Outlined.AccessTime,
                                     contentDescription = null,
-                                    tint = UtilitarianTextSecondary,
+                                    tint = reminderAccent,
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = alertTime,
-                                color = UtilitarianTextSecondary,
+                                text = alertTimeText,
+                                color = reminderAccent,
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
@@ -459,6 +474,81 @@ fun HomeScreen(
                                 fontWeight = FontWeight.Medium
                             )
                         }
+
+                        // Row 4: Skip and Done actions when reminder is missed
+                        if (isReminderMissed) {
+                            Spacer(modifier = Modifier.height(14.dp))
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                // Skip button on the left
+                                Surface(
+                                    onClick = { viewModel.skipReminder(focalReminder.id) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = Color.Transparent,
+                                    border = BorderStroke(1.dp, UtilitarianBorderStroke)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 10.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Close,
+                                            contentDescription = "Skip",
+                                            tint = UtilitarianTextSecondary,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "SKIP",
+                                            color = UtilitarianTextSecondary,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp
+                                        )
+                                    }
+                                }
+
+                                // Done button on the right
+                                Surface(
+                                    onClick = { viewModel.toggleActivityCompletion(focalReminder.id, true) },
+                                    modifier = Modifier.weight(1f),
+                                    shape = RoundedCornerShape(8.dp),
+                                    color = UtilitarianAccentRed,
+                                    border = BorderStroke(1.dp, UtilitarianAccentRed)
+                                ) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(vertical = 10.dp),
+                                        horizontalArrangement = Arrangement.Center,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Check,
+                                            contentDescription = "Done",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(13.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Text(
+                                            text = "DONE",
+                                            color = Color.White,
+                                            fontFamily = FontFamily.Monospace,
+                                            fontSize = 11.sp,
+                                            fontWeight = FontWeight.Bold,
+                                            letterSpacing = 1.sp
+                                        )
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
 
@@ -479,11 +569,15 @@ fun HomeScreen(
             )
         }
 
-        if (uiState.timeline.activities.isEmpty()) {
+        if (uiState.todayActivities.isEmpty()) {
             item {
                 MonochromeCard {
                     Text(
-                        text = "No activities scheduled for today. Tap '+' below to plan an activity or class.",
+                        text = if (uiState.pastActivities.isNotEmpty()) {
+                            "All scheduled activities for today have concluded."
+                        } else {
+                            "No activities scheduled for today. Tap '+' below to plan an activity or class."
+                        },
                         color = UtilitarianTextSecondary,
                         fontSize = 13.sp,
                         lineHeight = 18.sp
@@ -492,7 +586,41 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         } else {
-            items(uiState.timeline.activities, key = { it.id }) { activity ->
+            items(uiState.todayActivities, key = { it.id }) { activity ->
+                val isReminder = activity.entryType == EntryType.REMINDER
+                TimelineActivityItem(
+                    activity = activity,
+                    onActivityClick = {
+                        if (isReminder) {
+                            selectedReminderForDetail = activity
+                        } else {
+                            onActivityClick(activity.id)
+                        }
+                    },
+                    onToggleCompletion = { isCompleted ->
+                        viewModel.toggleActivityCompletion(activity.id, isCompleted)
+                    }
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+        }
+
+        // Section 2B: Past Schedule
+        if (uiState.pastActivities.isNotEmpty()) {
+            item {
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "PAST SCHEDULE",
+                    color = UtilitarianTextSecondary,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+            }
+
+            items(uiState.pastActivities, key = { it.id }) { activity ->
                 val isReminder = activity.entryType == EntryType.REMINDER
                 TimelineActivityItem(
                     activity = activity,
@@ -573,7 +701,7 @@ private fun TimelineActivityItem(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(
-                modifier = Modifier.width(76.dp),
+                modifier = Modifier.width(54.dp),
                 verticalArrangement = Arrangement.Center
             ) {
                 if (activity.isAllDay) {
@@ -582,36 +710,40 @@ private fun TimelineActivityItem(
                         color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Normal
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1
                     )
                 } else if (isReminder) {
                     Text(
                         text = startStr,
                         color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Normal
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1
                     )
                 } else {
                     Text(
                         text = startStr,
                         color = UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        fontWeight = FontWeight.Normal
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1
                     )
                     Text(
                         text = endStr,
                         color = UtilitarianTextSecondary,
                         fontFamily = FontFamily.Monospace,
-                        fontSize = 10.sp
+                        fontSize = 10.sp,
+                        maxLines = 1
                     )
                 }
             }
 
             val catColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
 
-            Spacer(modifier = Modifier.width(6.dp))
+            Spacer(modifier = Modifier.width(4.dp))
 
             Box(
                 modifier = Modifier
