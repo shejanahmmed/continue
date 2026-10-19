@@ -742,6 +742,8 @@ private fun TimelineActivityItem(
             }
 
             val catColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
+            val barColor = if (isReminder && activity.isCompleted) catColor.copy(alpha = 0.4f) else catColor
+            val subTextColor = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextSecondary
 
             Spacer(modifier = Modifier.width(4.dp))
 
@@ -749,7 +751,7 @@ private fun TimelineActivityItem(
                 modifier = Modifier
                     .width(3.dp)
                     .height(28.dp)
-                    .background(catColor, RoundedCornerShape(1.5.dp))
+                    .background(barColor, RoundedCornerShape(1.5.dp))
             )
 
             Spacer(modifier = Modifier.width(8.dp))
@@ -770,13 +772,13 @@ private fun TimelineActivityItem(
                         Icon(
                             imageVector = Icons.Outlined.Notifications,
                             contentDescription = null,
-                            tint = UtilitarianTextSecondary,
+                            tint = subTextColor,
                             modifier = Modifier.size(11.dp)
                         )
                         Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "REMINDER",
-                            color = UtilitarianTextSecondary,
+                            color = subTextColor,
                             fontFamily = FontFamily.Monospace,
                             fontSize = 10.sp,
                             fontWeight = FontWeight.Normal

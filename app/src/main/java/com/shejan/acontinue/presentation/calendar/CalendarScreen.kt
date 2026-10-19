@@ -668,6 +668,9 @@ private fun AllDayActivityCard(
 ) {
     val isReminder = activity.entryType == EntryType.REMINDER
     val accentColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
+    val isCompleted = isReminder && activity.isCompleted
+    val displayAccentColor = if (isCompleted) accentColor.copy(alpha = 0.4f) else accentColor
+    val subTextColor = if (isCompleted) UtilitarianTextDisabled else UtilitarianTextSecondary
 
     MonochromeCard(
         onClick = onToggleExpansion,
@@ -682,7 +685,7 @@ private fun AllDayActivityCard(
                 Icon(
                     imageVector = Icons.Outlined.CalendarToday,
                     contentDescription = null,
-                    tint = accentColor,
+                    tint = displayAccentColor,
                     modifier = Modifier.size(18.dp)
                 )
 
@@ -701,7 +704,7 @@ private fun AllDayActivityCard(
                     Spacer(modifier = Modifier.height(2.dp))
                     Text(
                         text = "All day",
-                        color = UtilitarianTextSecondary,
+                        color = subTextColor,
                         fontSize = 11.sp
                     )
                 }
@@ -755,6 +758,9 @@ private fun TimedAgendaActivityCard(
         "${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
     }
     val accentColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
+    val isCompleted = isReminder && activity.isCompleted
+    val displayAccentColor = if (isCompleted) accentColor.copy(alpha = 0.4f) else accentColor
+    val subTextColor = if (isCompleted) UtilitarianTextDisabled else UtilitarianTextSecondary
 
     MonochromeCard(
         onClick = onToggleExpansion,
@@ -769,7 +775,7 @@ private fun TimedAgendaActivityCard(
                 // Start Time column (e.g., 10:00, 2:30)
                 Text(
                     text = startTimeReadout,
-                    color = UtilitarianTextPrimary,
+                    color = if (isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
                     fontFamily = FontFamily.Monospace,
                     fontWeight = FontWeight.Bold,
                     fontSize = 13.sp,
@@ -782,7 +788,7 @@ private fun TimedAgendaActivityCard(
                         .width(3.dp)
                         .height(30.dp)
                         .background(
-                            color = accentColor,
+                            color = displayAccentColor,
                             shape = RoundedCornerShape(1.5.dp)
                         )
                 )
@@ -812,7 +818,7 @@ private fun TimedAgendaActivityCard(
                     }
                     Text(
                         text = subtitle,
-                        color = UtilitarianTextSecondary,
+                        color = subTextColor,
                         fontSize = 11.sp,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis
