@@ -87,4 +87,20 @@ class SettingsViewModelTest {
             assertFalse(state.settings.hapticFeedbackEnabled)
         }
     }
+
+    @Test
+    fun `test onboarding completion status updates repository and state`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(settingsRepository.getCurrentSettings().isOnboardingCompleted)
+
+        settingsRepository.setOnboardingCompleted(true)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(settingsRepository.getCurrentSettings().isOnboardingCompleted)
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertTrue(state.settings.isOnboardingCompleted)
+        }
+    }
 }

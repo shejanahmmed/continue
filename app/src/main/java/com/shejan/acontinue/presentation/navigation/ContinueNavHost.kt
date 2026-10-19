@@ -25,10 +25,15 @@ import com.shejan.acontinue.presentation.diary.DiaryViewModel
 import com.shejan.acontinue.presentation.home.HomeScreen
 import com.shejan.acontinue.presentation.home.HomeViewModel
 import com.shejan.acontinue.presentation.settings.SettingsScreen
+import androidx.compose.runtime.rememberCoroutineScope
+import kotlinx.coroutines.launch
+import com.shejan.acontinue.domain.model.UserSettings
+import com.shejan.acontinue.presentation.welcome.WelcomeScreen
 import com.shejan.acontinue.presentation.workspace.ActivityWorkspaceScreen
 import com.shejan.acontinue.presentation.workspace.ActivityWorkspaceViewModel
 
 sealed class Screen(val route: String) {
+    data object Welcome : Screen("welcome")
     data object Home : Screen("home")
     data object Diary : Screen("diary")
     data object Calendar : Screen("calendar")
@@ -46,10 +51,12 @@ sealed class Screen(val route: String) {
 fun ContinueNavHost(
     navController: NavHostController,
     container: AppContainer,
+    userSettings: UserSettings = UserSettings(),
     modifier: Modifier = Modifier
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    val currentRoute = navBackStackEntry?.destination?.route ?: Screen.Home.route
+    val startDestination = if (userSettings.isOnboardingCompleted) Screen.Home.route else Screen.Welcome.route
+    val currentRoute = navBackStackEntry?.destination?.route ?: startDestination
 
     val isTopLevelRoute = currentRoute in listOf(
         Screen.Home.route,
@@ -78,9 +85,26 @@ fun ContinueNavHost(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route,
+            startDestination = startDestination,
             modifier = modifier.fillMaxSize()
         ) {
+            // Starter / Welcome Destination
+            composable(Screen.Welcome.route) {
+                val scope = rememberCoroutineScope()
+                WelcomeScreen(
+                    onGetStarted = {
+                        scope.launch {
+                            container.settingsRepository.setOnboardingCompleted(true)
+                        }
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Welcome.route) {
+                                inclusive = true
+                            }
+                        }
+                    }
+                )
+            }
+
             // Home Destination
             composable(Screen.Home.route) {
                 val homeViewModel: HomeViewModel = viewModel(
@@ -136,6 +160,9 @@ fun ContinueNavHost(
                 )
                 SettingsScreen(
                     viewModel = settingsViewModel,
+                    onNavigateToWelcome = {
+                        navController.navigate(Screen.Welcome.route)
+                    },
                     modifier = Modifier.statusBarsPadding()
                 )
             }

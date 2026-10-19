@@ -12,6 +12,7 @@ import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.core.content.ContextCompat
 import androidx.navigation.compose.rememberNavController
 import com.shejan.acontinue.core.notification.AlarmScheduler
@@ -35,7 +36,7 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             val userSettings by appContainer.settingsRepository.getUserSettings().collectAsState(
-                initial = com.shejan.acontinue.domain.model.UserSettings()
+                initial = remember { appContainer.settingsRepository.getCurrentSettings() }
             )
 
             ContinueTheme(settings = userSettings) {
@@ -53,7 +54,8 @@ class MainActivity : ComponentActivity() {
 
                 ContinueNavHost(
                     navController = navController,
-                    container = appContainer
+                    container = appContainer,
+                    userSettings = userSettings
                 )
             }
         }

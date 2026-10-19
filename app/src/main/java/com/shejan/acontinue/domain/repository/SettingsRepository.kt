@@ -8,6 +8,8 @@ import kotlinx.coroutines.flow.Flow
 
 interface SettingsRepository {
     fun getUserSettings(): Flow<UserSettings>
+    fun getCurrentSettings(): UserSettings
+    suspend fun setOnboardingCompleted(completed: Boolean = true)
     suspend fun setThemeMode(mode: ThemeMode)
     suspend fun setAccentPalette(palette: AccentPalette)
     suspend fun setHapticFeedbackEnabled(enabled: Boolean)

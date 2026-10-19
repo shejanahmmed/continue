@@ -205,6 +205,12 @@ class FakeSettingsRepository : com.shejan.acontinue.domain.repository.SettingsRe
 
     override fun getUserSettings(): Flow<com.shejan.acontinue.domain.model.UserSettings> = settingsFlow
 
+    override fun getCurrentSettings(): com.shejan.acontinue.domain.model.UserSettings = settingsFlow.value
+
+    override suspend fun setOnboardingCompleted(completed: Boolean) {
+        settingsFlow.value = settingsFlow.value.copy(isOnboardingCompleted = completed)
+    }
+
     override suspend fun setThemeMode(mode: com.shejan.acontinue.domain.model.ThemeMode) {
         settingsFlow.value = settingsFlow.value.copy(themeMode = mode)
     }

@@ -26,6 +26,13 @@ class SettingsRepositoryImpl(
 
     override fun getUserSettings(): Flow<UserSettings> = settingsFlow
 
+    override fun getCurrentSettings(): UserSettings = _settings.value
+
+    override suspend fun setOnboardingCompleted(completed: Boolean) {
+        prefs.edit().putBoolean(KEY_ONBOARDING_COMPLETED, completed).apply()
+        _settings.update { it.copy(isOnboardingCompleted = completed) }
+    }
+
     override suspend fun setThemeMode(mode: ThemeMode) {
         prefs.edit().putString(KEY_THEME_MODE, mode.name).apply()
         _settings.update { it.copy(themeMode = mode) }
@@ -247,6 +254,8 @@ class SettingsRepositoryImpl(
         val noteLabelsRaw = prefs.getString(KEY_NOTE_LABELS, "") ?: ""
         val noteLabels = parseNoteLabels(noteLabelsRaw)
 
+        val onboardingCompleted = prefs.getBoolean(KEY_ONBOARDING_COMPLETED, false)
+
         return UserSettings(
             themeMode = themeMode,
             accentPalette = accentPalette,
@@ -255,7 +264,8 @@ class SettingsRepositoryImpl(
             recentEmojis = recentEmojis,
             customAlerts = customAlerts,
             reminderCategories = reminderCategories,
-            noteLabels = noteLabels
+            noteLabels = noteLabels,
+            isOnboardingCompleted = onboardingCompleted
         )
     }
 
@@ -269,6 +279,7 @@ class SettingsRepositoryImpl(
         private const val KEY_CUSTOM_ALERTS = "custom_alerts"
         private const val KEY_REMINDER_CATEGORIES = "reminder_categories"
         private const val KEY_NOTE_LABELS = "note_labels"
+        private const val KEY_ONBOARDING_COMPLETED = "key_onboarding_completed"
         private const val DELIMITER = "|||"
     }
 }
