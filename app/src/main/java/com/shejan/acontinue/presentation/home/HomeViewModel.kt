@@ -28,6 +28,7 @@ data class HomeUiState(
     val todayReminderCount: Int = 0,
     val todayCompletedReminderCount: Int = 0,
     val todayPendingReminderCount: Int = 0,
+    val todayMissedReminderCount: Int = 0,
     val todayTotalCount: Int = 0,
     val todayCompletedCount: Int = 0,
     val currentEvent: ActivityItem? = null,
@@ -103,6 +104,7 @@ class HomeViewModel(
             val reminderCount = reminders.size
             val completedReminders = reminders.count { it.isCompleted }
             val pendingReminders = (reminderCount - completedReminders).coerceAtLeast(0)
+            val missedReminders = reminders.count { !it.isCompleted && it.startTimeMillis < now }
 
             // Upcoming reminder is the earliest pending reminder
             val nextRem = reminders.filter { !it.isCompleted }
@@ -122,6 +124,7 @@ class HomeViewModel(
                 todayReminderCount = reminderCount,
                 todayCompletedReminderCount = completedReminders,
                 todayPendingReminderCount = pendingReminders,
+                todayMissedReminderCount = missedReminders,
                 todayTotalCount = reminderCount,
                 todayCompletedCount = completedReminders,
                 currentEvent = currentEvt,

@@ -392,4 +392,49 @@ class HomeViewModelTest {
             assertEquals("Still To Do", state.nextReminder?.title)
         }
     }
+
+    @Test
+    fun `test missed reminders count increments when overdue and decrements upon completion`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        testTickerFlow.value = now
+
+        // Past uncompleted reminder -> should count as missed
+        val overdueReminder = ActivityItem(
+            id = 401L,
+            title = "Overdue Medicine",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now - 60_000L,
+            endTimeMillis = now - 60_000L,
+            isCompleted = false
+        )
+        // Future uncompleted reminder -> not missed
+        val upcomingReminder = ActivityItem(
+            id = 402L,
+            title = "Upcoming Call",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = now + 60_000L,
+            endTimeMillis = now + 60_000L,
+            isCompleted = false
+        )
+
+        activityRepository.insertActivity(overdueReminder)
+        activityRepository.insertActivity(upcomingReminder)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val initialState = awaitItem()
+            assertEquals(2, initialState.todayReminderCount)
+            assertEquals(1, initialState.todayMissedReminderCount)
+            assertEquals(0, initialState.todayCompletedReminderCount)
+
+            // When user completes the overdue reminder
+            viewModel.toggleActivityCompletion(401L, true)
+            testScheduler.advanceUntilIdle()
+
+            val updatedState = awaitItem()
+            assertEquals(2, updatedState.todayReminderCount)
+            assertEquals(0, updatedState.todayMissedReminderCount)
+            assertEquals(1, updatedState.todayCompletedReminderCount)
+        }
+    }
 }

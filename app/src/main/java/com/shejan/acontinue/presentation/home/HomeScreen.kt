@@ -120,6 +120,7 @@ fun HomeScreen(
                 reminderCount = uiState.todayReminderCount,
                 completedReminderCount = uiState.todayCompletedReminderCount,
                 pendingReminderCount = uiState.todayPendingReminderCount,
+                missedReminderCount = uiState.todayMissedReminderCount,
                 reminderProgress = uiState.reminderProgress,
                 onEventsClick = onNavigateToCalendar,
                 onRemindersClick = onNavigateToCalendar

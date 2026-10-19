@@ -43,8 +43,12 @@ import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.fillMaxSize
 import com.shejan.acontinue.R
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
+import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
+import kotlin.math.hypot
 import java.util.Locale
 
 /**
@@ -63,6 +67,7 @@ fun UtilitarianDailyMetricCard(
     reminderProgress: Float,
     modifier: Modifier = Modifier,
     pendingReminderCount: Int = (reminderCount - completedReminderCount).coerceAtLeast(0),
+    missedReminderCount: Int = 0,
     onEventsClick: (() -> Unit)? = null,
     onRemindersClick: (() -> Unit)? = null
 ) {
@@ -100,6 +105,11 @@ fun UtilitarianDailyMetricCard(
         targetValue = reminderCount,
         animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing),
         label = "animatedTotalReminders"
+    )
+    val animatedMissedReminders by animateIntAsState(
+        targetValue = missedReminderCount,
+        animationSpec = tween(durationMillis = 380, easing = FastOutSlowInEasing),
+        label = "animatedMissedReminders"
     )
 
     // Animated progress arcs for concentric rings
@@ -146,13 +156,20 @@ fun UtilitarianDailyMetricCard(
         color = cardBgColor,
         border = BorderStroke(1.dp, cardBorderColor)
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 13.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
+        Box(modifier = Modifier.fillMaxWidth()) {
+            // Background Layer: Abstract faded dot-matrix pattern
+            AbstractDotMatrixTexture(
+                isDark = colors.isDark,
+                modifier = Modifier.matchParentSize()
+            )
+
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 13.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
             // Left Column: Header + Event Row + Reminder Row
             Column(
                 modifier = Modifier.weight(1f),
@@ -188,6 +205,16 @@ fun UtilitarianDailyMetricCard(
                     total = animatedTotalReminders,
                     onClick = onRemindersClick
                 )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                // Line 3: Missed Reminders Row
+                SingleMetricRow(
+                    dotColor = if (animatedMissedReminders > 0) reminderAccentColor else colors.textDisabled,
+                    label = "MISSED",
+                    count = animatedMissedReminders,
+                    onClick = onRemindersClick
+                )
             }
 
             Spacer(modifier = Modifier.width(16.dp))
@@ -204,6 +231,7 @@ fun UtilitarianDailyMetricCard(
             )
         }
     }
+}
 }
 
 /**
@@ -270,6 +298,68 @@ private fun MetricCountRow(
 }
 
 /**
+ * Single metric row displaying an indicator dot, label, and 2-digit count readout (e.g. 00, 01).
+ */
+@Composable
+private fun SingleMetricRow(
+    dotColor: Color,
+    label: String,
+    count: Int,
+    modifier: Modifier = Modifier,
+    onClick: (() -> Unit)? = null
+) {
+    val colors = LocalUtilitarianColors.current
+    val clickableModifier = if (onClick != null) {
+        Modifier.clickable(onClick = onClick)
+    } else {
+        Modifier
+    }
+
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .then(clickableModifier)
+            .padding(vertical = 2.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Indicator dot tied directly to the alert status
+        Box(
+            modifier = Modifier
+                .size(7.dp)
+                .background(color = dotColor, shape = CircleShape)
+        )
+
+        Spacer(modifier = Modifier.width(8.dp))
+
+        // Fixed column width for label ensures counts align perfectly in a vertical column
+        Text(
+            text = label,
+            color = colors.textSecondary,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 11.sp,
+            fontWeight = FontWeight.SemiBold,
+            letterSpacing = 1.sp,
+            maxLines = 1,
+            modifier = Modifier.width(82.dp)
+        )
+
+        Spacer(modifier = Modifier.width(12.dp))
+
+        Text(
+            text = String.format(Locale.US, "%02d", count),
+            color = if (count > 0) dotColor else colors.textPrimary,
+            fontFamily = FontFamily.Monospace,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.Bold,
+            letterSpacing = 0.5.sp,
+            maxLines = 1
+        )
+
+        Spacer(modifier = Modifier.weight(1f))
+    }
+}
+
+/**
  * Concentric dual-circular progress bar rendered on a clean Canvas.
  * Outer ring represents Reminders, Inner ring represents Events.
  * Zero text or clutter is drawn inside the circle.
@@ -289,12 +379,12 @@ private fun ConcentricDualGauge(
 
     Box(
         contentAlignment = Alignment.Center,
-        modifier = modifier.size(72.dp)
+        modifier = modifier.size(84.dp)
     ) {
-        Canvas(modifier = Modifier.size(72.dp)) {
-            val outerStrokePx = 5.dp.toPx()
-            val gapPx = 3.dp.toPx()
-            val innerStrokePx = 4.5.dp.toPx()
+        Canvas(modifier = Modifier.size(84.dp)) {
+            val outerStrokePx = 5.5.dp.toPx()
+            val gapPx = 3.5.dp.toPx()
+            val innerStrokePx = 5.0.dp.toPx()
 
             // 1. Outer Ring: Reminders
             val outerTopLeft = Offset(outerStrokePx / 2f, outerStrokePx / 2f)
@@ -360,14 +450,82 @@ private fun ConcentricDualGauge(
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier
-                .size(36.dp)
+                .size(46.dp)
                 .background(color = cardBgColor, shape = CircleShape)
         ) {
             Image(
                 painter = painterResource(id = logoResId),
                 contentDescription = "App Logo",
-                modifier = Modifier.size(26.dp)
+                modifier = Modifier.size(28.dp)
             )
+        }
+    }
+}
+
+/**
+ * Hardware-centric abstract dot-matrix background texture.
+ * Features mathematical pitch alignment (14dp), distance-based subtle opacity falloff
+ * to protect foreground text legibility, and a minimalist origin accent marker.
+ */
+@Composable
+private fun AbstractDotMatrixTexture(
+    isDark: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val baseDotColor = if (isDark) Color(0xFFFFFFFF) else Color(0xFF000000)
+    val accentColor = UtilitarianAccentRed
+    val shape = RoundedCornerShape(14.dp)
+
+    Canvas(
+        modifier = modifier
+            .fillMaxSize()
+            .clip(shape)
+    ) {
+        val pitch = 14.dp.toPx()
+        val dotRadius = 1.1.dp.toPx()
+        val width = size.width
+        val height = size.height
+        val maxDistance = hypot(width, height)
+
+        var x = pitch / 2f
+        var col = 0
+        while (x < width) {
+            var y = pitch / 2f
+            var row = 0
+            while (y < height) {
+                // Distance to top-right corner where concentric gauge is placed
+                val distanceToTopRight = hypot(width - x, y)
+                val normalizedDistance = (distanceToTopRight / maxDistance).coerceIn(0f, 1f)
+
+                // Subtle faded alpha: 0.03f behind text up to 0.13f in upper-right ambient area
+                val baseAlpha = if (isDark) {
+                    0.03f + (1f - normalizedDistance) * 0.10f
+                } else {
+                    0.02f + (1f - normalizedDistance) * 0.07f
+                }
+
+                // Origin reference micro-marker near top header
+                val isOriginMarker = (col == 2 && row == 0)
+
+                if (isOriginMarker) {
+                    drawCircle(
+                        color = accentColor.copy(alpha = if (isDark) 0.5f else 0.35f),
+                        radius = dotRadius * 1.25f,
+                        center = Offset(x, y)
+                    )
+                } else {
+                    drawCircle(
+                        color = baseDotColor.copy(alpha = baseAlpha),
+                        radius = dotRadius,
+                        center = Offset(x, y)
+                    )
+                }
+
+                y += pitch
+                row++
+            }
+            x += pitch
+            col++
         }
     }
 }
