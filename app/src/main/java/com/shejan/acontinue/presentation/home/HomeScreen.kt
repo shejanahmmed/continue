@@ -24,9 +24,11 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
@@ -45,6 +47,8 @@ import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.luminance
+import com.shejan.acontinue.presentation.create.getCategoryIcon
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextDecoration
@@ -171,7 +175,7 @@ fun HomeScreen(
                                 text = focalEvent.title,
                                 color = UtilitarianTextPrimary,
                                 fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Bold,
+                                fontWeight = FontWeight.Normal,
                                 fontSize = 18.sp
                             )
                         }
@@ -203,7 +207,7 @@ fun HomeScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = timeSpan,
-                                color = UtilitarianTextPrimary,
+                                color = UtilitarianTextSecondary,
                                 fontFamily = FontFamily.Monospace,
                                 fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
@@ -328,47 +332,131 @@ fun HomeScreen(
                     }
                 ) {
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        Text(
-                            text = focalReminder.title,
-                            color = UtilitarianTextPrimary,
-                            fontFamily = FontFamily.SansSerif,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 18.sp
-                        )
+                        // Row 1: Title with icon on left
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier.size(14.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Notifications,
+                                    contentDescription = null,
+                                    tint = UtilitarianTextSecondary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = focalReminder.title,
+                                color = UtilitarianTextPrimary,
+                                fontFamily = FontFamily.SansSerif,
+                                fontWeight = FontWeight.Normal,
+                                fontSize = 18.sp
+                            )
+                        }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
+                        // Row 2: Time with icon
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+                            val alertTime = timeFormat.format(Date(focalReminder.startTimeMillis))
+
+                            Box(
+                                modifier = Modifier.size(14.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AccessTime,
+                                    contentDescription = null,
+                                    tint = UtilitarianTextSecondary,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = alertTime,
+                                color = UtilitarianTextSecondary,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(10.dp))
+
+                        // Row 3: Priority badge + Category badge in category color box
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             val isStrong = focalReminder.priority == ActivityPriority.HIGH
-                            UtilitarianBadge(
-                                text = focalReminder.priority.reminderTitle.uppercase(Locale.getDefault()),
-                                backgroundColor = if (isStrong) UtilitarianAccentRed.copy(alpha = 0.15f) else Color(0xFF222222),
-                                textColor = if (isStrong) UtilitarianAccentRed else UtilitarianTextSecondary
-                            )
+                            val priorityColor = if (isStrong) UtilitarianAccentRed else UtilitarianTextSecondary
+                            val priorityBg = if (isStrong) UtilitarianAccentRed.copy(alpha = 0.15f) else Color(0xFF222226)
+                            val priorityBorder = if (isStrong) UtilitarianAccentRed.copy(alpha = 0.5f) else Color(0xFF333338)
+
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = priorityBg,
+                                border = BorderStroke(1.dp, priorityBorder)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.5.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Flag,
+                                        contentDescription = null,
+                                        tint = priorityColor,
+                                        modifier = Modifier.size(11.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = focalReminder.priority.reminderTitle.uppercase(Locale.getDefault()),
+                                        color = priorityColor,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
+                            }
 
                             val catBadgeText = focalReminder.reminderCategory.uppercase(Locale.getDefault())
                             val catBadgeColor = Color(focalReminder.reminderCategoryColorHex)
-                            UtilitarianBadge(
-                                text = catBadgeText,
-                                backgroundColor = catBadgeColor.copy(alpha = 0.2f),
-                                textColor = UtilitarianTextPrimary
-                            )
+                            val catContentColor = if (catBadgeColor.luminance() > 0.55f) Color(0xFF141416) else Color.White
+
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = catBadgeColor,
+                                border = BorderStroke(1.dp, catBadgeColor)
+                            ) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.5.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = getCategoryIcon(focalReminder.reminderCategoryIcon),
+                                        contentDescription = null,
+                                        tint = catContentColor,
+                                        modifier = Modifier.size(11.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = catBadgeText,
+                                        color = catContentColor,
+                                        fontFamily = FontFamily.Monospace,
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.SemiBold
+                                    )
+                                }
+                            }
                         }
-
-                        Spacer(modifier = Modifier.height(8.dp))
-
-                        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-                        val alertTime = timeFormat.format(Date(focalReminder.startTimeMillis))
-                        Text(
-                            text = alertTime,
-                            color = UtilitarianTextSecondary,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Medium
-                        )
                     }
                 }
 
