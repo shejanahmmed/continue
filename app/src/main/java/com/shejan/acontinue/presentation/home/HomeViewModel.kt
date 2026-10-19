@@ -59,8 +59,6 @@ class HomeViewModel(
     private val _uiState = MutableStateFlow(HomeUiState(isLoading = true))
     val uiState: StateFlow<HomeUiState> = _uiState.asStateFlow()
 
-    private val _skippedReminderIds = MutableStateFlow<Set<Long>>(emptySet())
-
     init {
         loadHomeData()
     }
@@ -69,9 +67,8 @@ class HomeViewModel(
         combine(
             getTodayTimelineUseCase(),
             taskRepository.getPendingTasks(),
-            tickerFlow,
-            _skippedReminderIds
-        ) { timeline, pendingTasks, now, skippedIds ->
+            tickerFlow
+        ) { timeline, pendingTasks, now ->
             val events = timeline.activities.filter { it.entryType == EntryType.ACTIVITY }
             val eventCount = events.size
 
@@ -110,12 +107,12 @@ class HomeViewModel(
 
             // Current date's uncompleted reminders whose scheduled alert time has passed and not skipped
             val missedReminders = todayReminders
-                .filter { !it.isCompleted && it.startTimeMillis < now && it.id !in skippedIds }
+                .filter { !it.isCompleted && !it.isSkipped && it.startTimeMillis < now }
                 .sortedBy { it.startTimeMillis }
 
             // Current date's future uncompleted reminders not skipped
             val upcomingReminders = todayReminders
-                .filter { !it.isCompleted && it.startTimeMillis >= now && it.id !in skippedIds }
+                .filter { !it.isCompleted && !it.isSkipped && it.startTimeMillis >= now }
                 .sortedBy { it.startTimeMillis }
 
             // Prioritize displaying the current date's earliest missed reminder; otherwise the next upcoming reminder
@@ -131,7 +128,7 @@ class HomeViewModel(
                 return if (item.entryType == EntryType.ACTIVITY) {
                     getEffectiveEnd(item) <= currentTime
                 } else {
-                    item.isCompleted || item.startTimeMillis < currentTime
+                    item.isCompleted || item.isSkipped || item.startTimeMillis < currentTime
                 }
             }
 
@@ -186,7 +183,9 @@ class HomeViewModel(
     }
 
     fun skipReminder(activityId: Long) {
-        _skippedReminderIds.value = _skippedReminderIds.value + activityId
+        viewModelScope.launch {
+            activityRepository.toggleActivitySkipped(activityId, true)
+        }
     }
 
     fun deleteActivity(activityId: Long) {

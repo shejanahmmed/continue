@@ -52,6 +52,13 @@ class ActivityRepositoryImpl(
         }
     }
 
+    override suspend fun toggleActivitySkipped(id: Long, isSkipped: Boolean) {
+        val existing = activityDao.getActivityByIdSync(id)
+        if (existing?.entryType == EntryType.REMINDER.name) {
+            activityDao.updateSkippedStatus(id, isSkipped)
+        }
+    }
+
     override fun searchActivities(query: String): Flow<List<ActivityItem>> {
         return activityDao.searchActivities(query).map { list ->
             list.map { it.toDomain() }

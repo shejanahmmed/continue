@@ -49,7 +49,15 @@ class FakeActivityRepository : ActivityRepository {
 
     override suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean) {
         activitiesFlow.value = activitiesFlow.value.map {
-            if (it.id == id && it.entryType == EntryType.REMINDER) it.copy(isCompleted = isCompleted) else it
+            if (it.id == id && it.entryType == EntryType.REMINDER) {
+                it.copy(isCompleted = isCompleted, isSkipped = if (isCompleted) false else it.isSkipped)
+            } else it
+        }
+    }
+
+    override suspend fun toggleActivitySkipped(id: Long, isSkipped: Boolean) {
+        activitiesFlow.value = activitiesFlow.value.map {
+            if (it.id == id && it.entryType == EntryType.REMINDER) it.copy(isSkipped = isSkipped) else it
         }
     }
 

@@ -528,6 +528,38 @@ class HomeViewModelTest {
             assertEquals(false, updatedState.isReminderMissed)
             assertEquals(0, updatedState.todayMissedReminderCount)
         }
+
+        // Verify it was persisted in the repository as isSkipped = true
+        val persistedList = activityRepository.activitiesFlow.value
+        val skippedItem = persistedList.first { it.id == 601L }
+        assertEquals(true, skippedItem.isSkipped)
+
+        // Simulate app reopen with a fresh ViewModel instance
+        val freshViewModel = HomeViewModel(
+            getTodayTimelineUseCase = getTodayTimelineUseCase,
+            taskRepository = taskRepository,
+            activityRepository = activityRepository,
+            tickerFlow = testTickerFlow
+        )
+        testScheduler.advanceUntilIdle()
+
+        freshViewModel.uiState.test {
+            val freshState = awaitItem()
+            // Fresh ViewModel reads from repository: skipped reminder stays skipped and does not re-alert
+            assertEquals(602L, freshState.nextReminder?.id)
+            assertEquals(false, freshState.isReminderMissed)
+            assertEquals(0, freshState.todayMissedReminderCount)
+
+            // When user marks the skipped reminder done
+            freshViewModel.toggleActivityCompletion(601L, true)
+            testScheduler.advanceUntilIdle()
+
+            val completedState = awaitItem()
+            val completedItem = activityRepository.activitiesFlow.value.first { it.id == 601L }
+            assertEquals(true, completedItem.isCompleted)
+            assertEquals(false, completedItem.isSkipped)
+            assertEquals(0, completedState.todayMissedReminderCount)
+        }
     }
 
     @Test

@@ -36,8 +36,11 @@ interface ActivityDao {
     @Query("DELETE FROM activities WHERE id = :id")
     suspend fun deleteActivity(id: Long)
 
-    @Query("UPDATE activities SET isCompleted = :isCompleted WHERE id = :id")
+    @Query("UPDATE activities SET isCompleted = :isCompleted, isSkipped = CASE WHEN :isCompleted = 1 THEN 0 ELSE isSkipped END WHERE id = :id")
     suspend fun updateCompletionStatus(id: Long, isCompleted: Boolean)
+
+    @Query("UPDATE activities SET isSkipped = :isSkipped WHERE id = :id")
+    suspend fun updateSkippedStatus(id: Long, isSkipped: Boolean)
 
     @Query("""
         SELECT * FROM activities 

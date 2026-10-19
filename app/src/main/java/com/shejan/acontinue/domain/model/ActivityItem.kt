@@ -24,6 +24,7 @@ data class ActivityItem(
     val recurrenceEndCount: Int = 10,
     val recurrenceEndDateMillis: Long = 0L,
     val isCompleted: Boolean = false,
+    val isSkipped: Boolean = false,
     val reminderCategory: String = "My reminders",
     val reminderCategoryColorHex: Long = 0xFF9D7BFC,
     val reminderCategoryIcon: String = "bell",
