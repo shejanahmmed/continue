@@ -23,6 +23,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.AccessTime
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Home
@@ -42,11 +43,18 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.setValue
 import kotlinx.coroutines.delay
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import com.shejan.acontinue.presentation.create.getCategoryIcon
 import androidx.compose.ui.text.font.FontFamily
@@ -139,6 +147,17 @@ fun HomeScreen(
                 val headerColor = if (isEventNow) UtilitarianAccentRed else UtilitarianTextSecondary
                 val cardBorderColor = if (isEventNow) UtilitarianAccentRed else UtilitarianBorderActive
 
+                val infiniteTransition = rememberInfiniteTransition(label = "nowEventPulse")
+                val pulseAlpha by infiniteTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = if (isEventNow) 0.2f else 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "nowDotAlpha"
+                )
+
                 Text(
                     text = headerText,
                     color = headerColor,
@@ -167,6 +186,7 @@ fun HomeScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(8.dp)
+                                        .graphicsLayer { alpha = pulseAlpha }
                                         .background(Color(focalEvent.category.colorHex), CircleShape)
                                 )
                             }
@@ -247,13 +267,8 @@ fun HomeScreen(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val timerText = if (isEventNow) {
-                                val elapsed = formatElapsedStopwatch(focalEvent.startTimeMillis, liveNow)
-                                val remaining = formatTimeRemaining(getEffectiveEnd(focalEvent), liveNow)
-                                "$elapsed ($remaining)"
-                            } else {
-                                formatTimeRemaining(focalEvent.startTimeMillis, liveNow)
-                            }
+                            val targetTime = if (isEventNow) getEffectiveEnd(focalEvent) else focalEvent.startTimeMillis
+                            val timerText = formatTimeRemaining(targetTime, liveNow)
 
                             Box(
                                 modifier = Modifier
@@ -391,71 +406,58 @@ fun HomeScreen(
 
                         Spacer(modifier = Modifier.height(10.dp))
 
-                        // Row 3: Priority badge + Category badge in category color box
+                        // Row 3: Unboxed Category & Priority separated by pipe '|'
                         Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            val isStrong = focalReminder.priority == ActivityPriority.HIGH
-                            val priorityColor = if (isStrong) UtilitarianAccentRed else UtilitarianTextSecondary
-                            val priorityBg = if (isStrong) UtilitarianAccentRed.copy(alpha = 0.15f) else Color(0xFF222226)
-                            val priorityBorder = if (isStrong) UtilitarianAccentRed.copy(alpha = 0.5f) else Color(0xFF333338)
-
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = priorityBg,
-                                border = BorderStroke(1.dp, priorityBorder)
+                            // Category
+                            Box(
+                                modifier = Modifier.size(14.dp),
+                                contentAlignment = Alignment.Center
                             ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.5.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Flag,
-                                        contentDescription = null,
-                                        tint = priorityColor,
-                                        modifier = Modifier.size(11.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = focalReminder.priority.reminderTitle.uppercase(Locale.getDefault()),
-                                        color = priorityColor,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
+                                Icon(
+                                    imageVector = getCategoryIcon(focalReminder.reminderCategoryIcon),
+                                    contentDescription = null,
+                                    tint = UtilitarianTextSecondary,
+                                    modifier = Modifier.size(13.dp)
+                                )
                             }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = focalReminder.reminderCategory.uppercase(Locale.getDefault()),
+                                color = UtilitarianTextSecondary,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
 
-                            val catBadgeText = focalReminder.reminderCategory.uppercase(Locale.getDefault())
-                            val catBadgeColor = Color(focalReminder.reminderCategoryColorHex)
-                            val catContentColor = if (catBadgeColor.luminance() > 0.55f) Color(0xFF141416) else Color.White
+                            // Pipe separator
+                            Spacer(modifier = Modifier.width(10.dp))
+                            Text(
+                                text = "|",
+                                color = UtilitarianBorderActive,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Light
+                            )
+                            Spacer(modifier = Modifier.width(10.dp))
 
-                            Surface(
-                                shape = RoundedCornerShape(4.dp),
-                                color = catBadgeColor,
-                                border = BorderStroke(1.dp, catBadgeColor)
-                            ) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    modifier = Modifier.padding(horizontal = 7.dp, vertical = 3.5.dp)
-                                ) {
-                                    Icon(
-                                        imageVector = getCategoryIcon(focalReminder.reminderCategoryIcon),
-                                        contentDescription = null,
-                                        tint = catContentColor,
-                                        modifier = Modifier.size(11.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(4.dp))
-                                    Text(
-                                        text = catBadgeText,
-                                        color = catContentColor,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontSize = 10.sp,
-                                        fontWeight = FontWeight.SemiBold
-                                    )
-                                }
-                            }
+                            // Priority
+                            Icon(
+                                imageVector = Icons.Outlined.Flag,
+                                contentDescription = null,
+                                tint = UtilitarianTextSecondary,
+                                modifier = Modifier.size(12.dp)
+                            )
+                            Spacer(modifier = Modifier.width(5.dp))
+                            Text(
+                                text = focalReminder.priority.reminderTitle.uppercase(Locale.getDefault()),
+                                color = UtilitarianTextSecondary,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Medium
+                            )
                         }
                     }
                 }
@@ -580,7 +582,7 @@ private fun TimelineActivityItem(
                         color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Normal
                     )
                 } else if (isReminder) {
                     Text(
@@ -588,7 +590,7 @@ private fun TimelineActivityItem(
                         color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Normal
                     )
                 } else {
                     Text(
@@ -596,11 +598,11 @@ private fun TimelineActivityItem(
                         color = UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 12.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Normal
                     )
                     Text(
                         text = endStr,
-                        color = UtilitarianTextDisabled,
+                        color = UtilitarianTextSecondary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 10.sp
                     )
@@ -625,22 +627,44 @@ private fun TimelineActivityItem(
                     text = activity.title,
                     color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
                     fontSize = 15.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
                     textDecoration = if (isReminder && activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
                 )
-                if (isReminder) {
-                    Text(
-                        text = activity.reminderCategory,
-                        color = catColor,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                } else if (activity.location.isNotEmpty()) {
-                    Text(
-                        text = activity.location,
-                        color = UtilitarianTextSecondary,
-                        fontSize = 11.sp
-                    )
+                Spacer(modifier = Modifier.height(3.dp))
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isReminder) {
+                        Icon(
+                            imageVector = Icons.Outlined.Notifications,
+                            contentDescription = null,
+                            tint = UtilitarianTextSecondary,
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "REMINDER",
+                            color = UtilitarianTextSecondary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                    } else {
+                        Icon(
+                            imageVector = Icons.Outlined.CalendarToday,
+                            contentDescription = null,
+                            tint = UtilitarianTextSecondary,
+                            modifier = Modifier.size(11.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "EVENT",
+                            color = UtilitarianTextSecondary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Normal
+                        )
+                    }
                 }
             }
 
@@ -733,19 +757,6 @@ private fun formatTimeRemaining(targetMillis: Long, now: Long): String {
         hours > 0L -> "${hours}h left"
         minutes > 0L -> "${minutes}m left"
         else -> "<1m left"
-    }
-}
-
-private fun formatElapsedStopwatch(startMillis: Long, now: Long): String {
-    val elapsedSeconds = ((now - startMillis) / 1000L).coerceAtLeast(0L)
-    val hours = elapsedSeconds / 3600L
-    val minutes = (elapsedSeconds % 3600L) / 60L
-    val seconds = elapsedSeconds % 60L
-
-    return if (hours > 0L) {
-        String.format(Locale.getDefault(), "%02d:%02d:%02d elapsed", hours, minutes, seconds)
-    } else {
-        String.format(Locale.getDefault(), "%02d:%02d elapsed", minutes, seconds)
     }
 }
 
