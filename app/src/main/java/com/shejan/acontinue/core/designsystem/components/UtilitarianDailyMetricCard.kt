@@ -160,7 +160,7 @@ fun UtilitarianDailyMetricCard(
             ) {
                 Text(
                     text = "TODAY'S OVERVIEW",
-                    color = colors.textSecondary,
+                    color = colors.textPrimary,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
