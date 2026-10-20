@@ -675,6 +675,10 @@ fun HomeScreen(
             onToggleCompletion = { id, done ->
                 viewModel.toggleActivityCompletion(id, done)
                 selectedReminderForDetail = selectedReminderForDetail?.copy(isCompleted = done)
+            },
+            onToggleSkip = { id ->
+                viewModel.skipReminder(id)
+                selectedReminderForDetail = selectedReminderForDetail?.copy(isSkipped = true)
             }
         )
     }

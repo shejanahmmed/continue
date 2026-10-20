@@ -245,6 +245,12 @@ class CalendarViewModel(
         }
     }
 
+    fun skipReminder(id: Long) {
+        viewModelScope.launch {
+            activityRepository.toggleActivitySkipped(id, true)
+        }
+    }
+
     private data class GridBounds(val startMillis: Long, val endMillis: Long, val firstGridCal: Calendar)
 
     private fun calculateGridBounds(monthMillis: Long): GridBounds {

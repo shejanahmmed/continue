@@ -47,6 +47,15 @@ class HomeViewModelTest {
         )
     }
 
+    private fun getTodayMiddayMillis(): Long {
+        return java.util.Calendar.getInstance().apply {
+            set(java.util.Calendar.HOUR_OF_DAY, 12)
+            set(java.util.Calendar.MINUTE, 0)
+            set(java.util.Calendar.SECOND, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }.timeInMillis
+    }
+
     @After
     fun tearDown() {
         Dispatchers.resetMain()
@@ -444,7 +453,7 @@ class HomeViewModelTest {
 
     @Test
     fun `test overdue reminder from past day is excluded and current date upcoming reminder is shown`() = runTest(testDispatcher) {
-        val now = System.currentTimeMillis()
+        val now = getTodayMiddayMillis()
         testTickerFlow.value = now
 
         // Uncompleted reminder from yesterday - must be excluded as it is not the current date
@@ -486,7 +495,7 @@ class HomeViewModelTest {
 
     @Test
     fun `test skipping current date missed reminder transitions to upcoming reminder`() = runTest(testDispatcher) {
-        val now = System.currentTimeMillis()
+        val now = getTodayMiddayMillis()
         testTickerFlow.value = now
 
         // Overdue reminder from earlier today
@@ -564,7 +573,7 @@ class HomeViewModelTest {
 
     @Test
     fun `test activities are correctly partitioned into todayActivities and pastActivities based on current time`() = runTest(testDispatcher) {
-        val now = System.currentTimeMillis()
+        val now = getTodayMiddayMillis()
         testTickerFlow.value = now
 
         // Concluded event earlier today
@@ -632,7 +641,7 @@ class HomeViewModelTest {
 
     @Test
     fun `test toggling completion on reminder transitions it from todayActivities to pastActivities`() = runTest(testDispatcher) {
-        val now = System.currentTimeMillis()
+        val now = getTodayMiddayMillis()
         testTickerFlow.value = now
 
         val futureReminder = ActivityItem(
@@ -667,7 +676,7 @@ class HomeViewModelTest {
 
     @Test
     fun `test advancing ticker moves elapsed event from todayActivities to pastActivities`() = runTest(testDispatcher) {
-        val now = System.currentTimeMillis()
+        val now = getTodayMiddayMillis()
         testTickerFlow.value = now
 
         val timedEvent = ActivityItem(

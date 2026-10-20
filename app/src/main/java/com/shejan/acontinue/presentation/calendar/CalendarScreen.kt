@@ -26,12 +26,15 @@ import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.BookmarkBorder
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.ChevronLeft
 import androidx.compose.material.icons.outlined.ChevronRight
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Flag
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.KeyboardArrowUp
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.automirrored.outlined.Notes
@@ -39,6 +42,7 @@ import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SentimentSatisfiedAlt
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -78,6 +82,8 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Dp
+import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
@@ -438,6 +444,7 @@ fun CalendarScreen(
                 onDismiss = { viewModel.dismissActivityDetail() },
                 onDelete = { id -> viewModel.deleteActivity(id) },
                 onToggleCompletion = { id, done -> viewModel.toggleActivityCompletion(id, done) },
+                onToggleSkip = { id -> viewModel.skipReminder(id) },
                 onOpenWorkspace = { id ->
                     viewModel.dismissActivityDetail()
                     onActivityClick(id)
@@ -1196,208 +1203,237 @@ internal fun UtilitarianEventDetailSheet(
     onDismiss: () -> Unit,
     onDelete: (Long) -> Unit,
     onToggleCompletion: (Long, Boolean) -> Unit,
+    onToggleSkip: (Long) -> Unit = {},
     onOpenWorkspace: (Long) -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
     val isReminder = activity.entryType == EntryType.REMINDER
-    val accentColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
-    val typeTitle = if (isReminder) "REMINDER" else "EVENT"
+    val catColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
+    val typeTitle = if (isReminder) "Reminder" else "Event"
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
         sheetState = sheetState,
-        containerColor = Color(0xFF141414),
+        containerColor = Color(0xFF202020),
         shape = RoundedCornerShape(topStart = 24.dp, topEnd = 24.dp),
         dragHandle = null
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 24.dp, vertical = 20.dp)
+                .padding(horizontal = 24.dp, vertical = 18.dp)
                 .navigationBarsPadding()
         ) {
+            // Drag Handle Bar on top center
             Box(
                 modifier = Modifier
                     .align(Alignment.CenterHorizontally)
                     .width(36.dp)
                     .height(4.dp)
-                    .background(Color(0xFF333333), RoundedCornerShape(2.dp))
+                    .background(Color(0xFF444444), RoundedCornerShape(2.dp))
             )
 
-            Spacer(modifier = Modifier.height(18.dp))
+            Spacer(modifier = Modifier.height(20.dp))
 
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    Box(
-                        modifier = Modifier
-                            .size(10.dp)
-                            .background(accentColor, CircleShape)
-                    )
-                    if (isReminder) {
-                        Text(
-                            text = activity.reminderCategory.uppercase(Locale.getDefault()),
-                            color = UtilitarianTextPrimary,
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                    Surface(
-                        shape = RoundedCornerShape(4.dp),
-                        color = Color(0xFF222222),
-                        border = BorderStroke(1.dp, UtilitarianBorderStroke)
-                    ) {
-                        Text(
-                            text = typeTitle,
-                            color = UtilitarianTextSecondary,
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.SemiBold,
-                            fontFamily = FontFamily.Monospace,
-                            modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
-                        )
-                    }
-                }
-
-                IconButton(
-                    onClick = onDismiss,
-                    modifier = Modifier.size(28.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = "Close",
-                        tint = UtilitarianTextSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
+            // 1. Title Row (Prominent headline, no strikethrough, solid white)
+            UtilitarianDetailLine(
+                icon = Icons.Outlined.Subtitles,
+                label = "Title",
+                value = activity.title,
+                fontSize = 17.sp,
+                iconSize = 20.dp,
+                labelColor = UtilitarianTextPrimary,
+                valueColor = UtilitarianTextPrimary,
+                iconTint = UtilitarianTextPrimary
+            )
 
             Spacer(modifier = Modifier.height(14.dp))
+            HorizontalDivider(color = Color(0xFF333333), thickness = 1.dp)
+            Spacer(modifier = Modifier.height(14.dp))
 
-            Text(
-                text = activity.title,
-                color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
-                fontSize = 20.sp,
-                fontWeight = FontWeight.Bold,
-                textDecoration = if (isReminder && activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
-            )
-
-            Spacer(modifier = Modifier.height(18.dp))
-            HorizontalDivider(color = Color(0xFF222222), thickness = 1.dp)
-            Spacer(modifier = Modifier.height(16.dp))
-
+            // 2. Time Row
             val fullDateFormat = SimpleDateFormat("EEEE, d MMMM yyyy", Locale.getDefault())
             val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
             val dateStr = fullDateFormat.format(Date(activity.startTimeMillis))
             val timeStr = if (activity.isAllDay) {
-                "All day"
+                "All day, $dateStr"
             } else if (isReminder) {
-                timeFormat.format(Date(activity.startTimeMillis))
+                "${timeFormat.format(Date(activity.startTimeMillis))}, $dateStr"
             } else {
-                "${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
+                "${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}, $dateStr"
             }
-
-            DetailInfoRow(
+            UtilitarianDetailLine(
                 icon = Icons.Outlined.AccessTime,
-                primaryText = dateStr,
-                secondaryText = timeStr
+                label = "Time",
+                value = timeStr
             )
 
-            if (activity.recurrenceMode != RecurrenceMode.NONE) {
-                Spacer(modifier = Modifier.height(12.dp))
-                DetailInfoRow(
-                    icon = Icons.Outlined.Repeat,
-                    primaryText = formatRecurrenceRule(activity),
-                    secondaryText = null
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 3. Type & Priority Row
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.BookmarkBorder,
+                    contentDescription = null,
+                    tint = UtilitarianTextSecondary,
+                    modifier = Modifier.size(18.dp)
+                )
+                Spacer(modifier = Modifier.width(12.dp))
+                Text(
+                    text = "Type : ",
+                    color = UtilitarianTextSecondary,
+                    fontSize = 13.sp
+                )
+                Text(
+                    text = typeTitle,
+                    color = UtilitarianTextSecondary,
+                    fontSize = 13.sp
+                )
+                Text(
+                    text = "  |  ",
+                    color = Color(0xFF555555),
+                    fontSize = 13.sp
+                )
+                Icon(
+                    imageVector = Icons.Outlined.Flag,
+                    contentDescription = null,
+                    tint = UtilitarianTextSecondary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "Priority : ",
+                    color = UtilitarianTextSecondary,
+                    fontSize = 13.sp
+                )
+                Text(
+                    text = activity.priority.displayName,
+                    color = UtilitarianTextSecondary,
+                    fontSize = 13.sp
                 )
             }
 
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 4. Early Alert Status Row
+            val alertStr = formatAlerts(activity) ?: "Don't alert"
+            UtilitarianDetailLine(
+                icon = Icons.Outlined.Notifications,
+                label = "Alert",
+                value = alertStr
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 5. Repeat Status Row
+            val repeatStr = formatRecurrenceRule(activity)
+            UtilitarianDetailLine(
+                icon = Icons.Outlined.Repeat,
+                label = "Repeat",
+                value = repeatStr
+            )
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // 6. Category Row (Color dot moved to the right side of the category name)
+            val catName = if (isReminder) activity.reminderCategory else activity.category.displayName
+            UtilitarianDetailLine(
+                icon = Icons.Outlined.Folder,
+                label = "Category",
+                value = catName,
+                badgeDotColor = catColor,
+                badgeDotOnRight = true
+            )
+
+            // Optional: Location if present
             if (activity.location.isNotBlank()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                DetailInfoRow(
+                Spacer(modifier = Modifier.height(14.dp))
+                UtilitarianDetailLine(
                     icon = Icons.Outlined.LocationOn,
-                    primaryText = activity.location,
-                    secondaryText = null
+                    label = "Location",
+                    value = activity.location
                 )
             }
 
-            val alertStr = formatAlerts(activity)
-            if (alertStr != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                DetailInfoRow(
-                    icon = Icons.Outlined.Notifications,
-                    primaryText = alertStr,
-                    secondaryText = null
-                )
-            }
-
+            // Optional: Notes if present
             if (activity.description.isNotBlank()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                DetailInfoRow(
+                Spacer(modifier = Modifier.height(14.dp))
+                UtilitarianDetailLine(
                     icon = Icons.AutoMirrored.Outlined.Notes,
-                    primaryText = activity.description,
-                    secondaryText = null
+                    label = "Notes",
+                    value = activity.description
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
-            HorizontalDivider(color = Color(0xFF222222), thickness = 1.dp)
+            HorizontalDivider(color = Color(0xFF333333), thickness = 1.dp)
             Spacer(modifier = Modifier.height(16.dp))
 
+            // Solid Action Buttons
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
+                // DELETE (Solid red square box with white trash icon only)
                 Surface(
                     onClick = {
                         onDelete(activity.id)
                         onDismiss()
                     },
                     shape = RoundedCornerShape(8.dp),
-                    color = Color(0xFF1E1414),
-                    border = BorderStroke(1.dp, Color(0xFF4A1A1A))
+                    color = Color(0xFFD71921),
+                    shadowElevation = 0.dp,
+                    modifier = Modifier.size(38.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
+                    Box(contentAlignment = Alignment.Center) {
                         Icon(
                             imageVector = Icons.Outlined.Delete,
                             contentDescription = "Delete",
-                            tint = UtilitarianAccentRed,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(6.dp))
-                        Text(
-                            text = "DELETE",
-                            color = UtilitarianAccentRed,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            fontFamily = FontFamily.Monospace
+                            tint = Color.White,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (isReminder) {
+                        // SKIP (Solid button with white text)
+                        if (!activity.isCompleted) {
+                            Surface(
+                                onClick = {
+                                    onToggleSkip(activity.id)
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                color = if (activity.isSkipped) Color(0xFF555555) else Color(0xFF383838),
+                                shadowElevation = 0.dp
+                            ) {
+                                Text(
+                                    text = if (activity.isSkipped) "SKIPPED" else "SKIP",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                )
+                            }
+                        }
+
+                        // MARK DONE / COMPLETED (Solid green button with white text)
                         Surface(
                             onClick = {
                                 onToggleCompletion(activity.id, !activity.isCompleted)
                             },
                             shape = RoundedCornerShape(8.dp),
-                            color = if (activity.isCompleted) Color(0xFF1A2E1A) else Color(0xFF222222),
-                            border = BorderStroke(1.dp, if (activity.isCompleted) Color(0xFF2E5E2E) else UtilitarianBorderStroke)
+                            color = if (activity.isCompleted) Color(0xFF1B5E20) else Color(0xFF2E7D32),
+                            shadowElevation = 0.dp
                         ) {
                             Text(
                                 text = if (activity.isCompleted) "COMPLETED" else "MARK DONE",
-                                color = if (activity.isCompleted) Color(0xFF4CAF50) else UtilitarianTextPrimary,
+                                color = Color.White,
                                 fontSize = 11.sp,
                                 fontWeight = FontWeight.Bold,
                                 fontFamily = FontFamily.Monospace,
@@ -1411,7 +1447,7 @@ internal fun UtilitarianEventDetailSheet(
                             onClick = { onOpenWorkspace(activity.id) },
                             shape = RoundedCornerShape(8.dp),
                             color = Color.White,
-                            border = BorderStroke(1.dp, Color.White)
+                            shadowElevation = 0.dp
                         ) {
                             Row(
                                 modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp),
@@ -1441,38 +1477,66 @@ internal fun UtilitarianEventDetailSheet(
 }
 
 @Composable
-private fun DetailInfoRow(
+private fun UtilitarianDetailLine(
     icon: androidx.compose.ui.graphics.vector.ImageVector,
-    primaryText: String,
-    secondaryText: String? = null,
-    iconTint: Color = UtilitarianTextSecondary
+    label: String,
+    value: String,
+    isStrikethrough: Boolean = false,
+    labelColor: Color = UtilitarianTextSecondary,
+    valueColor: Color = UtilitarianTextSecondary,
+    iconTint: Color = UtilitarianTextSecondary,
+    badgeDotColor: Color? = null,
+    badgeDotOnRight: Boolean = true,
+    fontSize: TextUnit = 13.sp,
+    iconSize: Dp = 18.dp,
+    fontWeight: FontWeight = FontWeight.Normal
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically
+        verticalAlignment = Alignment.Top
     ) {
         Icon(
             imageVector = icon,
             contentDescription = null,
             tint = iconTint,
-            modifier = Modifier.size(20.dp)
+            modifier = Modifier
+                .size(iconSize)
+                .padding(top = if (fontSize > 14.sp) 2.dp else 1.dp)
         )
-        Spacer(modifier = Modifier.width(14.dp))
-        Column(modifier = Modifier.weight(1f)) {
-            Text(
-                text = primaryText,
-                color = UtilitarianTextPrimary,
-                fontSize = 14.sp,
-                fontWeight = FontWeight.Medium
+        Spacer(modifier = Modifier.width(12.dp))
+        Text(
+            text = "$label : ",
+            color = labelColor,
+            fontSize = fontSize,
+            fontWeight = fontWeight
+        )
+        if (badgeDotColor != null && !badgeDotOnRight) {
+            Box(
+                modifier = Modifier
+                    .padding(top = if (fontSize > 14.sp) 6.dp else 4.dp)
+                    .size(8.dp)
+                    .background(badgeDotColor, CircleShape)
             )
-            if (secondaryText != null) {
-                Spacer(modifier = Modifier.height(2.dp))
-                Text(
-                    text = secondaryText,
-                    color = UtilitarianTextSecondary,
-                    fontSize = 12.sp
-                )
-            }
+            Spacer(modifier = Modifier.width(6.dp))
+        }
+        Text(
+            text = value,
+            color = valueColor,
+            fontSize = fontSize,
+            fontWeight = fontWeight,
+            textDecoration = if (isStrikethrough) TextDecoration.LineThrough else TextDecoration.None,
+            maxLines = 3,
+            overflow = TextOverflow.Ellipsis,
+            modifier = Modifier.weight(1f, fill = false)
+        )
+        if (badgeDotColor != null && badgeDotOnRight) {
+            Spacer(modifier = Modifier.width(6.dp))
+            Box(
+                modifier = Modifier
+                    .padding(top = if (fontSize > 14.sp) 6.dp else 4.dp)
+                    .size(8.dp)
+                    .background(badgeDotColor, CircleShape)
+            )
         }
     }
 }
