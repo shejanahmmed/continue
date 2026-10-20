@@ -1,10 +1,8 @@
 package com.shejan.acontinue.core.designsystem.components
 
 import androidx.compose.animation.core.FastOutSlowInEasing
-import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.animateIntAsState
-import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Canvas
@@ -12,7 +10,6 @@ import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
-import androidx.compose.foundation.interaction.collectIsPressedAsState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -32,7 +29,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.scale
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
@@ -68,22 +64,11 @@ fun UtilitarianDailyMetricCard(
     modifier: Modifier = Modifier,
     pendingReminderCount: Int = (reminderCount - completedReminderCount).coerceAtLeast(0),
     missedReminderCount: Int = 0,
+    onClick: (() -> Unit)? = null,
     onEventsClick: (() -> Unit)? = null,
     onRemindersClick: (() -> Unit)? = null
 ) {
     val colors = LocalUtilitarianColors.current
-
-    // Tactile micro-interaction: subtle spring dampening on press
-    val cardInteractionSource = remember { MutableInteractionSource() }
-    val isPressed by cardInteractionSource.collectIsPressedAsState()
-    val pressScale by animateFloatAsState(
-        targetValue = if (isPressed) 0.988f else 1f,
-        animationSpec = spring(
-            dampingRatio = Spring.DampingRatioMediumBouncy,
-            stiffness = Spring.StiffnessMedium
-        ),
-        label = "metricCardPressScale"
-    )
 
     // Animated number transitions for counts
     val animatedCompletedEvents by animateIntAsState(
@@ -136,12 +121,13 @@ fun UtilitarianDailyMetricCard(
     // Inner ring accent (Events): electric sky blue
     val eventAccentColor = if (colors.isDark) Color(0xFF38BDF8) else Color(0xFF0284C7)
 
-    val cardClickableModifier = if (onEventsClick != null || onRemindersClick != null) {
+    val effectiveClick = onClick ?: onEventsClick ?: onRemindersClick
+    val cardClickableModifier = if (effectiveClick != null) {
         Modifier.clickable(
-            interactionSource = cardInteractionSource,
+            interactionSource = remember { MutableInteractionSource() },
             indication = null
         ) {
-            onEventsClick?.invoke() ?: onRemindersClick?.invoke()
+            effectiveClick()
         }
     } else {
         Modifier
@@ -150,7 +136,6 @@ fun UtilitarianDailyMetricCard(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .scale(pressScale)
             .then(cardClickableModifier),
         shape = RoundedCornerShape(14.dp),
         color = cardBgColor,
@@ -191,8 +176,7 @@ fun UtilitarianDailyMetricCard(
                     dotColor = eventAccentColor,
                     label = "EVENTS",
                     completed = animatedCompletedEvents,
-                    total = animatedTotalEvents,
-                    onClick = onEventsClick
+                    total = animatedTotalEvents
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -202,8 +186,7 @@ fun UtilitarianDailyMetricCard(
                     dotColor = reminderAccentColor,
                     label = "REMINDERS",
                     completed = animatedCompletedReminders,
-                    total = animatedTotalReminders,
-                    onClick = onRemindersClick
+                    total = animatedTotalReminders
                 )
 
                 Spacer(modifier = Modifier.height(8.dp))
@@ -212,8 +195,7 @@ fun UtilitarianDailyMetricCard(
                 SingleMetricRow(
                     dotColor = if (animatedMissedReminders > 0) reminderAccentColor else colors.textDisabled,
                     label = "MISSED",
-                    count = animatedMissedReminders,
-                    onClick = onRemindersClick
+                    count = animatedMissedReminders
                 )
             }
 
@@ -243,20 +225,13 @@ private fun MetricCountRow(
     label: String,
     completed: Int,
     total: Int,
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null
+    modifier: Modifier = Modifier
 ) {
     val colors = LocalUtilitarianColors.current
-    val clickableModifier = if (onClick != null) {
-        Modifier.clickable(onClick = onClick)
-    } else {
-        Modifier
-    }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .then(clickableModifier)
             .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
@@ -305,20 +280,13 @@ private fun SingleMetricRow(
     dotColor: Color,
     label: String,
     count: Int,
-    modifier: Modifier = Modifier,
-    onClick: (() -> Unit)? = null
+    modifier: Modifier = Modifier
 ) {
     val colors = LocalUtilitarianColors.current
-    val clickableModifier = if (onClick != null) {
-        Modifier.clickable(onClick = onClick)
-    } else {
-        Modifier
-    }
 
     Row(
         modifier = modifier
             .fillMaxWidth()
-            .then(clickableModifier)
             .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

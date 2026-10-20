@@ -135,8 +135,7 @@ fun HomeScreen(
                 pendingReminderCount = uiState.todayPendingReminderCount,
                 missedReminderCount = uiState.todayMissedReminderCount,
                 reminderProgress = uiState.reminderProgress,
-                onEventsClick = onNavigateToCalendar,
-                onRemindersClick = onNavigateToCalendar
+                onClick = onNavigateToCalendar
             )
             Spacer(modifier = Modifier.height(16.dp))
         }
