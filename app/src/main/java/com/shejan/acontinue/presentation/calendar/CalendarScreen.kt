@@ -364,7 +364,7 @@ fun CalendarScreen(
             } else {
                 // 1. All-Day Cards (at the top)
                 if (uiState.allDayActivities.isNotEmpty()) {
-                    items(uiState.allDayActivities, key = { it.id }) { activity ->
+                    items(uiState.allDayActivities, key = { "allday_${it.id}" }) { activity ->
                         val isExpanded = uiState.expandedActivityId == activity.id
                         val workspace = if (isExpanded) uiState.expandedWorkspace else null
                         AllDayActivityCard(
@@ -382,7 +382,7 @@ fun CalendarScreen(
 
                 // 2. Timed Activities & Reminders Cards
                 if (uiState.timedActivities.isNotEmpty()) {
-                    items(uiState.timedActivities, key = { it.id }) { activity ->
+                    items(uiState.timedActivities, key = { "timed_${it.id}" }) { activity ->
                         val isExpanded = uiState.expandedActivityId == activity.id
                         val workspace = if (isExpanded) uiState.expandedWorkspace else null
                         TimedAgendaActivityCard(

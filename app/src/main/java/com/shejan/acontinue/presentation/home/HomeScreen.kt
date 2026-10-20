@@ -585,7 +585,7 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(16.dp))
             }
         } else {
-            items(uiState.todayActivities, key = { it.id }) { activity ->
+            items(uiState.todayActivities, key = { "activity_${it.id}" }) { activity ->
                 val isReminder = activity.entryType == EntryType.REMINDER
                 TimelineActivityItem(
                     activity = activity,
@@ -619,7 +619,7 @@ fun HomeScreen(
                 )
             }
 
-            items(uiState.pastActivities, key = { it.id }) { activity ->
+            items(uiState.pastActivities, key = { "past_activity_${it.id}" }) { activity ->
                 val isReminder = activity.entryType == EntryType.REMINDER
                 TimelineActivityItem(
                     activity = activity,
@@ -653,7 +653,7 @@ fun HomeScreen(
                 )
             }
 
-            items(uiState.pendingTasks, key = { it.id }) { task ->
+            items(uiState.pendingTasks, key = { "task_${it.id}" }) { task ->
                 PendingTaskRow(
                     task = task,
                     onToggle = { isChecked -> viewModel.toggleTask(task.id, isChecked) },

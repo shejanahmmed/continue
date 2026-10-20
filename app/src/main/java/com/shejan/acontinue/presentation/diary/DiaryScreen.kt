@@ -130,7 +130,7 @@ fun DiaryScreen(
                 }
             }
         } else {
-            items(uiState.activities, key = { it.id }) { activity ->
+            items(uiState.activities, key = { "diary_activity_${it.id}" }) { activity ->
                 DiaryActivityRow(
                     activity = activity,
                     onClick = { onActivityClick(activity.id) }
@@ -154,7 +154,7 @@ fun DiaryScreen(
                 )
             }
 
-            items(uiState.notes, key = { it.id }) { note ->
+            items(uiState.notes, key = { "diary_note_${it.id}" }) { note ->
                 MonochromeCard(
                     onClick = { onActivityClick(note.activityId) }
                 ) {

@@ -133,12 +133,16 @@ class HomeViewModel(
             }
 
             val activeActivities = timeline.activities
+                .distinctBy { it.id }
                 .filter { !isItemPast(it, now) }
                 .sortedBy { it.startTimeMillis }
 
             val pastActivities = timeline.activities
+                .distinctBy { it.id }
                 .filter { isItemPast(it, now) }
                 .sortedBy { it.startTimeMillis }
+
+            val uniquePendingTasks = pendingTasks.distinctBy { it.id }
 
             val updatedTimeline = timeline.copy(
                 currentEvent = currentEvt,
@@ -148,7 +152,7 @@ class HomeViewModel(
 
             HomeUiState(
                 timeline = updatedTimeline,
-                pendingTasks = pendingTasks,
+                pendingTasks = uniquePendingTasks,
                 todayActivities = activeActivities,
                 pastActivities = pastActivities,
                 todayEventCount = eventCount,

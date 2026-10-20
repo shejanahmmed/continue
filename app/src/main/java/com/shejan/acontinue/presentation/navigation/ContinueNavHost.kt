@@ -69,12 +69,25 @@ fun ContinueNavHost(
         currentRoute = currentRoute,
         onNavigate = { targetRoute ->
             if (targetRoute != currentRoute) {
-                navController.navigate(targetRoute) {
-                    popUpTo(Screen.Home.route) {
-                        saveState = true
+                if (targetRoute == Screen.Home.route) {
+                    val popped = navController.popBackStack(Screen.Home.route, inclusive = false)
+                    if (!popped) {
+                        navController.navigate(Screen.Home.route) {
+                            popUpTo(Screen.Home.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
-                    launchSingleTop = true
-                    restoreState = true
+                } else {
+                    navController.navigate(targetRoute) {
+                        popUpTo(Screen.Home.route) {
+                            saveState = true
+                        }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
                 }
             }
         },
@@ -116,7 +129,13 @@ fun ContinueNavHost(
                         navController.navigate(Screen.Workspace.createRoute(activityId))
                     },
                     onNavigateToCalendar = {
-                        navController.navigate(Screen.Calendar.route)
+                        navController.navigate(Screen.Calendar.route) {
+                            popUpTo(Screen.Home.route) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     },
                     modifier = Modifier.statusBarsPadding()
                 )
