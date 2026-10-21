@@ -32,7 +32,7 @@ import kotlinx.coroutines.launch
 
 data class WorkspaceUiState(
     val aggregate: ActivityWorkspaceAggregate? = null,
-    val selectedTab: WorkspaceTab = WorkspaceTab.NOTES,
+    val selectedTab: WorkspaceTab = WorkspaceTab.OVERVIEW,
     val isLoading: Boolean = true
 )
 

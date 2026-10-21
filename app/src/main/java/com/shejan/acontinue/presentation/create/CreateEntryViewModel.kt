@@ -567,16 +567,6 @@ class CreateEntryViewModel(
             val newId = activityRepository.insertActivity(activity)
             val savedActivity = activity.copy(id = newId)
 
-            if (!isReminder && current.notes.isNotBlank()) {
-                noteRepository.insertNote(
-                    ActivityNote(
-                        activityId = newId,
-                        title = current.title.trim().ifBlank { "Notes" },
-                        content = current.notes.trim()
-                    )
-                )
-            }
-
             if (!isReminder) {
                 current.attachments.forEach { att ->
                     linkRepository?.insertAttachment(

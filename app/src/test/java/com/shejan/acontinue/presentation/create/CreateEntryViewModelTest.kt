@@ -87,10 +87,11 @@ class CreateEntryViewModelTest {
             assertEquals(1, activities.size)
             assertEquals("CS 101 Lecture", activities.first().title)
             assertEquals(ActivityCategory.CLASS, activities.first().category)
+            assertEquals("Bring textbook Chapter 4", activities.first().description)
 
+            // Event notes are stored on the event itself, leaving workspace notes clean
             val notes = noteRepository.notesFlow.value
-            assertEquals(1, notes.size)
-            assertEquals("Bring textbook Chapter 4", notes.first().content)
+            assertEquals(0, notes.size)
 
             assertEquals(1, scheduler.scheduledActivities.size)
             assertEquals("CS 101 Lecture", scheduler.scheduledActivities.first().title)
@@ -914,6 +915,29 @@ class CreateEntryViewModelTest {
     fun `test AlarmScheduler category extra constants are properly declared`() {
         assertEquals("extra_reminder_category_color", com.shejan.acontinue.core.notification.AlarmScheduler.EXTRA_REMINDER_CATEGORY_COLOR)
         assertEquals("extra_reminder_category_icon", com.shejan.acontinue.core.notification.AlarmScheduler.EXTRA_REMINDER_CATEGORY_ICON)
+    }
+
+    @Test
+    fun `test saving event stores note in description and does not inject into noteRepository`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.updateEntryType(EntryType.ACTIVITY)
+        viewModel.updateTitle("Physics Colloquium")
+        viewModel.updateNotes("Bring question sheet and calculator")
+
+        viewModel.saveEntry()
+        testScheduler.advanceUntilIdle()
+
+        val savedActivity = activityRepository.activitiesFlow.value.find { it.title == "Physics Colloquium" }
+        org.junit.Assert.assertNotNull(savedActivity)
+        assertEquals("Bring question sheet and calculator", savedActivity?.description)
+
+        // Ensure workspace notes are empty - event notes must not pollute workspace notes
+        val workspaceNotes = noteRepository.getNotesForActivity(savedActivity!!.id)
+        workspaceNotes.test {
+            val list = awaitItem()
+            assertTrue("Workspace notes must be empty on event creation", list.isEmpty())
+        }
     }
 }
 

@@ -24,11 +24,18 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
+import androidx.compose.material.icons.outlined.MoreVert
+import androidx.compose.material.icons.outlined.Notifications
+import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import com.shejan.acontinue.core.util.AttachmentHelper
+import com.shejan.acontinue.core.util.EventFormatters
+import com.shejan.acontinue.domain.model.RecurrenceMode
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -110,14 +117,6 @@ fun ActivityWorkspaceScreen(
     val aggregate = uiState.aggregate!!
     val activity = aggregate.activity
 
-    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-    val dateFormat = SimpleDateFormat("EEE, dd MMM", Locale.getDefault())
-    val timeSpan = if (activity.isAllDay) {
-        "${dateFormat.format(Date(activity.startTimeMillis))} • All day"
-    } else {
-        "${dateFormat.format(Date(activity.startTimeMillis))} • ${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
-    }
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -128,25 +127,37 @@ fun ActivityWorkspaceScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 16.dp, bottom = 8.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
+                .padding(top = 12.dp, bottom = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "Back",
-                        tint = UtilitarianTextPrimary
-                    )
-                }
-                Spacer(modifier = Modifier.width(4.dp))
-                UtilitarianBadge(
-                    text = "WORKSPACE",
-                    backgroundColor = UtilitarianBorderStroke
+            IconButton(
+                onClick = onNavigateBack,
+                modifier = Modifier.size(36.dp)
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                    contentDescription = "Back",
+                    tint = UtilitarianTextPrimary,
+                    modifier = Modifier.size(20.dp)
                 )
             }
-
+            Spacer(modifier = Modifier.width(6.dp))
+            Icon(
+                imageVector = Icons.Outlined.Dashboard,
+                contentDescription = null,
+                tint = UtilitarianTextPrimary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = "WORKSPACE",
+                color = UtilitarianTextPrimary,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                letterSpacing = 1.2.sp
+            )
+            Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = { viewModel.deleteActivity() }) {
                 Icon(
                     imageVector = Icons.Outlined.Delete,
@@ -156,71 +167,14 @@ fun ActivityWorkspaceScreen(
             }
         }
 
-        // Header Title & Metadata
+        // Header Title
         Text(
             text = activity.title,
             color = UtilitarianTextPrimary,
             fontSize = 24.sp,
             fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(vertical = 4.dp)
+            modifier = Modifier.padding(top = 8.dp, bottom = 14.dp)
         )
-
-        val accentColor = Color(activity.category.colorHex)
-
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(accentColor, CircleShape)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = timeSpan,
-                color = UtilitarianTextSecondary,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp
-            )
-        }
-
-        if (activity.location.isNotEmpty()) {
-            val context = LocalContext.current
-            val isLink = LocationHelper.isMapLocationLink(activity.location)
-            Row(
-                modifier = Modifier
-                    .clip(RoundedCornerShape(6.dp))
-                    .clickable { LocationHelper.openLocationInMapApp(context, activity.location) }
-                    .padding(vertical = 2.dp)
-                    .padding(bottom = 10.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.LocationOn,
-                    contentDescription = "Location",
-                    tint = if (isLink) Color(0xFF3897F0) else UtilitarianTextSecondary,
-                    modifier = Modifier.size(14.dp)
-                )
-                Spacer(modifier = Modifier.width(4.dp))
-                Text(
-                    text = activity.location,
-                    color = if (isLink) Color(0xFF3897F0) else UtilitarianTextSecondary,
-                    fontSize = 12.sp
-                )
-                if (isLink) {
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                        contentDescription = "Open in Map",
-                        tint = Color(0xFF3897F0),
-                        modifier = Modifier.size(12.dp)
-                    )
-                }
-            }
-        }
 
         // Workspace Tabs
         WorkspaceTabRow(
@@ -305,36 +259,15 @@ private fun WorkspaceTabRow(
 @Composable
 private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
     val activity = aggregate.activity
+    val accentColor = Color(activity.category.colorHex)
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
+        // Card 1: DATE, TIME & LOCATION
         item {
             MonochromeCard {
                 Column {
                     Text(
-                        text = "OBJECTIVE & DETAILS",
-                        color = UtilitarianTextSecondary,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = if (activity.description.isNotBlank()) activity.description else "No description specified for this workspace.",
-                        color = UtilitarianTextPrimary,
-                        fontSize = 14.sp,
-                        lineHeight = 20.sp
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        item {
-            MonochromeCard {
-                Column {
-                    Text(
-                        text = "WORKSPACE SUMMARY",
+                        text = "DATE, TIME & LOCATION",
                         color = UtilitarianTextSecondary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
@@ -342,30 +275,314 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         letterSpacing = 1.sp
                     )
                     Spacer(modifier = Modifier.height(10.dp))
-                    Text(text = "• Notes recorded: ${aggregate.notes.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
-                    Text(text = "• Checklist tasks: ${aggregate.tasks.size} (${aggregate.tasks.count { it.isCompleted }} done)", color = UtilitarianTextPrimary, fontSize = 13.sp)
-                    Text(text = "• Resource links: ${aggregate.links.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
-                    Text(text = "• Attachments: ${aggregate.attachments.size}", color = UtilitarianTextPrimary, fontSize = 13.sp)
-                    Text(text = "• Reminder: ${if (activity.reminderMinutesBefore >= 0) "${activity.reminderMinutesBefore}m prior" else "None"}", color = UtilitarianTextPrimary, fontSize = 13.sp)
-                    Text(text = "• Priority: ${activity.priority.name}", color = UtilitarianTextPrimary, fontSize = 13.sp)
+
+                    // Date
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(8.dp)
+                                .background(accentColor, CircleShape)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = EventFormatters.formatDate(activity.startTimeMillis),
+                            color = UtilitarianTextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    // Time span
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(start = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = EventFormatters.formatTimeSpan(
+                                activity.startTimeMillis,
+                                activity.endTimeMillis,
+                                activity.isAllDay
+                            ),
+                            color = UtilitarianTextSecondary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                    HorizontalDivider(color = UtilitarianBorderStroke, thickness = 0.5.dp)
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Location
+                    val context = LocalContext.current
+                    if (activity.location.isNotBlank()) {
+                        val isLink = LocationHelper.isMapLocationLink(activity.location)
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable { LocationHelper.openLocationInMapApp(context, activity.location) }
+                                .padding(vertical = 4.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LocationOn,
+                                contentDescription = "Location",
+                                tint = if (isLink) Color(0xFF3897F0) else UtilitarianTextPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = activity.location,
+                                color = if (isLink) Color(0xFF3897F0) else UtilitarianTextPrimary,
+                                fontSize = 13.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                                contentDescription = "Open Map",
+                                tint = Color(0xFF3897F0),
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier.padding(vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.LocationOn,
+                                contentDescription = "Location",
+                                tint = UtilitarianTextDisabled,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Not set",
+                                color = UtilitarianTextDisabled,
+                                fontSize = 13.sp
+                            )
+                        }
+                    }
                 }
             }
+            Spacer(modifier = Modifier.height(12.dp))
         }
 
-        if (aggregate.attachments.isNotEmpty()) {
-            item {
-                Spacer(modifier = Modifier.height(12.dp))
-                MonochromeCard {
-                    Column {
+        // Card 2: EVENT SETTINGS
+        item {
+            MonochromeCard {
+                Column {
+                    Text(
+                        text = "EVENT SETTINGS",
+                        color = UtilitarianTextSecondary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+
+                    // Alert / Reminders
+                    val alertText = EventFormatters.formatAlerts(activity) ?: "Not set"
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Outlined.Notifications,
+                                contentDescription = null,
+                                tint = UtilitarianTextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Alert",
+                                color = UtilitarianTextSecondary,
+                                fontSize = 13.sp
+                            )
+                        }
                         Text(
-                            text = "ATTACHMENTS (${aggregate.attachments.size})",
+                            text = alertText,
+                            color = if (alertText == "Not set") UtilitarianTextDisabled else UtilitarianTextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Repeat / Recurrence
+                    val repeatText = if (activity.recurrenceMode != RecurrenceMode.NONE) {
+                        EventFormatters.formatRecurrenceRule(activity)
+                    } else {
+                        "Not set"
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Outlined.Repeat,
+                                contentDescription = null,
+                                tint = UtilitarianTextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Repeat",
+                                color = UtilitarianTextSecondary,
+                                fontSize = 13.sp
+                            )
+                        }
+                        Text(
+                            text = repeatText,
+                            color = if (repeatText == "Not set") UtilitarianTextDisabled else UtilitarianTextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Priority
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Icon(
+                                imageVector = Icons.Outlined.Flag,
+                                contentDescription = null,
+                                tint = UtilitarianTextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Priority",
+                                color = UtilitarianTextSecondary,
+                                fontSize = 13.sp
+                            )
+                        }
+                        Text(
+                            text = activity.priority.name,
+                            color = UtilitarianTextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+
+                    // Category
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .background(accentColor, CircleShape)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Category",
+                                color = UtilitarianTextSecondary,
+                                fontSize = 13.sp
+                            )
+                        }
+                        Text(
+                            text = activity.category.displayName,
+                            color = UtilitarianTextPrimary,
+                            fontSize = 13.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        // Card 3: EVENT NOTE
+        item {
+            MonochromeCard {
+                Column {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "EVENT NOTE",
                             color = UtilitarianTextSecondary,
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
                             letterSpacing = 1.sp
                         )
-                        Spacer(modifier = Modifier.height(10.dp))
+                        IconButton(
+                            onClick = { /* Reserved for 3-dot menu options */ },
+                            modifier = Modifier.size(20.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.MoreVert,
+                                contentDescription = "Note Options",
+                                tint = UtilitarianTextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    if (activity.description.isNotBlank()) {
+                        ClickableLinkText(
+                            text = activity.description,
+                            color = UtilitarianTextPrimary,
+                            linkColor = Color(0xFF3897F0),
+                            style = TextStyle(fontSize = 14.sp),
+                            lineHeight = 20.sp
+                        )
+                    } else {
+                        Text(
+                            text = "Not set",
+                            color = UtilitarianTextDisabled,
+                            fontSize = 13.sp
+                        )
+                    }
+                }
+            }
+            Spacer(modifier = Modifier.height(12.dp))
+        }
+
+        // Card 4: ATTACHMENTS
+        item {
+            MonochromeCard {
+                Column {
+                    Text(
+                        text = if (aggregate.attachments.isNotEmpty()) {
+                            "ATTACHMENTS (${aggregate.attachments.size})"
+                        } else {
+                            "ATTACHMENTS"
+                        },
+                        color = UtilitarianTextSecondary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(10.dp))
+                    if (aggregate.attachments.isNotEmpty()) {
                         val context = LocalContext.current
                         aggregate.attachments.forEach { att ->
                             Surface(
@@ -425,9 +642,16 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                                 }
                             }
                         }
+                    } else {
+                        Text(
+                            text = "No attachments",
+                            color = UtilitarianTextDisabled,
+                            fontSize = 13.sp
+                        )
                     }
                 }
             }
+            Spacer(modifier = Modifier.height(16.dp))
         }
     }
 }
@@ -524,8 +748,13 @@ private fun NotesTabContent(
                                 lineHeight = 18.sp
                             )
                         }
-                        IconButton(onClick = { onDeleteNote(note.id) }) {
-                            Icon(imageVector = Icons.Outlined.Delete, contentDescription = "Delete", tint = UtilitarianTextDisabled, modifier = Modifier.size(18.dp))
+                        IconButton(onClick = { /* Reserved for 3-dot menu options */ }) {
+                            Icon(
+                                imageVector = Icons.Outlined.MoreVert,
+                                contentDescription = "Note Options",
+                                tint = UtilitarianTextSecondary,
+                                modifier = Modifier.size(18.dp)
+                            )
                         }
                     }
                 }
