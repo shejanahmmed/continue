@@ -177,10 +177,12 @@ fun HomeScreen(
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.Top
                         ) {
                             Box(
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier
+                                    .padding(top = 5.dp)
+                                    .size(14.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Box(
@@ -196,7 +198,8 @@ fun HomeScreen(
                                 color = UtilitarianTextPrimary,
                                 fontFamily = FontFamily.SansSerif,
                                 fontWeight = FontWeight.Normal,
-                                fontSize = 18.sp
+                                fontSize = 18.sp,
+                                modifier = Modifier.weight(1f)
                             )
                         }
 
@@ -355,17 +358,18 @@ fun HomeScreen(
                         // Row 1: Title with icon on left
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.Top
                         ) {
                             Box(
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier
+                                    .padding(top = 5.dp)
+                                    .size(14.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Notifications,
-                                    contentDescription = null,
-                                    tint = reminderAccent,
-                                    modifier = Modifier.size(14.dp)
+                                Box(
+                                    modifier = Modifier
+                                        .size(8.dp)
+                                        .background(Color(focalReminder.reminderCategoryColorHex), CircleShape)
                                 )
                             }
                             Spacer(modifier = Modifier.width(8.dp))
@@ -374,7 +378,8 @@ fun HomeScreen(
                                 color = UtilitarianTextPrimary,
                                 fontFamily = FontFamily.SansSerif,
                                 fontWeight = FontWeight.Normal,
-                                fontSize = 18.sp
+                                fontSize = 18.sp,
+                                modifier = Modifier.weight(1f)
                             )
                         }
 
