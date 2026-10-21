@@ -7,6 +7,7 @@ import com.shejan.acontinue.FakeNoteRepository
 import com.shejan.acontinue.FakeScheduler
 import com.shejan.acontinue.FakeSettingsRepository
 import com.shejan.acontinue.domain.model.ActivityCategory
+import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityPriority
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.RecurrenceMode
@@ -938,6 +939,47 @@ class CreateEntryViewModelTest {
             val list = awaitItem()
             assertTrue("Workspace notes must be empty on event creation", list.isEmpty())
         }
+    }
+
+    @Test
+    fun `test loadActivityForEditing populates state and saving updates existing activity`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        val original = ActivityItem(
+            id = 55L,
+            title = "Original Meeting",
+            description = "Original agenda",
+            category = ActivityCategory.PROJECT,
+            location = "Room 302",
+            startTimeMillis = 1000L,
+            endTimeMillis = 2000L
+        )
+        activityRepository.insertActivity(original)
+        testScheduler.advanceUntilIdle()
+
+        // Load for editing
+        viewModel.loadActivityForEditing(55L)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(55L, viewModel.state.value.editingActivityId)
+        assertEquals("Original Meeting", viewModel.state.value.title)
+        assertEquals("Original agenda", viewModel.state.value.notes)
+        assertEquals(ActivityCategory.PROJECT, viewModel.state.value.category)
+        assertEquals("Room 302", viewModel.state.value.location)
+
+        // Modify and save
+        viewModel.updateTitle("Updated Meeting")
+        viewModel.updateNotes("Revised agenda")
+        viewModel.saveEntry()
+        testScheduler.advanceUntilIdle()
+
+        // Verify only 1 activity exists and fields were updated
+        val activities = activityRepository.activitiesFlow.value
+        assertEquals(1, activities.size)
+        val updated = activities.first()
+        assertEquals(55L, updated.id)
+        assertEquals("Updated Meeting", updated.title)
+        assertEquals("Revised agenda", updated.description)
     }
 }
 

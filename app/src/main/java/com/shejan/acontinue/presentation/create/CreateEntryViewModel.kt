@@ -29,6 +29,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
@@ -96,7 +97,8 @@ data class CreateEntryState(
     val savedReminderCategories: List<ReminderCategory> = listOf(ReminderCategory.DEFAULT),
     val categoryReminderCounts: Map<String, Int> = emptyMap(),
     val savedNoteLabels: List<String> = emptyList(),
-    val isSaving: Boolean = false
+    val isSaving: Boolean = false,
+    val editingActivityId: Long? = null
 )
 
 sealed interface CreateEntryEvent {
@@ -184,6 +186,50 @@ class CreateEntryViewModel(
     fun updateAllDay(isAllDay: Boolean) = _state.update { it.copy(isAllDay = isAllDay) }
     fun updateStartMillis(millis: Long) = _state.update { it.copy(startMillis = millis) }
     fun updateEndMillis(millis: Long) = _state.update { it.copy(endMillis = millis) }
+
+    fun loadActivityForEditing(activityId: Long) {
+        viewModelScope.launch {
+            val activity = activityRepository.getActivityById(activityId).firstOrNull() ?: return@launch
+            val attachments = linkRepository?.getAttachmentsForActivity(activityId)?.firstOrNull() ?: emptyList()
+            val processed = attachments.map { att ->
+                ProcessedAttachment(
+                    id = att.id.toString(),
+                    fileName = att.fileName,
+                    filePath = att.uriString,
+                    mimeType = att.mimeType,
+                    sizeBytes = att.sizeBytes
+                )
+            }
+            _state.update { current ->
+                current.copy(
+                    editingActivityId = activity.id,
+                    entryType = EntryType.ACTIVITY,
+                    title = activity.title,
+                    notes = activity.description,
+                    category = activity.category,
+                    isAllDay = activity.isAllDay,
+                    startMillis = activity.startTimeMillis,
+                    endMillis = activity.endTimeMillis,
+                    location = activity.location,
+                    priority = activity.priority,
+                    alertsEnabled = activity.reminderMinutesList.isNotEmpty() || activity.reminderMinutesBefore >= 0,
+                    selectedAlertMinutes = activity.reminderMinutesList.toSet(),
+                    earlyAlertMinutes = activity.reminderMinutesBefore,
+                    recurrenceMode = activity.recurrenceMode,
+                    recurrenceInterval = activity.recurrenceInterval,
+                    recurrenceDaysOfWeek = activity.recurrenceDaysOfWeek.toSet(),
+                    monthlyRepeatType = activity.monthlyRepeatType,
+                    monthlySelectedDays = activity.monthlySelectedDays.toSet(),
+                    yearlyRepeatType = activity.yearlyRepeatType,
+                    yearlySelectedMonths = activity.yearlySelectedMonths.toSet(),
+                    recurrenceEndType = activity.recurrenceEndType,
+                    recurrenceEndCount = activity.recurrenceEndCount,
+                    recurrenceEndDateMillis = if (activity.recurrenceEndDateMillis > 0L) activity.recurrenceEndDateMillis else defaultRecurrenceEndDateMillis(activity.startTimeMillis),
+                    attachments = processed
+                )
+            }
+        }
+    }
 
     fun setInitialDate(dateMillis: Long) {
         val targetCal = Calendar.getInstance().apply { timeInMillis = dateMillis }
@@ -563,6 +609,36 @@ class CreateEntryViewModel(
                 reminderCategoryColorHex = if (isReminder) current.selectedReminderCategory.colorHex else 0xFF9D7BFC,
                 reminderCategoryIcon = if (isReminder) current.selectedReminderCategory.iconName else "bell"
             )
+
+            if (current.editingActivityId != null) {
+                val targetId = current.editingActivityId
+                val updatedActivity = activity.copy(id = targetId)
+                activityRepository.updateActivity(updatedActivity)
+
+                if (!isReminder) {
+                    val existingAttachments = linkRepository?.getAttachmentsForActivity(targetId)?.firstOrNull() ?: emptyList()
+                    val existingUris = existingAttachments.map { it.uriString }.toSet()
+                    current.attachments.forEach { att ->
+                        if (att.filePath !in existingUris) {
+                            linkRepository?.insertAttachment(
+                                ActivityAttachment(
+                                    activityId = targetId,
+                                    fileName = att.fileName,
+                                    uriString = att.filePath,
+                                    mimeType = att.mimeType,
+                                    sizeBytes = att.sizeBytes
+                                )
+                            )
+                        }
+                    }
+                }
+
+                scheduler.schedule(updatedActivity)
+
+                _state.update { it.copy(isSaving = false) }
+                _events.emit(CreateEntryEvent.SavedSuccessfully)
+                return@launch
+            }
 
             val newId = activityRepository.insertActivity(activity)
             val savedActivity = activity.copy(id = newId)

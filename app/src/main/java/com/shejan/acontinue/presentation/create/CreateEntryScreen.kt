@@ -477,17 +477,19 @@ fun CreateEntryScreen(
                 .padding(top = 16.dp, bottom = if (showEmojiKeyboard) 360.dp else if (isImeVisible) 280.dp else 120.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Segmented Pill Toggle: Event vs Reminder
-            SegmentedTopToggle(
-                selectedType = state.entryType,
-                onSelectType = {
-                    focusManager.clearFocus()
-                    keyboardController?.hide()
-                    viewModel.updateEntryType(it)
-                }
-            )
+            // Top Segmented Pill Toggle: Event vs Reminder vs Notes
+            if (state.editingActivityId == null) {
+                SegmentedTopToggle(
+                    selectedType = state.entryType,
+                    onSelectType = {
+                        focusManager.clearFocus()
+                        keyboardController?.hide()
+                        viewModel.updateEntryType(it)
+                    }
+                )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(16.dp))
+            }
 
             // Main Card Container (Elevated surface matching Home overview card)
             Surface(
@@ -1223,11 +1225,11 @@ fun CreateEntryScreen(
             }
         }
 
-        // Bottom Action Dock: Cancel | Save Pill (Visible when Emoji Keyboard is closed)
+        // Bottom Action Dock: Cancel | Save / Update Pill (Visible when Emoji Keyboard is closed)
         if (!showEmojiKeyboard) {
             BottomCancelSaveDock(
                 onCancel = {
-                    if (hasModifications) {
+                    if (hasModifications && state.editingActivityId == null) {
                         showDiscardSheet = true
                     } else {
                         onDismiss()
@@ -1235,6 +1237,7 @@ fun CreateEntryScreen(
                 },
                 onSave = { viewModel.saveEntry() },
                 isSaveEnabled = state.title.isNotBlank() && !state.isSaving,
+                saveButtonText = if (state.editingActivityId != null) "Update" else "Save",
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
@@ -2687,6 +2690,7 @@ private fun BottomCancelSaveDock(
     onCancel: () -> Unit,
     onSave: () -> Unit,
     isSaveEnabled: Boolean,
+    saveButtonText: String = "Save",
     modifier: Modifier = Modifier
 ) {
     val colors = LocalUtilitarianColors.current
@@ -2734,7 +2738,7 @@ private fun BottomCancelSaveDock(
                         .background(colors.borderStroke)
                 )
 
-                // Save
+                // Save / Update
                 Box(
                     modifier = Modifier
                         .weight(1f)
@@ -2743,7 +2747,7 @@ private fun BottomCancelSaveDock(
                     contentAlignment = Alignment.Center
                 ) {
                     Text(
-                        text = "Save",
+                        text = saveButtonText,
                         color = if (isSaveEnabled) colors.accent else colors.textDisabled,
                         fontWeight = FontWeight.Bold,
                         fontSize = 15.sp

@@ -38,9 +38,13 @@ sealed class Screen(val route: String) {
     data object Diary : Screen("diary")
     data object Calendar : Screen("calendar")
     data object Settings : Screen("settings")
-    data object Create : Screen("create?initialDate={initialDate}") {
-        fun createRoute(initialDate: Long? = null): String =
-            if (initialDate != null) "create?initialDate=$initialDate" else "create"
+    data object Create : Screen("create?initialDate={initialDate}&editActivityId={editActivityId}") {
+        fun createRoute(initialDate: Long? = null, editActivityId: Long? = null): String {
+            val params = mutableListOf<String>()
+            if (initialDate != null) params.add("initialDate=$initialDate")
+            if (editActivityId != null) params.add("editActivityId=$editActivityId")
+            return if (params.isNotEmpty()) "create?${params.joinToString("&")}" else "create"
+        }
     }
     data object Workspace : Screen("workspace/{activityId}") {
         fun createRoute(activityId: Long): String = "workspace/$activityId"
@@ -193,14 +197,21 @@ fun ContinueNavHost(
                     navArgument("initialDate") {
                         type = NavType.LongType
                         defaultValue = -1L
+                    },
+                    navArgument("editActivityId") {
+                        type = NavType.LongType
+                        defaultValue = -1L
                     }
                 )
             ) { backStackEntry ->
                 val initialDate = backStackEntry.arguments?.getLong("initialDate") ?: -1L
+                val editActivityId = backStackEntry.arguments?.getLong("editActivityId") ?: -1L
                 val createViewModel: CreateEntryViewModel = viewModel(
                     factory = container.provideCreateEntryViewModelFactory()
                 )
-                if (initialDate > 0L) {
+                if (editActivityId > 0L) {
+                    createViewModel.loadActivityForEditing(editActivityId)
+                } else if (initialDate > 0L) {
                     createViewModel.setInitialDate(initialDate)
                 }
                 CreateEntryScreen(
@@ -224,6 +235,9 @@ fun ContinueNavHost(
                 ActivityWorkspaceScreen(
                     viewModel = workspaceViewModel,
                     onNavigateBack = { navController.popBackStack() },
+                    onEditActivity = { id ->
+                        navController.navigate(Screen.Create.createRoute(editActivityId = id))
+                    },
                     modifier = Modifier.statusBarsPadding().navigationBarsPadding()
                 )
             }
