@@ -692,36 +692,19 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
         item {
             MonochromeCard {
                 Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "EVENT NOTE",
-                            color = UtilitarianTextSecondary,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                        IconButton(
-                            onClick = { /* Reserved for 3-dot menu options */ },
-                            modifier = Modifier.size(20.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.MoreVert,
-                                contentDescription = "Note Options",
-                                tint = UtilitarianTextSecondary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                        }
-                    }
+                    Text(
+                        text = "EVENT NOTE",
+                        color = UtilitarianTextSecondary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
                     Spacer(modifier = Modifier.height(8.dp))
                     if (activity.description.isNotBlank()) {
                         ClickableLinkText(
                             text = activity.description,
-                            color = UtilitarianTextPrimary,
+                            color = UtilitarianTextSecondary,
                             linkColor = Color(0xFF3897F0),
                             style = TextStyle(fontSize = 14.sp),
                             lineHeight = 20.sp
