@@ -71,12 +71,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -1210,6 +1214,7 @@ internal fun UtilitarianEventDetailSheet(
     val isReminder = activity.entryType == EntryType.REMINDER
     val catColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
     val typeTitle = if (isReminder) "Reminder" else "Event"
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
 
     ModalBottomSheet(
         onDismissRequest = onDismiss,
@@ -1381,8 +1386,7 @@ internal fun UtilitarianEventDetailSheet(
                 // DELETE (Solid red square box with white trash icon only)
                 Surface(
                     onClick = {
-                        onDelete(activity.id)
-                        onDismiss()
+                        showDeleteConfirmDialog = true
                     },
                     shape = RoundedCornerShape(8.dp),
                     color = Color(0xFFD71921),
@@ -1468,6 +1472,118 @@ internal fun UtilitarianEventDetailSheet(
                                     modifier = Modifier.size(14.dp)
                                 )
                             }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if (showDeleteConfirmDialog) {
+        val entryTypeName = if (isReminder) "reminder" else "event"
+        Dialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                shape = RoundedCornerShape(24.dp),
+                color = Color(0xFF202020),
+                border = BorderStroke(1.dp, Color(0xFF333333)),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 24.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    // Trash Icon in Red Circle Badge
+                    Box(
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(Color(0xFFD71921).copy(alpha = 0.15f), CircleShape),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = null,
+                            tint = Color(0xFFD71921),
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    Text(
+                        text = "Delete $entryTypeName?",
+                        color = UtilitarianTextPrimary,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        textAlign = TextAlign.Center
+                    )
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
+                    Text(
+                        text = "Are you sure you want to delete this $entryTypeName? This action cannot be undone.",
+                        color = UtilitarianTextSecondary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Normal,
+                        textAlign = TextAlign.Center,
+                        lineHeight = 20.sp,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Cancel Button Box
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFF2C3136))
+                                .border(1.dp, Color(0xFF3F454C), RoundedCornerShape(12.dp))
+                                .clickable {
+                                    showDeleteConfirmDialog = false
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Cancel",
+                                color = UtilitarianTextPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+
+                        // Delete Button Box
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(46.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(Color(0xFFD71921))
+                                .clickable {
+                                    showDeleteConfirmDialog = false
+                                    onDelete(activity.id)
+                                    onDismiss()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "Delete",
+                                color = Color.White,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                         }
                     }
                 }
