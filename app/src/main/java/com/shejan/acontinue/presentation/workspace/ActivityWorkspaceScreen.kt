@@ -243,7 +243,7 @@ fun ActivityWorkspaceScreen(
             Icon(
                 imageVector = Icons.Outlined.Event,
                 contentDescription = null,
-                tint = Color(activity.category.colorHex),
+                tint = UtilitarianTextPrimary,
                 modifier = Modifier.size(24.dp)
             )
             Spacer(modifier = Modifier.width(10.dp))
@@ -449,7 +449,6 @@ private fun WorkspaceTabRow(
 @Composable
 private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
     val activity = aggregate.activity
-    val accentColor = Color(activity.category.colorHex)
 
     LazyColumn(modifier = Modifier.fillMaxSize()) {
         // Card 1: DATE, TIME & LOCATION
@@ -614,9 +613,9 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         }
                         Text(
                             text = alertText,
-                            color = if (alertText == "Not set") UtilitarianTextDisabled else UtilitarianTextPrimary,
+                            color = if (alertText == "Not set") UtilitarianTextDisabled else UtilitarianTextSecondary,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Normal
                         )
                     }
 
@@ -649,9 +648,9 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         }
                         Text(
                             text = repeatText,
-                            color = if (repeatText == "Not set") UtilitarianTextDisabled else UtilitarianTextPrimary,
+                            color = if (repeatText == "Not set") UtilitarianTextDisabled else UtilitarianTextSecondary,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Normal
                         )
                     }
 
@@ -679,38 +678,9 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         }
                         Text(
                             text = activity.priority.name,
-                            color = UtilitarianTextPrimary,
+                            color = UtilitarianTextSecondary,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(10.dp))
-
-                    // Category
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Box(
-                                modifier = Modifier
-                                    .size(8.dp)
-                                    .background(accentColor, CircleShape)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Category",
-                                color = UtilitarianTextSecondary,
-                                fontSize = 13.sp
-                            )
-                        }
-                        Text(
-                            text = activity.category.displayName,
-                            color = UtilitarianTextPrimary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Normal
                         )
                     }
                 }
