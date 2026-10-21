@@ -14,10 +14,11 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -132,151 +133,157 @@ fun ActivityWorkspaceScreen(
     val aggregate = uiState.aggregate!!
     val activity = aggregate.activity
 
-    Column(
+    LazyColumn(
         modifier = modifier
             .fillMaxSize()
             .background(UtilitarianPureBlack)
             .padding(horizontal = 16.dp)
+            .navigationBarsPadding(),
+        contentPadding = PaddingValues(bottom = 32.dp)
     ) {
         // Top Bar
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = 12.dp, bottom = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            IconButton(
-                onClick = onNavigateBack,
-                modifier = Modifier.size(36.dp)
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 12.dp, bottom = 8.dp),
+                verticalAlignment = Alignment.CenterVertically
             ) {
+                IconButton(
+                    onClick = onNavigateBack,
+                    modifier = Modifier.size(36.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = "Back",
+                        tint = UtilitarianTextPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(6.dp))
                 Icon(
-                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                    contentDescription = "Back",
+                    imageVector = Icons.Outlined.Dashboard,
+                    contentDescription = null,
                     tint = UtilitarianTextPrimary,
                     modifier = Modifier.size(20.dp)
                 )
-            }
-            Spacer(modifier = Modifier.width(6.dp))
-            Icon(
-                imageVector = Icons.Outlined.Dashboard,
-                contentDescription = null,
-                tint = UtilitarianTextPrimary,
-                modifier = Modifier.size(20.dp)
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = "WORKSPACE",
-                color = UtilitarianTextPrimary,
-                fontFamily = FontFamily.Monospace,
-                fontWeight = FontWeight.Bold,
-                fontSize = 20.sp,
-                letterSpacing = 1.2.sp
-            )
-            Spacer(modifier = Modifier.weight(1f))
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "WORKSPACE",
+                    color = UtilitarianTextPrimary,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 20.sp,
+                    letterSpacing = 1.2.sp
+                )
+                Spacer(modifier = Modifier.weight(1f))
 
-            Box {
-                IconButton(onClick = { showMenu = true }) {
-                    Icon(
-                        imageVector = Icons.Outlined.MoreVert,
-                        contentDescription = "Options",
-                        tint = UtilitarianTextPrimary
-                    )
-                }
-                DropdownMenu(
-                    expanded = showMenu,
-                    onDismissRequest = { showMenu = false },
-                    modifier = Modifier.background(Color(0xFF202020))
-                ) {
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = "Edit",
-                                color = UtilitarianTextPrimary,
-                                fontSize = 14.sp
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Outlined.Edit,
-                                contentDescription = "Edit",
-                                tint = UtilitarianTextPrimary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        onClick = {
-                            showMenu = false
-                            onEditActivity(activity.id)
-                        }
-                    )
-                    DropdownMenuItem(
-                        text = {
-                            Text(
-                                text = "Delete",
-                                color = Color(0xFFD71921),
-                                fontSize = 14.sp
-                            )
-                        },
-                        leadingIcon = {
-                            Icon(
-                                imageVector = Icons.Outlined.Delete,
-                                contentDescription = "Delete",
-                                tint = Color(0xFFD71921),
-                                modifier = Modifier.size(18.dp)
-                            )
-                        },
-                        onClick = {
-                            showMenu = false
-                            showDeleteConfirmDialog = true
-                        }
-                    )
+                Box {
+                    IconButton(onClick = { showMenu = true }) {
+                        Icon(
+                            imageVector = Icons.Outlined.MoreVert,
+                            contentDescription = "Options",
+                            tint = UtilitarianTextPrimary
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = showMenu,
+                        onDismissRequest = { showMenu = false },
+                        modifier = Modifier.background(Color(0xFF202020))
+                    ) {
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "Edit",
+                                    color = UtilitarianTextPrimary,
+                                    fontSize = 14.sp
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.Edit,
+                                    contentDescription = "Edit",
+                                    tint = UtilitarianTextPrimary,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                onEditActivity(activity.id)
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Text(
+                                    text = "Delete",
+                                    color = Color(0xFFD71921),
+                                    fontSize = 14.sp
+                                )
+                            },
+                            leadingIcon = {
+                                Icon(
+                                    imageVector = Icons.Outlined.Delete,
+                                    contentDescription = "Delete",
+                                    tint = Color(0xFFD71921),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            },
+                            onClick = {
+                                showMenu = false
+                                showDeleteConfirmDialog = true
+                            }
+                        )
+                    }
                 }
             }
+            Spacer(modifier = Modifier.height(4.dp))
         }
 
-        Spacer(modifier = Modifier.height(4.dp))
-
         // Header Title Card with Subtitles Icon and First-Line Alignment
-        MonochromeCard(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(bottom = 12.dp)
-        ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.Top
+        item {
+            MonochromeCard(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 12.dp)
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.Subtitles,
-                    contentDescription = null,
-                    tint = UtilitarianTextPrimary,
-                    modifier = Modifier
-                        .padding(top = 2.dp)
-                        .size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
-                Text(
-                    text = activity.title,
-                    color = UtilitarianTextPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Normal,
-                    modifier = Modifier.weight(1f)
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.Subtitles,
+                        contentDescription = null,
+                        tint = UtilitarianTextPrimary,
+                        modifier = Modifier
+                            .padding(top = 2.dp)
+                            .size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(10.dp))
+                    Text(
+                        text = activity.title,
+                        color = UtilitarianTextPrimary,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Normal,
+                        modifier = Modifier.weight(1f)
+                    )
+                }
             }
         }
 
         // Workspace Tabs
-        WorkspaceTabRow(
-            selectedTab = uiState.selectedTab,
-            onSelectTab = { viewModel.selectTab(it) },
-            notesCount = aggregate.notes.size,
-            tasksCount = aggregate.tasks.size,
-            linksCount = aggregate.links.size
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
+        item {
+            WorkspaceTabRow(
+                selectedTab = uiState.selectedTab,
+                onSelectTab = { viewModel.selectTab(it) },
+                notesCount = aggregate.notes.size,
+                tasksCount = aggregate.tasks.size,
+                linksCount = aggregate.links.size
+            )
+            Spacer(modifier = Modifier.height(12.dp))
+        }
 
         // Tab Content
-        Box(modifier = Modifier.weight(1f)) {
+        item {
             when (uiState.selectedTab) {
                 WorkspaceTab.OVERVIEW -> OverviewTabContent(aggregate = aggregate)
                 WorkspaceTab.NOTES -> NotesTabContent(
@@ -458,10 +465,9 @@ private fun WorkspaceTabRow(
 private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
     val activity = aggregate.activity
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         // Card 1: DATE, TIME & LOCATION
-        item {
-            MonochromeCard {
+        MonochromeCard {
                 Column {
                     Text(
                         text = "DATE, TIME & LOCATION",
@@ -582,11 +588,9 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-        }
 
         // Card 2: EVENT SETTINGS
-        item {
-            MonochromeCard {
+        MonochromeCard {
                 Column {
                     Text(
                         text = "EVENT SETTINGS",
@@ -694,11 +698,9 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-        }
 
         // Card 3: EVENT NOTE
-        item {
-            MonochromeCard {
+        MonochromeCard {
                 Column {
                     Text(
                         text = "EVENT NOTE",
@@ -727,11 +729,9 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                 }
             }
             Spacer(modifier = Modifier.height(12.dp))
-        }
 
         // Card 4: ATTACHMENTS
-        item {
-            MonochromeCard {
+        MonochromeCard {
                 Column {
                     Text(
                         text = if (aggregate.attachments.isNotEmpty()) {
@@ -816,7 +816,6 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                 }
             }
             Spacer(modifier = Modifier.height(16.dp))
-        }
     }
 }
 
@@ -829,72 +828,68 @@ private fun NotesTabContent(
     var titleInput by remember { mutableStateOf("") }
     var contentInput by remember { mutableStateOf("") }
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
+    Column(modifier = Modifier.fillMaxWidth()) {
         // Quick Add Note Box
-        item {
-            MonochromeCard {
-                Column {
-                    Text(
-                        text = "ADD LECTURE / WORKSPACE NOTE",
-                        color = UtilitarianTextSecondary,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    TextField(
-                        value = titleInput,
-                        onValueChange = { titleInput = it },
-                        placeholder = { Text("Note title (optional)", color = UtilitarianTextDisabled, fontSize = 13.sp) },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedTextColor = UtilitarianTextPrimary,
-                            unfocusedTextColor = UtilitarianTextPrimary
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    TextField(
-                        value = contentInput,
-                        onValueChange = { contentInput = it },
-                        placeholder = { Text("Write notes, observations, or key takeaways...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedTextColor = UtilitarianTextPrimary,
-                            unfocusedTextColor = UtilitarianTextPrimary
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HighContrastButton(
-                        text = "+ Save Note",
-                        onClick = {
-                            if (contentInput.isNotBlank() || titleInput.isNotBlank()) {
-                                onAddNote(titleInput, contentInput)
-                                titleInput = ""
-                                contentInput = ""
-                            }
-                        },
-                        modifier = Modifier.align(Alignment.End)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        if (notes.isEmpty()) {
-            item {
+        MonochromeCard {
+            Column {
                 Text(
-                    text = "No notes added yet. Use the box above to capture thoughts during this activity.",
+                    text = "ADD LECTURE / WORKSPACE NOTE",
                     color = UtilitarianTextSecondary,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(8.dp)
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                TextField(
+                    value = titleInput,
+                    onValueChange = { titleInput = it },
+                    placeholder = { Text("Note title (optional)", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedTextColor = UtilitarianTextPrimary,
+                        unfocusedTextColor = UtilitarianTextPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TextField(
+                    value = contentInput,
+                    onValueChange = { contentInput = it },
+                    placeholder = { Text("Write notes, observations, or key takeaways...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedTextColor = UtilitarianTextPrimary,
+                        unfocusedTextColor = UtilitarianTextPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                HighContrastButton(
+                    text = "+ Save Note",
+                    onClick = {
+                        if (contentInput.isNotBlank() || titleInput.isNotBlank()) {
+                            onAddNote(titleInput, contentInput)
+                            titleInput = ""
+                            contentInput = ""
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.End)
                 )
             }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (notes.isEmpty()) {
+            Text(
+                text = "No notes added yet. Use the box above to capture thoughts during this activity.",
+                color = UtilitarianTextSecondary,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(8.dp)
+            )
         } else {
-            items(notes, key = { it.id }) { note ->
+            notes.forEach { note ->
                 MonochromeCard {
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -937,52 +932,48 @@ private fun TasksTabContent(
 ) {
     var taskInput by remember { mutableStateOf("") }
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(vertical = 4.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                TextField(
-                    value = taskInput,
-                    onValueChange = { taskInput = it },
-                    placeholder = { Text("New checklist or follow-up task...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = UtilitarianCardBackground,
-                        unfocusedContainerColor = UtilitarianCardBackground,
-                        focusedTextColor = UtilitarianTextPrimary,
-                        unfocusedTextColor = UtilitarianTextPrimary
-                    ),
-                    shape = RoundedCornerShape(8.dp),
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                HighContrastButton(
-                    text = "+ Add",
-                    onClick = {
-                        if (taskInput.isNotBlank()) {
-                            onAddTask(taskInput)
-                            taskInput = ""
-                        }
+    Column(modifier = Modifier.fillMaxWidth()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(vertical = 4.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            TextField(
+                value = taskInput,
+                onValueChange = { taskInput = it },
+                placeholder = { Text("New checklist or follow-up task...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                colors = TextFieldDefaults.colors(
+                    focusedContainerColor = UtilitarianCardBackground,
+                    unfocusedContainerColor = UtilitarianCardBackground,
+                    focusedTextColor = UtilitarianTextPrimary,
+                    unfocusedTextColor = UtilitarianTextPrimary
+                ),
+                shape = RoundedCornerShape(8.dp),
+                modifier = Modifier.weight(1f)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            HighContrastButton(
+                text = "+ Add",
+                onClick = {
+                    if (taskInput.isNotBlank()) {
+                        onAddTask(taskInput)
+                        taskInput = ""
                     }
-                )
-            }
-            Spacer(modifier = Modifier.height(12.dp))
+                }
+            )
         }
+        Spacer(modifier = Modifier.height(12.dp))
 
         if (tasks.isEmpty()) {
-            item {
-                Text(
-                    text = "No checklist items. Add follow-up assignments or items to remember.",
-                    color = UtilitarianTextSecondary,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(8.dp)
-                )
-            }
+            Text(
+                text = "No checklist items. Add follow-up assignments or items to remember.",
+                color = UtilitarianTextSecondary,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(8.dp)
+            )
         } else {
-            items(tasks, key = { it.id }) { task ->
+            tasks.forEach { task ->
                 Surface(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -1034,71 +1025,67 @@ private fun LinksTabContent(
     var titleInput by remember { mutableStateOf("") }
     val context = LocalContext.current
 
-    LazyColumn(modifier = Modifier.fillMaxSize()) {
-        item {
-            MonochromeCard {
-                Column {
-                    Text(
-                        text = "SAVE REFERENCE LINK / URL",
-                        color = UtilitarianTextSecondary,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    TextField(
-                        value = titleInput,
-                        onValueChange = { titleInput = it },
-                        placeholder = { Text("Link title (e.g. Lab Spec, Slide Deck)", color = UtilitarianTextDisabled, fontSize = 13.sp) },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedTextColor = UtilitarianTextPrimary,
-                            unfocusedTextColor = UtilitarianTextPrimary
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    TextField(
-                        value = urlInput,
-                        onValueChange = { urlInput = it },
-                        placeholder = { Text("https://...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
-                        colors = TextFieldDefaults.colors(
-                            focusedContainerColor = Color.Transparent,
-                            unfocusedContainerColor = Color.Transparent,
-                            focusedTextColor = UtilitarianTextPrimary,
-                            unfocusedTextColor = UtilitarianTextPrimary
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-                    HighContrastButton(
-                        text = "+ Save Link",
-                        onClick = {
-                            if (urlInput.isNotBlank()) {
-                                onAddLink(urlInput, titleInput)
-                                urlInput = ""
-                                titleInput = ""
-                            }
-                        },
-                        modifier = Modifier.align(Alignment.End)
-                    )
-                }
-            }
-            Spacer(modifier = Modifier.height(12.dp))
-        }
-
-        if (links.isEmpty()) {
-            item {
+    Column(modifier = Modifier.fillMaxWidth()) {
+        MonochromeCard {
+            Column {
                 Text(
-                    text = "No resource links attached. Save URLs discussed in this session.",
+                    text = "SAVE REFERENCE LINK / URL",
                     color = UtilitarianTextSecondary,
-                    fontSize = 13.sp,
-                    modifier = Modifier.padding(8.dp)
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp
+                )
+                Spacer(modifier = Modifier.height(6.dp))
+                TextField(
+                    value = titleInput,
+                    onValueChange = { titleInput = it },
+                    placeholder = { Text("Link title (e.g. Lab Spec, Slide Deck)", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedTextColor = UtilitarianTextPrimary,
+                        unfocusedTextColor = UtilitarianTextPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                TextField(
+                    value = urlInput,
+                    onValueChange = { urlInput = it },
+                    placeholder = { Text("https://...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = Color.Transparent,
+                        unfocusedContainerColor = Color.Transparent,
+                        focusedTextColor = UtilitarianTextPrimary,
+                        unfocusedTextColor = UtilitarianTextPrimary
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                HighContrastButton(
+                    text = "+ Save Link",
+                    onClick = {
+                        if (urlInput.isNotBlank()) {
+                            onAddLink(urlInput, titleInput)
+                            urlInput = ""
+                            titleInput = ""
+                        }
+                    },
+                    modifier = Modifier.align(Alignment.End)
                 )
             }
+        }
+        Spacer(modifier = Modifier.height(12.dp))
+
+        if (links.isEmpty()) {
+            Text(
+                text = "No resource links attached. Save URLs discussed in this session.",
+                color = UtilitarianTextSecondary,
+                fontSize = 13.sp,
+                modifier = Modifier.padding(8.dp)
+            )
         } else {
-            items(links, key = { it.id }) { link ->
+            links.forEach { link ->
                 MonochromeCard(
                     onClick = {
                         val parsed = if (!link.url.startsWith("http://") && !link.url.startsWith("https://")) "https://${link.url}" else link.url
