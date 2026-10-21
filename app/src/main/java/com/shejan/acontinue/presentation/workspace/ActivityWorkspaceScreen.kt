@@ -20,11 +20,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.foundation.border
+import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -431,7 +434,7 @@ private fun WorkspaceTabRow(
             ) {
                 Text(
                     text = label,
-                    color = if (isSelected) UtilitarianTextPrimary else UtilitarianTextDisabled,
+                    color = if (isSelected) UtilitarianTextPrimary else UtilitarianTextSecondary,
                     fontFamily = FontFamily.SansSerif,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     fontSize = 11.sp,
@@ -468,28 +471,34 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(
-                            modifier = Modifier
-                                .size(8.dp)
-                                .background(accentColor, CircleShape)
+                        Icon(
+                            imageVector = Icons.Outlined.CalendarToday,
+                            contentDescription = null,
+                            tint = UtilitarianTextSecondary,
+                            modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = EventFormatters.formatDate(activity.startTimeMillis),
-                            color = UtilitarianTextPrimary,
+                            color = UtilitarianTextSecondary,
                             fontSize = 13.sp,
-                            fontWeight = FontWeight.Medium
+                            fontWeight = FontWeight.Normal
                         )
                     }
 
                     // Time span
-                    Spacer(modifier = Modifier.height(4.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp),
+                        modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Icon(
+                            imageVector = Icons.Outlined.AccessTime,
+                            contentDescription = null,
+                            tint = UtilitarianTextSecondary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = EventFormatters.formatTimeSpan(
                                 activity.startTimeMillis,
@@ -498,7 +507,8 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                             ),
                             color = UtilitarianTextSecondary,
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Normal
                         )
                     }
 
@@ -512,21 +522,27 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         val isLink = LocationHelper.isMapLocationLink(activity.location)
                         Row(
                             modifier = Modifier
+                                .fillMaxWidth()
                                 .clip(RoundedCornerShape(6.dp))
-                                .clickable { LocationHelper.openLocationInMapApp(context, activity.location) }
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    LocationHelper.openLocationInMapApp(context, activity.location)
+                                }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 imageVector = Icons.Outlined.LocationOn,
                                 contentDescription = "Location",
-                                tint = if (isLink) Color(0xFF3897F0) else UtilitarianTextPrimary,
+                                tint = if (isLink) Color(0xFF3897F0) else UtilitarianTextSecondary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = activity.location,
-                                color = if (isLink) Color(0xFF3897F0) else UtilitarianTextPrimary,
+                                color = if (isLink) Color(0xFF3897F0) else UtilitarianTextSecondary,
                                 fontSize = 13.sp,
                                 modifier = Modifier.weight(1f)
                             )
@@ -534,7 +550,7 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                                 imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
                                 contentDescription = "Open Map",
                                 tint = Color(0xFF3897F0),
-                                modifier = Modifier.size(14.dp)
+                                modifier = Modifier.size(16.dp)
                             )
                         }
                     } else {
