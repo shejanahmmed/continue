@@ -31,7 +31,7 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Event
+import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
@@ -233,27 +233,35 @@ fun ActivityWorkspaceScreen(
             }
         }
 
-        // Header Title with Event Icon and Normal Font Weight
-        Row(
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // Header Title Card with Subtitles Icon and First-Line Alignment
+        MonochromeCard(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(top = 8.dp, bottom = 14.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(bottom = 12.dp)
         ) {
-            Icon(
-                imageVector = Icons.Outlined.Event,
-                contentDescription = null,
-                tint = UtilitarianTextPrimary,
-                modifier = Modifier.size(24.dp)
-            )
-            Spacer(modifier = Modifier.width(10.dp))
-            Text(
-                text = activity.title,
-                color = UtilitarianTextPrimary,
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Normal,
-                modifier = Modifier.weight(1f)
-            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Subtitles,
+                    contentDescription = null,
+                    tint = UtilitarianTextPrimary,
+                    modifier = Modifier
+                        .padding(top = 2.dp)
+                        .size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Text(
+                    text = activity.title,
+                    color = UtilitarianTextPrimary,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Normal,
+                    modifier = Modifier.weight(1f)
+                )
+            }
         }
 
         // Workspace Tabs
