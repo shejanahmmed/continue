@@ -771,16 +771,16 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                                     Icon(
                                         imageVector = Icons.Outlined.AttachFile,
                                         contentDescription = null,
-                                        tint = UtilitarianTextPrimary,
+                                        tint = UtilitarianTextSecondary,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = att.fileName,
-                                            color = UtilitarianTextPrimary,
+                                            color = UtilitarianTextSecondary,
                                             fontSize = 13.sp,
-                                            fontWeight = FontWeight.Medium,
+                                            fontWeight = FontWeight.Normal,
                                             maxLines = 1
                                         )
                                         Text(
