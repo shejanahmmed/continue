@@ -18,7 +18,8 @@ data class NoteEditorSnapshot(
     val isChecklistMode: Boolean,
     val attachedImageUris: List<Uri>,
     val selectedColorHex: Long,
-    val selectedLabels: Set<String> = emptySet()
+    val selectedLabels: Set<String> = emptySet(),
+    val recordedAudioUris: List<Uri> = emptyList()
 )
 
 /**

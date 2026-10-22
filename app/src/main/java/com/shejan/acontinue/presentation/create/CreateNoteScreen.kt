@@ -8,7 +8,12 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -53,8 +58,16 @@ import kotlin.math.roundToInt
 import android.content.Intent
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
+import android.Manifest
+import android.content.pm.PackageManager
+import android.media.MediaMetadataRetriever
+import android.media.MediaPlayer
+import androidx.compose.material.icons.outlined.Pause
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.core.content.FileProvider
+import androidx.core.content.ContextCompat
 import com.shejan.acontinue.core.util.AttachmentHelper
+import com.shejan.acontinue.core.util.AudioRecordHelper
 import com.shejan.acontinue.core.util.ImageUtils
 import java.io.File
 import android.graphics.Bitmap
@@ -122,6 +135,7 @@ import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.TextFieldValue
@@ -197,13 +211,23 @@ fun CreateNoteScreen(
     var lastEditedMillis by remember { mutableLongStateOf(openedAtMillis) }
     var hasUserModified by remember { mutableStateOf(false) }
 
+    val parsedAudioUris = remember(initialContent) {
+        AUDIO_TAG_REGEX.findAll(initialContent).mapNotNull { match ->
+            runCatching { Uri.parse(match.groupValues[1]) }.getOrNull()
+        }.toList()
+    }
+    val initialCleanContent = remember(initialContent) {
+        initialContent.replace(AUDIO_TAG_REGEX, "").trimEnd()
+    }
+
     var title by remember { mutableStateOf(initialTitle) }
-    var noteTextState by remember { mutableStateOf(TextFieldValue(initialContent)) }
+    var noteTextState by remember { mutableStateOf(TextFieldValue(initialCleanContent)) }
     var formatState by remember { mutableStateOf(NoteFormatState()) }
     var selectedColorHex by remember { mutableLongStateOf(initialColorHex) }
     var isChecklistMode by remember { mutableStateOf(false) }
     var checklistItems by remember { mutableStateOf(listOf<ChecklistItem>()) }
     var attachedImageUris by remember { mutableStateOf(listOf<Uri>()) }
+    var recordedAudioUris by remember { mutableStateOf(parsedAudioUris) }
     var selectedLabels by remember { mutableStateOf(initialLabels.toSet()) }
     var showLabelScreen by remember { mutableStateOf(false) }
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -216,10 +240,14 @@ fun CreateNoteScreen(
     var activeMatchIndex by remember { mutableIntStateOf(0) }
     val searchFocusRequester = remember { FocusRequester() }
 
-    var targetCursorPosition by remember { mutableIntStateOf(initialContent.length) }
+    var targetCursorPosition by remember { mutableIntStateOf(initialCleanContent.length) }
     var capturedPhotoFile by remember { mutableStateOf<File?>(null) }
     var selectedPreviewPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var autoFocusAfterCaptureTrigger by remember { mutableIntStateOf(0) }
+
+    val audioRecordHelper = remember { AudioRecordHelper(context) }
+    var isRecordingAudio by remember { mutableStateOf(false) }
+    var recordingElapsedSeconds by remember { mutableIntStateOf(0) }
 
     val searchMatches = remember(noteTextState.text, searchQuery) {
         if (searchQuery.isBlank()) emptyList() else NoteTextFormatter.findMatches(noteTextState.text, searchQuery)
@@ -230,13 +258,14 @@ fun CreateNoteScreen(
     val initialSnapshot = remember {
         NoteEditorSnapshot(
             title = initialTitle,
-            noteTextState = TextFieldValue(initialContent),
+            noteTextState = TextFieldValue(initialCleanContent),
             formatState = NoteFormatState(),
             checklistItems = emptyList(),
             isChecklistMode = false,
             attachedImageUris = emptyList(),
             selectedColorHex = initialColorHex,
-            selectedLabels = initialLabels.toSet()
+            selectedLabels = initialLabels.toSet(),
+            recordedAudioUris = parsedAudioUris
         )
     }
     val undoManager = remember { NoteUndoManager(initialSnapshot = initialSnapshot) }
@@ -249,7 +278,8 @@ fun CreateNoteScreen(
         newIsChecklistMode: Boolean = isChecklistMode,
         newAttachedImageUris: List<Uri> = attachedImageUris,
         newSelectedColorHex: Long = selectedColorHex,
-        newSelectedLabels: Set<String> = selectedLabels
+        newSelectedLabels: Set<String> = selectedLabels,
+        newRecordedAudioUris: List<Uri> = recordedAudioUris
     ): NoteEditorSnapshot {
         hasUserModified = true
         lastEditedMillis = System.currentTimeMillis()
@@ -261,7 +291,8 @@ fun CreateNoteScreen(
             isChecklistMode = newIsChecklistMode,
             attachedImageUris = newAttachedImageUris,
             selectedColorHex = newSelectedColorHex,
-            selectedLabels = newSelectedLabels
+            selectedLabels = newSelectedLabels,
+            recordedAudioUris = newRecordedAudioUris
         )
     }
 
@@ -276,6 +307,7 @@ fun CreateNoteScreen(
         attachedImageUris = restored.attachedImageUris
         selectedColorHex = restored.selectedColorHex
         selectedLabels = restored.selectedLabels
+        recordedAudioUris = restored.recordedAudioUris
     }
 
     LaunchedEffect(isTitleFocused) {
@@ -472,6 +504,72 @@ fun CreateNoteScreen(
         cameraLauncher.launch(uri)
     }
 
+    LaunchedEffect(isRecordingAudio) {
+        if (isRecordingAudio) {
+            recordingElapsedSeconds = 0
+            while (isRecordingAudio) {
+                kotlinx.coroutines.delay(1000)
+                recordingElapsedSeconds++
+            }
+        } else {
+            recordingElapsedSeconds = 0
+        }
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            if (audioRecordHelper.isRecording) {
+                audioRecordHelper.stopRecording()
+            }
+            audioRecordHelper.release()
+        }
+    }
+
+    val startAudioRecording: () -> Unit = {
+        val attachmentsDir = File(context.filesDir, "attachments").apply { if (!exists()) mkdirs() }
+        val audioFile = File(attachmentsDir, "note_audio_${System.currentTimeMillis()}.m4a")
+        if (audioRecordHelper.startRecording(audioFile)) {
+            isRecordingAudio = true
+            recordingElapsedSeconds = 0
+        } else {
+            Toast.makeText(context, "Could not start recording", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val stopAndSaveAudioRecording: () -> Unit = {
+        val file = audioRecordHelper.stopRecording()
+        isRecordingAudio = false
+        if (file != null && file.exists() && file.length() > 0L) {
+            val audioUri = Uri.fromFile(file)
+            val updated = recordedAudioUris + audioUri
+            recordedAudioUris = updated
+            undoManager.recordAction(takeSnapshot(newRecordedAudioUris = updated))
+        }
+    }
+
+    val cancelAudioRecording: () -> Unit = {
+        audioRecordHelper.cancelRecording()
+        isRecordingAudio = false
+    }
+
+    val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            startAudioRecording()
+        } else {
+            Toast.makeText(context, "Microphone permission required for voice recording", Toast.LENGTH_SHORT).show()
+        }
+    }
+
+    val requestRecording: () -> Unit = {
+        if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
+            startAudioRecording()
+        } else {
+            recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+        }
+    }
+
     val buildFinalContent: () -> String = {
         val stringBuilder = StringBuilder()
         if (isChecklistMode) {
@@ -482,12 +580,15 @@ fun CreateNoteScreen(
         } else {
             stringBuilder.append(NoteTextFormatter.serializeToMarkdown(noteTextState.text, formatState))
         }
+        recordedAudioUris.forEach { audioUri ->
+            stringBuilder.append("\n\n![audio]($audioUri)")
+        }
         stringBuilder.toString().trim()
     }
 
     val handleExit = {
         val finalContent = buildFinalContent()
-        if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || selectedLabels.isNotEmpty()) {
+        if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || recordedAudioUris.isNotEmpty() || selectedLabels.isNotEmpty()) {
             onSaveNote(title, finalContent, selectedColorHex, selectedLabels.toList())
         } else {
             onDiscard()
@@ -1007,6 +1108,27 @@ fun CreateNoteScreen(
                 }
             }
 
+            // Recorded Voice Notes Card-Style View
+            if (recordedAudioUris.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(18.dp))
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    recordedAudioUris.forEachIndexed { index, audioUri ->
+                        NoteAudioCard(
+                            audioUri = audioUri,
+                            index = index + 1,
+                            onDelete = {
+                                val updated = recordedAudioUris - audioUri
+                                recordedAudioUris = updated
+                                undoManager.recordAction(takeSnapshot(newRecordedAudioUris = updated))
+                            }
+                        )
+                    }
+                }
+            }
+
             // Bottom overscroll buffer & tap-to-focus zone
             Spacer(
                 modifier = Modifier
@@ -1426,7 +1548,7 @@ fun CreateNoteScreen(
                 coroutineScope.launch {
                     sheetState.hide()
                     showBottomSheet = false
-                    Toast.makeText(context, "Recording feature", Toast.LENGTH_SHORT).show()
+                    requestRecording()
                 }
             },
             NoteMenuOption("Drawing", Icons.Outlined.Edit) {
@@ -1574,6 +1696,24 @@ fun CreateNoteScreen(
                 }
             }
         }
+
+        // Floating Non-Blocking Recording Pill
+        if (isRecordingAudio) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .statusBarsPadding()
+                    .padding(top = 56.dp)
+                    .padding(horizontal = 20.dp),
+                contentAlignment = Alignment.TopCenter
+            ) {
+                FloatingRecordingPill(
+                    elapsedSeconds = recordingElapsedSeconds,
+                    onSave = { stopAndSaveAudioRecording() },
+                    onCancel = { cancelAudioRecording() }
+                )
+            }
+        }
     }
 
     // More Options Bottom Sheet matching reference screenshot
@@ -1595,7 +1735,7 @@ fun CreateNoteScreen(
                     moreSheetState.hide()
                     showMoreSheet = false
                     val finalContent = buildFinalContent()
-                    if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || selectedLabels.isNotEmpty()) {
+                    if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || recordedAudioUris.isNotEmpty() || selectedLabels.isNotEmpty()) {
                         onMakeCopy?.invoke(title, finalContent, selectedColorHex, selectedLabels.toList())
                         Toast.makeText(context, "Note copied", Toast.LENGTH_SHORT).show()
                     }
@@ -2124,6 +2264,321 @@ private fun FullPhotoPreviewDialog(
                     contentDescription = "Close preview",
                     tint = Color.White,
                     modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    }
+}
+
+private val AUDIO_TAG_REGEX = Regex("""!\[audio\]\(([^)]+)\)""")
+
+@Composable
+private fun FloatingRecordingPill(
+    elapsedSeconds: Int,
+    onSave: () -> Unit,
+    onCancel: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptic = LocalHapticFeedback.current
+    val infiniteTransition = rememberInfiniteTransition(label = "recordingPulse")
+    val pulseAlpha by infiniteTransition.animateFloat(
+        initialValue = 0.35f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 650, easing = LinearEasing),
+            repeatMode = RepeatMode.Reverse
+        ),
+        label = "pulseAlpha"
+    )
+
+    fun formatSeconds(sec: Int): String {
+        val m = sec / 60
+        val s = sec % 60
+        return "%02d:%02d".format(m, s)
+    }
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(24.dp))
+            .background(Color(0xFF161A1D))
+            .border(1.dp, Color(0xFF33383F), RoundedCornerShape(24.dp))
+            .padding(horizontal = 14.dp, vertical = 8.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(10.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFFD71921).copy(alpha = pulseAlpha))
+            )
+
+            Text(
+                text = "Recording",
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Medium
+            )
+
+            Text(
+                text = "•",
+                color = Color(0xFF6B7280),
+                fontSize = 12.sp
+            )
+
+            Text(
+                text = formatSeconds(elapsedSeconds),
+                color = Color.White,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.SemiBold,
+                fontFamily = FontFamily.Monospace
+            )
+
+            Spacer(modifier = Modifier.width(6.dp))
+
+            // Save / Done
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF2C3136))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onSave()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Check,
+                    contentDescription = "Save recording",
+                    tint = Color.White,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+
+            // Cancel / Discard
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF2C3136))
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onCancel()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = "Cancel recording",
+                    tint = Color(0xFF9E9E9E),
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoteAudioCard(
+    audioUri: Uri,
+    index: Int,
+    onDelete: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
+    val colors = LocalUtilitarianColors.current
+
+    var isPlaying by remember { mutableStateOf(false) }
+    var currentPositionMs by remember { mutableIntStateOf(0) }
+    var totalDurationMs by remember { mutableIntStateOf(0) }
+    var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+
+    LaunchedEffect(audioUri) {
+        val duration = withContext(Dispatchers.IO) {
+            runCatching {
+                val retriever = MediaMetadataRetriever()
+                retriever.setDataSource(context, audioUri)
+                val durStr = retriever.extractMetadata(MediaMetadataRetriever.METADATA_KEY_DURATION)
+                retriever.release()
+                durStr?.toIntOrNull() ?: 0
+            }.getOrDefault(0)
+        }
+        if (duration > 0) totalDurationMs = duration
+    }
+
+    LaunchedEffect(isPlaying) {
+        while (isPlaying) {
+            mediaPlayer?.let { player ->
+                if (runCatching { player.isPlaying }.getOrDefault(false)) {
+                    currentPositionMs = player.currentPosition
+                }
+            }
+            kotlinx.coroutines.delay(200)
+        }
+    }
+
+    DisposableEffect(audioUri) {
+        onDispose {
+            try {
+                mediaPlayer?.stop()
+                mediaPlayer?.release()
+            } catch (_: Exception) {}
+            mediaPlayer = null
+            isPlaying = false
+        }
+    }
+
+    val togglePlayback: () -> Unit = {
+        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        if (isPlaying) {
+            try {
+                mediaPlayer?.pause()
+                isPlaying = false
+            } catch (_: Exception) {}
+        } else {
+            try {
+                if (mediaPlayer == null) {
+                    val player = MediaPlayer.create(context, audioUri)
+                    if (player != null) {
+                        player.setOnCompletionListener {
+                            isPlaying = false
+                            currentPositionMs = 0
+                        }
+                        if (totalDurationMs == 0) {
+                            totalDurationMs = player.duration
+                        }
+                        mediaPlayer = player
+                    }
+                }
+                mediaPlayer?.start()
+                isPlaying = true
+            } catch (_: Exception) {
+                isPlaying = false
+            }
+        }
+    }
+
+    fun formatMs(ms: Int): String {
+        val totalSec = (ms / 1000).coerceAtLeast(0)
+        val m = totalSec / 60
+        val s = totalSec % 60
+        return "%02d:%02d".format(m, s)
+    }
+
+    val progress = if (totalDurationMs > 0) {
+        (currentPositionMs.toFloat() / totalDurationMs.toFloat()).coerceIn(0f, 1f)
+    } else 0f
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(14.dp))
+            .background(Color(0xFF1E2225))
+            .border(1.dp, Color(0xFF33383F), RoundedCornerShape(14.dp))
+            .padding(14.dp)
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            // Play / Pause Circle
+            Box(
+                modifier = Modifier
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(if (isPlaying) Color(0xFFD71921).copy(alpha = 0.15f) else Color(0xFF2C3136))
+                    .border(
+                        1.dp,
+                        if (isPlaying) Color(0xFFD71921) else Color(0xFF3F454C),
+                        CircleShape
+                    )
+                    .clickable(onClick = togglePlayback),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
+                    contentDescription = if (isPlaying) "Pause" else "Play",
+                    tint = if (isPlaying) Color(0xFFD71921) else colors.textPrimary,
+                    modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(14.dp))
+
+            // Metadata & Progress
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "Recording $index",
+                        color = colors.textPrimary,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                    Text(
+                        text = if (isPlaying || currentPositionMs > 0) {
+                            "${formatMs(currentPositionMs)} / ${formatMs(totalDurationMs)}"
+                        } else {
+                            formatMs(totalDurationMs)
+                        },
+                        color = colors.textSecondary.copy(alpha = 0.8f),
+                        fontSize = 12.sp,
+                        fontFamily = FontFamily.Monospace
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(4.dp)
+                        .clip(RoundedCornerShape(2.dp))
+                        .background(Color(0xFF2C3136))
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction = progress)
+                            .height(4.dp)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(if (isPlaying) Color(0xFFD71921) else colors.textPrimary)
+                    )
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            // Delete action
+            Box(
+                modifier = Modifier
+                    .size(36.dp)
+                    .clip(CircleShape)
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        try {
+                            mediaPlayer?.stop()
+                            mediaPlayer?.release()
+                        } catch (_: Exception) {}
+                        mediaPlayer = null
+                        isPlaying = false
+                        onDelete()
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Delete,
+                    contentDescription = "Delete recording",
+                    tint = colors.textSecondary.copy(alpha = 0.7f),
+                    modifier = Modifier.size(20.dp)
                 )
             }
         }
