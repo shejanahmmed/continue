@@ -93,6 +93,7 @@ import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
 import com.shejan.acontinue.ui.theme.UtilitarianPureBlack
 import com.shejan.acontinue.ui.theme.UtilitarianTextDisabled
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
+import com.shejan.acontinue.ui.theme.UtilitarianTextPrimaryMuted
 import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
 import kotlinx.coroutines.flow.collectLatest
 import java.text.SimpleDateFormat
@@ -267,7 +268,7 @@ fun ActivityWorkspaceScreen(
                     Icon(
                         imageVector = Icons.Outlined.Subtitles,
                         contentDescription = null,
-                        tint = UtilitarianTextPrimary,
+                        tint = UtilitarianTextPrimaryMuted,
                         modifier = Modifier
                             .padding(top = 2.dp)
                             .size(20.dp)
@@ -275,7 +276,7 @@ fun ActivityWorkspaceScreen(
                     Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = activity.title,
-                        color = UtilitarianTextPrimary,
+                        color = UtilitarianTextPrimaryMuted,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Normal,
                         modifier = Modifier.weight(1f)

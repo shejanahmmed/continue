@@ -10,6 +10,7 @@ val UtilitarianBorderStroke = Color(0xFF282828)
 val UtilitarianBorderActive = Color(0xFF555555)
 
 val UtilitarianTextPrimary = Color(0xFFFFFFFF)
+val UtilitarianTextPrimaryMuted = Color(0xFFD6D6D6)
 val UtilitarianTextSecondary = Color(0xFFA0A0A0)
 val UtilitarianTextDisabled = Color(0xFF505050)
 
@@ -21,6 +22,7 @@ val UtilitarianLightBorderStroke = Color(0xFFD4D4D4)
 val UtilitarianLightBorderActive = Color(0xFF888888)
 
 val UtilitarianLightTextPrimary = Color(0xFF0E0E0E)
+val UtilitarianLightTextPrimaryMuted = Color(0xFF2C2C2C)
 val UtilitarianLightTextSecondary = Color(0xFF666666)
 val UtilitarianLightTextDisabled = Color(0xFFA8A8A8)
 
