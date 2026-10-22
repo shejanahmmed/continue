@@ -8,6 +8,8 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -26,6 +28,7 @@ import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
@@ -41,6 +44,12 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.layout.LayoutCoordinates
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.text.TextLayoutResult
+import kotlinx.coroutines.Job
+import kotlin.math.roundToInt
 import android.content.Intent
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
@@ -374,9 +383,52 @@ fun CreateNoteScreen(
         capturedPhotoFile = null
     }
 
+    var scrollContainerCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var autoScrollJob by remember { mutableStateOf<Job?>(null) }
+
+    val smoothScrollCursorIntoView: (LayoutCoordinates, TextLayoutResult, Int) -> Unit = remember(scrollState) {
+        { fieldCoordinates, textLayoutResult, cursorOffset ->
+            autoScrollJob?.cancel()
+            autoScrollJob = coroutineScope.launch {
+                // Delay 20ms to allow layout pass and scrollState.maxValue to update
+                kotlinx.coroutines.delay(20)
+
+                val containerCoords = scrollContainerCoordinates ?: return@launch
+                if (!containerCoords.isAttached || !fieldCoordinates.isAttached) return@launch
+
+                val safeOffset = cursorOffset.coerceIn(0, textLayoutResult.layoutInput.text.length)
+                val cursorRect = textLayoutResult.getCursorRect(safeOffset)
+
+                val cursorInViewport = containerCoords.localPositionOf(
+                    sourceCoordinates = fieldCoordinates,
+                    relativeToSource = Offset(cursorRect.left, cursorRect.bottom)
+                )
+
+                val viewportHeight = containerCoords.size.height.toFloat()
+                if (viewportHeight > 0f) {
+                    // Comfort threshold: keep cursor at or above ~55% of visible viewport height (above the keyboard)
+                    val comfortThreshold = (viewportHeight * 0.55f).coerceAtLeast(140f)
+                    if (cursorInViewport.y > comfortThreshold) {
+                        val excessPixels = (cursorInViewport.y - comfortThreshold).roundToInt()
+                        val targetScroll = (scrollState.value + excessPixels).coerceAtMost(scrollState.maxValue)
+                        if (targetScroll > scrollState.value) {
+                            scrollState.animateScrollTo(
+                                value = targetScroll,
+                                animationSpec = tween(
+                                    durationMillis = 140,
+                                    easing = LinearOutSlowInEasing
+                                )
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     LaunchedEffect(autoFocusAfterCaptureTrigger) {
         if (autoFocusAfterCaptureTrigger > 0) {
-            kotlinx.coroutines.delay(150)
+            kotlinx.coroutines.delay(100)
             contentFocusRequester.requestFocus()
             isContentFocused = true
             keyboardController?.show()
@@ -445,7 +497,8 @@ fun CreateNoteScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .statusBarsPadding()
-                .windowInsetsPadding(WindowInsets.safeDrawing.only(WindowInsetsSides.Bottom))
+                .imePadding()
+                .navigationBarsPadding()
         ) {
         // Top Bar: Back button on the left (pin & archive intentionally excluded)
         Row(
@@ -475,6 +528,7 @@ fun CreateNoteScreen(
             modifier = Modifier
                 .weight(1f)
                 .fillMaxWidth()
+                .onGloballyPositioned { scrollContainerCoordinates = it }
                 .verticalScroll(scrollState)
                 .clickable(
                     interactionSource = remember { MutableInteractionSource() },
@@ -500,7 +554,14 @@ fun CreateNoteScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(titleFocusRequester)
-                    .onFocusChanged { isTitleFocused = it.isFocused },
+                    .onFocusChanged {
+                        isTitleFocused = it.isFocused
+                        if (it.isFocused) {
+                            coroutineScope.launch {
+                                scrollState.animateScrollTo(0, tween(150, easing = LinearOutSlowInEasing))
+                            }
+                        }
+                    },
                 textStyle = TextStyle(
                     color = colors.textPrimary,
                     fontSize = 22.sp,
@@ -587,10 +648,13 @@ fun CreateNoteScreen(
                 }
 
                 if (photoMatches.isEmpty()) {
+                    var singleFieldCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+                    var singleLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .defaultMinSize(minHeight = 500.dp)
+                            .defaultMinSize(minHeight = 300.dp)
                             .clickable(
                                 interactionSource = remember { MutableInteractionSource() },
                                 indication = null
@@ -614,6 +678,14 @@ fun CreateNoteScreen(
                                 noteTextState = newTfv
                                 targetCursorPosition = newTfv.selection.start
                                 undoManager.recordTyping(takeSnapshot(newNoteTextState = newTfv, newFormatState = newFormatState))
+                                singleFieldCoords?.let { coords ->
+                                    singleLayoutResult?.let { layout ->
+                                        smoothScrollCursorIntoView(coords, layout, newTfv.selection.end)
+                                    }
+                                }
+                            },
+                            onTextLayout = { layoutResult ->
+                                singleLayoutResult = layoutResult
                             },
                             visualTransformation = remember(formatState, colors.textPrimary, searchQuery, activeMatchRange) {
                                 NoteVisualTransformation(formatState, colors.textPrimary, searchQuery, activeMatchRange)
@@ -621,7 +693,10 @@ fun CreateNoteScreen(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .focusRequester(contentFocusRequester)
-                                .onFocusChanged { isContentFocused = it.isFocused },
+                                .onGloballyPositioned { singleFieldCoords = it }
+                                .onFocusChanged { state ->
+                                    isContentFocused = state.isFocused
+                                },
                             textStyle = TextStyle(
                                 color = colors.textPrimary,
                                 fontSize = 16.sp,
@@ -721,7 +796,8 @@ fun CreateNoteScreen(
                                         onFocused = {
                                             isContentFocused = true
                                             targetCursorPosition = (element.startIndex + element.text.length).coerceIn(0, noteTextState.text.length)
-                                        }
+                                        },
+                                        onCursorPositionChanged = smoothScrollCursorIntoView
                                     )
                                 }
                                 is NoteContentElement.InlinePhoto -> {
@@ -752,6 +828,9 @@ fun CreateNoteScreen(
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     checklistItems.forEachIndexed { index, item ->
+                        var itemCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+                        var itemLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+
                         Row(
                             verticalAlignment = Alignment.CenterVertically,
                             modifier = Modifier.fillMaxWidth()
@@ -781,8 +860,18 @@ fun CreateNoteScreen(
                                     }
                                     checklistItems = updated
                                     undoManager.recordTyping(takeSnapshot(newChecklistItems = updated))
+                                    itemCoords?.let { coords ->
+                                        itemLayoutResult?.let { layout ->
+                                            smoothScrollCursorIntoView(coords, layout, newText.length)
+                                        }
+                                    }
                                 },
-                                modifier = Modifier.weight(1f),
+                                onTextLayout = { layoutResult ->
+                                    itemLayoutResult = layoutResult
+                                },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .onGloballyPositioned { itemCoords = it },
                                 textStyle = TextStyle(
                                     color = if (item.isChecked) colors.textDisabled else colors.textPrimary,
                                     fontSize = 16.sp,
@@ -833,6 +922,13 @@ fun CreateNoteScreen(
                                 val updated = checklistItems + ChecklistItem(text = "")
                                 checklistItems = updated
                                 undoManager.recordAction(takeSnapshot(newChecklistItems = updated))
+                                coroutineScope.launch {
+                                    kotlinx.coroutines.delay(60)
+                                    scrollState.animateScrollTo(
+                                        value = scrollState.maxValue,
+                                        animationSpec = tween(durationMillis = 180, easing = LinearOutSlowInEasing)
+                                    )
+                                }
                             }
                             .padding(vertical = 6.dp)
                     ) {
@@ -865,11 +961,11 @@ fun CreateNoteScreen(
                                 .clip(RoundedCornerShape(8.dp))
                                 .background(Color(0xFF262C30))
                                 .border(1.dp, Color(0xFF3E4348), RoundedCornerShape(8.dp))
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    showLabelScreen = true
-                                }
-                                .padding(horizontal = 12.dp, vertical = 6.dp)
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                showLabelScreen = true
+                            }
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
                         ) {
                             Text(
                                 text = label,
@@ -881,6 +977,26 @@ fun CreateNoteScreen(
                     }
                 }
             }
+
+            // Bottom overscroll buffer & tap-to-focus zone
+            Spacer(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(140.dp)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        if (!isChecklistMode) {
+                            contentFocusRequester.requestFocus()
+                            isContentFocused = true
+                            val endPos = noteTextState.text.length
+                            noteTextState = noteTextState.copy(selection = TextRange(endPos))
+                            targetCursorPosition = endPos
+                            keyboardController?.show()
+                        }
+                    }
+            )
         }
 
         val isFormattingEnabled = !isTitleFocused && !isChecklistMode
@@ -1772,13 +1888,16 @@ private fun NoteTextSegmentField(
     isLastElement: Boolean,
     focusRequester: FocusRequester,
     onTextChange: (newText: String, localCursor: Int) -> Unit,
-    onFocused: () -> Unit
+    onFocused: () -> Unit,
+    onCursorPositionChanged: ((LayoutCoordinates, TextLayoutResult, Int) -> Unit)? = null
 ) {
     val colors = LocalUtilitarianColors.current
     val keyboardController = LocalSoftwareKeyboardController.current
     var tfv by remember(startIndex) {
         mutableStateOf(TextFieldValue(text = text, selection = TextRange(text.length)))
     }
+    var segmentCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var segmentLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
 
     LaunchedEffect(text) {
         if (tfv.text != text) {
@@ -1792,7 +1911,7 @@ private fun NoteTextSegmentField(
             .fillMaxWidth()
             .then(
                 if (isLastElement) {
-                    Modifier.defaultMinSize(minHeight = 400.dp)
+                    Modifier.defaultMinSize(minHeight = 48.dp)
                 } else {
                     Modifier.defaultMinSize(minHeight = 40.dp)
                 }
@@ -1812,10 +1931,19 @@ private fun NoteTextSegmentField(
             onValueChange = { newTfv ->
                 tfv = newTfv
                 onTextChange(newTfv.text, newTfv.selection.start)
+                segmentCoords?.let { coords ->
+                    segmentLayoutResult?.let { layout ->
+                        onCursorPositionChanged?.invoke(coords, layout, newTfv.selection.end)
+                    }
+                }
+            },
+            onTextLayout = { layoutResult ->
+                segmentLayoutResult = layoutResult
             },
             modifier = Modifier
                 .fillMaxWidth()
                 .focusRequester(focusRequester)
+                .onGloballyPositioned { segmentCoords = it }
                 .onFocusChanged { state ->
                     if (state.isFocused) {
                         onFocused()
