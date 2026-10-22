@@ -542,9 +542,7 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
-                    HorizontalDivider(color = UtilitarianBorderStroke, thickness = 0.5.dp)
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Location
                     val context = LocalContext.current
@@ -561,8 +559,7 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                                     indication = null
                                 ) {
                                     LocationHelper.openLocationInMapApp(context, effectiveLocation)
-                                }
-                                .padding(vertical = 4.dp),
+                                },
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
@@ -587,7 +584,6 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         }
                     } else {
                         Row(
-                            modifier = Modifier.padding(vertical = 2.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
