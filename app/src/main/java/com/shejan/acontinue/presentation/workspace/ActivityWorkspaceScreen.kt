@@ -47,7 +47,6 @@ import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -182,11 +181,20 @@ fun ActivityWorkspaceScreen(
                 Spacer(modifier = Modifier.weight(1f))
 
                 Box {
-                    IconButton(onClick = { showMenu = true }) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) { showMenu = true },
+                        contentAlignment = Alignment.Center
+                    ) {
                         Icon(
                             imageVector = Icons.Outlined.MoreVert,
                             contentDescription = "Options",
-                            tint = UtilitarianTextPrimary
+                            tint = UtilitarianTextPrimary,
+                            modifier = Modifier.size(20.dp)
                         )
                     }
                     DropdownMenu(
@@ -196,63 +204,71 @@ fun ActivityWorkspaceScreen(
                         shape = RoundedCornerShape(14.dp),
                         containerColor = Color(0xFF1E2023),
                         border = BorderStroke(1.dp, Color(0xFF33383F)),
-                        modifier = Modifier.width(140.dp)
+                        modifier = Modifier
+                            .width(140.dp)
+                            .clip(RoundedCornerShape(14.dp))
                     ) {
-                        DropdownMenuItem(
-                            text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Edit,
-                                        contentDescription = null,
-                                        tint = UtilitarianTextPrimary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Edit",
-                                        color = UtilitarianTextPrimary,
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(36.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    showMenu = false
+                                    onEditActivity(activity.id)
                                 }
-                            },
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                            modifier = Modifier.height(36.dp),
-                            onClick = {
-                                showMenu = false
-                                onEditActivity(activity.id)
-                            }
-                        )
+                                .padding(horizontal = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Edit,
+                                contentDescription = null,
+                                tint = UtilitarianTextPrimary,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Edit",
+                                color = UtilitarianTextPrimary,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                         HorizontalDivider(
                             color = Color(0xFF2C3136),
                             thickness = 0.5.dp,
                             modifier = Modifier.padding(horizontal = 8.dp)
                         )
-                        DropdownMenuItem(
-                            text = {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Delete,
-                                        contentDescription = null,
-                                        tint = Color(0xFFD71921),
-                                        modifier = Modifier.size(16.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "Delete",
-                                        color = Color(0xFFD71921),
-                                        fontSize = 14.sp,
-                                        fontWeight = FontWeight.Medium
-                                    )
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(36.dp)
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    showMenu = false
+                                    showDeleteConfirmDialog = true
                                 }
-                            },
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
-                            modifier = Modifier.height(36.dp),
-                            onClick = {
-                                showMenu = false
-                                showDeleteConfirmDialog = true
-                            }
-                        )
+                                .padding(horizontal = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = null,
+                                tint = Color(0xFFD71921),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Delete",
+                                color = Color(0xFFD71921),
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }
@@ -391,7 +407,10 @@ fun ActivityWorkspaceScreen(
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(Color(0xFF2C3136))
                                 .border(1.dp, Color(0xFF3F454C), RoundedCornerShape(12.dp))
-                                .clickable {
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
                                     showDeleteConfirmDialog = false
                                 },
                             contentAlignment = Alignment.Center
@@ -411,7 +430,10 @@ fun ActivityWorkspaceScreen(
                                 .height(46.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(Color(0xFFD71921))
-                                .clickable {
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
                                     showDeleteConfirmDialog = false
                                     viewModel.deleteActivity()
                                 },
