@@ -563,7 +563,10 @@ fun CreateEntryScreen(
                                     modifier = Modifier
                                         .size(28.dp)
                                         .clip(CircleShape)
-                                        .clickable {
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
                                             focusManager.clearFocus()
                                             keyboardController?.hide()
                                             showEmojiKeyboard = false
@@ -964,9 +967,15 @@ fun CreateEntryScreen(
 
                                 // Quick clear button if location is not empty
                                 if (state.location.isNotEmpty()) {
-                                    IconButton(
-                                        onClick = { viewModel.updateLocation("") },
-                                        modifier = Modifier.size(24.dp)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .clip(CircleShape)
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) { viewModel.updateLocation("") },
+                                        contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.Outlined.Close,
@@ -980,9 +989,15 @@ fun CreateEntryScreen(
                                 // Open map icon button only appears if user pastes/enters a map location link
                                 if (LocationHelper.isMapLocationLink(state.location)) {
                                     Spacer(modifier = Modifier.width(4.dp))
-                                    IconButton(
-                                        onClick = { LocationHelper.openLocationInMapApp(context, state.location) },
-                                        modifier = Modifier.size(24.dp)
+                                    Box(
+                                        modifier = Modifier
+                                            .size(24.dp)
+                                            .clip(CircleShape)
+                                            .clickable(
+                                                interactionSource = remember { MutableInteractionSource() },
+                                                indication = null
+                                            ) { LocationHelper.openLocationInMapApp(context, state.location) },
+                                        contentAlignment = Alignment.Center
                                     ) {
                                         Icon(
                                             imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
@@ -1120,7 +1135,10 @@ fun CreateEntryScreen(
                                                             .clip(RoundedCornerShape(12.dp))
                                                             .background(Color(0xFF1E3A5F).copy(alpha = 0.4f))
                                                             .border(1.dp, Color(0xFF3897F0), RoundedCornerShape(12.dp))
-                                                            .clickable { LinkHelper.openUrl(context, url) }
+                                                            .clickable(
+                                                                interactionSource = remember { MutableInteractionSource() },
+                                                                indication = null
+                                                            ) { LinkHelper.openUrl(context, url) }
                                                             .padding(horizontal = 10.dp, vertical = 5.dp),
                                                         contentAlignment = Alignment.Center
                                                     ) {
@@ -1326,7 +1344,10 @@ fun CreateEntryScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
-                                .clickable { showDiscardSheet = false }
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { showDiscardSheet = false }
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center
                         ) {
@@ -1350,7 +1371,10 @@ fun CreateEntryScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
-                                .clickable {
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
                                     showDiscardSheet = false
                                     onDismiss()
                                 }
@@ -1377,7 +1401,10 @@ fun CreateEntryScreen(
                             modifier = Modifier
                                 .weight(1f)
                                 .clip(RoundedCornerShape(8.dp))
-                                .clickable {
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
                                     showDiscardSheet = false
                                     viewModel.saveEntry()
                                 }
@@ -1478,7 +1505,10 @@ private fun BottomEmojiKeyboard(
                             horizontalAlignment = Alignment.CenterHorizontally,
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .clickable { selectedCategoryIndex = index }
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { selectedCategoryIndex = index }
                                 .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
                             when (index) {
@@ -1520,7 +1550,11 @@ private fun BottomEmojiKeyboard(
                     modifier = Modifier
                         .size(34.dp)
                         .clip(CircleShape)
-                        .clickable(onClick = onClose),
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onClose
+                        ),
                     contentAlignment = Alignment.Center
                 ) {
                     Icon(
@@ -1566,7 +1600,10 @@ private fun BottomEmojiKeyboard(
                                 modifier = Modifier
                                     .size(54.dp)
                                     .clip(RoundedCornerShape(12.dp))
-                                    .clickable { onEmojiSelected(emoji) },
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) { onEmojiSelected(emoji) },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Text(
@@ -1595,7 +1632,10 @@ private fun BottomEmojiKeyboard(
                             modifier = Modifier
                                 .size(54.dp)
                                 .clip(RoundedCornerShape(12.dp))
-                                .clickable { onEmojiSelected(emoji) },
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { onEmojiSelected(emoji) },
                             contentAlignment = Alignment.Center
                         ) {
                             Text(
@@ -1672,7 +1712,11 @@ private fun ColorPaletteCircle(
     Box(
         modifier = Modifier
             .size(30.dp)
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            ),
         contentAlignment = Alignment.Center
     ) {
         if (isSelected) {
@@ -1748,7 +1792,11 @@ private fun SegmentItem(
     Surface(
         modifier = Modifier
             .clip(RoundedCornerShape(24.dp))
-            .clickable(onClick = onClick),
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            ),
         shape = RoundedCornerShape(24.dp),
         color = if (isSelected) (if (colors.isDark) Color(0xFF282828) else Color(0xFFE2E2E6)) else Color.Transparent,
         border = if (isSelected) BorderStroke(1.dp, colors.textPrimary) else null
@@ -1869,7 +1917,11 @@ private fun SelectablePill(
         border = if (isActive) BorderStroke(1.dp, colors.textPrimary) else null,
         modifier = Modifier
             .clip(RoundedCornerShape(16.dp))
-            .clickable(onClick = onClick)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            )
     ) {
         Text(
             text = text,
@@ -1910,9 +1962,15 @@ private fun InlineCalendarDatePicker(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                IconButton(
-                    onClick = { onNavigateMonth(-1) },
-                    modifier = Modifier.size(34.dp)
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onNavigateMonth(-1) },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.ChevronLeft,
@@ -1927,7 +1985,11 @@ private fun InlineCalendarDatePicker(
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable(onClick = onToggleRollerMode)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onToggleRollerMode
+                        )
                         .padding(horizontal = 8.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -1958,9 +2020,15 @@ private fun InlineCalendarDatePicker(
 
                 Spacer(modifier = Modifier.width(10.dp))
 
-                IconButton(
-                    onClick = { onNavigateMonth(1) },
-                    modifier = Modifier.size(34.dp)
+                Box(
+                    modifier = Modifier
+                        .size(34.dp)
+                        .clip(CircleShape)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onNavigateMonth(1) },
+                    contentAlignment = Alignment.Center
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.ChevronRight,
@@ -2054,7 +2122,10 @@ private fun InlineCalendarDatePicker(
                                         .weight(1f)
                                         .height(40.dp)
                                         .clip(CircleShape)
-                                        .clickable {
+                                        .clickable(
+                                            interactionSource = remember { MutableInteractionSource() },
+                                            indication = null
+                                        ) {
                                             onDateSelected(item.year, item.month, item.day)
                                         },
                                     contentAlignment = Alignment.Center
@@ -2127,7 +2198,11 @@ private fun InlineCalendarDatePicker(
                 Row(
                     modifier = Modifier
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable(onClick = onToggleRollerMode)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onToggleRollerMode
+                        )
                         .padding(horizontal = 10.dp, vertical = 4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -2375,7 +2450,10 @@ private fun WheelPickerColumn(
                         .fillMaxWidth()
                         .height(itemHeight)
                         .clip(RoundedCornerShape(8.dp))
-                        .clickable {
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
                             coroutineScope.launch {
                                 listState.animateScrollToItem(globalIndex)
                             }
@@ -2721,7 +2799,11 @@ private fun BottomCancelSaveDock(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clickable(onClick = onCancel)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            onClick = onCancel
+                        )
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -2744,7 +2826,12 @@ private fun BottomCancelSaveDock(
                 Box(
                     modifier = Modifier
                         .weight(1f)
-                        .clickable(enabled = isSaveEnabled, onClick = onSave)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null,
+                            enabled = isSaveEnabled,
+                            onClick = onSave
+                        )
                         .padding(vertical = 12.dp),
                     contentAlignment = Alignment.Center
                 ) {
@@ -2909,9 +2996,16 @@ private fun AttachmentItemCard(
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            IconButton(
-                onClick = onRemove,
-                modifier = Modifier.size(28.dp)
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(CircleShape)
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null,
+                        onClick = onRemove
+                    ),
+                contentAlignment = Alignment.Center
             ) {
                 Icon(
                     imageVector = Icons.Outlined.Close,
@@ -2948,7 +3042,10 @@ private fun ReminderIntensityPopup(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { onSelectPriority(priority) }
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { onSelectPriority(priority) }
                         .padding(horizontal = 16.dp, vertical = 10.dp),
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
