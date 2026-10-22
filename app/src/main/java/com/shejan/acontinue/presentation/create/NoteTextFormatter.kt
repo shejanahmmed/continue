@@ -478,6 +478,48 @@ object NoteTextFormatter {
         val merged = mergeSpans(rawSpans)
         return Pair(fullPlainText, NoteFormatState(spans = merged, lineHeadings = lineHeadings))
     }
+
+    /**
+     * Inserts an inline photo tag into the note text according to line rules:
+     * - If the line containing the cursor is empty, the photo tag is placed directly on that line.
+     * - If the line containing the cursor has any content (including whitespace or letters), the photo tag is placed on the 2nd line below the cursor.
+     * - In all cases, the returned cursor offset places the cursor immediately on the next line after the photo tag.
+     */
+    fun insertPhotoTag(
+        currentText: String,
+        cursorOffset: Int,
+        photoUri: String
+    ): Pair<String, Int> {
+        val safeOffset = cursorOffset.coerceIn(0, currentText.length)
+
+        val lastNewlineBefore = currentText.lastIndexOf('\n', (safeOffset - 1).coerceAtLeast(0))
+        val lineStartIndex = if (lastNewlineBefore == -1 || safeOffset == 0) 0 else lastNewlineBefore + 1
+
+        val nextNewlineAfter = currentText.indexOf('\n', safeOffset)
+        val lineEndIndex = if (nextNewlineAfter == -1) currentText.length else nextNewlineAfter
+
+        val currentLineText = currentText.substring(lineStartIndex, lineEndIndex)
+        val isLineEmpty = currentLineText.isEmpty()
+
+        val tagWithNewline = "![photo]($photoUri)\n"
+
+        return if (isLineEmpty) {
+            val before = currentText.substring(0, lineStartIndex)
+            val after = currentText.substring(lineEndIndex)
+            val cleanAfter = if (after.startsWith("\n")) after.substring(1) else after
+            val newText = before + tagWithNewline + cleanAfter
+            val newCursor = (before + tagWithNewline).length
+            Pair(newText, newCursor)
+        } else {
+            val before = currentText.substring(0, safeOffset)
+            val after = currentText.substring(safeOffset)
+            val cleanAfter = if (after.startsWith("\n")) after.substring(1) else after
+            val tag = "\n$tagWithNewline"
+            val newText = before + tag + cleanAfter
+            val newCursor = (before + tag).length
+            Pair(newText, newCursor)
+        }
+    }
 }
 
 class NoteVisualTransformation(

@@ -164,4 +164,82 @@ class NoteTextFormatterTest {
         activeIndex = if (activeIndex - 1 < 0) totalMatches - 1 else activeIndex - 1
         assertEquals(2, activeIndex)
     }
+
+    @Test
+    fun testPhotoTagRegexAndCursorInsertion() {
+        val initialText = "Before photo content. After photo content."
+        val cursorOffset = "Before photo content.".length // index 21
+        val photoUri = "file:///data/user/0/com.shejan.acontinue/files/attachments/note_photo_123.jpg"
+
+        val before = initialText.substring(0, cursorOffset)
+        val after = initialText.substring(cursorOffset)
+        val photoTag = "\n![photo]($photoUri)\n"
+        val newText = before + photoTag + after
+
+        val regex = Regex("""!\[photo\]\(([^)]+)\)""")
+        val matches = regex.findAll(newText).toList()
+
+        assertEquals(1, matches.size)
+        assertEquals(photoUri, matches[0].groupValues[1])
+        assertTrue(matches[0].range.first >= cursorOffset)
+
+        // Verify markdown serializer preserves the photo tag verbatim
+        val serialized = NoteTextFormatter.serializeToMarkdown(newText, NoteFormatState())
+        assertTrue(serialized.contains("![photo]($photoUri)"))
+    }
+
+    @Test
+    fun testInsertPhotoTagOnEmptyLinePlacesDirectlyOnLineAndCursorOnNextLine() {
+        val uri = "file:///attachments/photo1.jpg"
+        // Case 1: Fresh empty note
+        val (text1, cursor1) = NoteTextFormatter.insertPhotoTag("", 0, uri)
+        assertEquals("![photo]($uri)\n", text1)
+        assertEquals(text1.length, cursor1)
+
+        // Case 2: Cursor on empty line 2
+        val initial = "Heading\n"
+        val (text2, cursor2) = NoteTextFormatter.insertPhotoTag(initial, initial.length, uri)
+        assertEquals("Heading\n![photo]($uri)\n", text2)
+        assertEquals(text2.length, cursor2)
+    }
+
+    @Test
+    fun testInsertPhotoTagOnLineWithTextOrSpaceAddsOnSecondLine() {
+        val uri = "file:///attachments/photo.jpg"
+
+        // Case 1: Line with letters
+        val textWithLetters = "Some note text"
+        val (result1, cursor1) = NoteTextFormatter.insertPhotoTag(textWithLetters, textWithLetters.length, uri)
+        assertEquals("Some note text\n![photo]($uri)\n", result1)
+        assertEquals(result1.length, cursor1)
+
+        // Case 2: Line with whitespace
+        val textWithSpace = "   "
+        val (result2, cursor2) = NoteTextFormatter.insertPhotoTag(textWithSpace, 3, uri)
+        assertEquals("   \n![photo]($uri)\n", result2)
+        assertEquals(result2.length, cursor2)
+
+        // Case 3: Cursor in the middle of a line
+        val textMid = "Hello world"
+        val (result3, cursor3) = NoteTextFormatter.insertPhotoTag(textMid, 6, uri) // after "Hello "
+        assertEquals("Hello \n![photo]($uri)\nworld", result3)
+        assertEquals("Hello \n![photo]($uri)\n".length, cursor3)
+    }
+
+    @Test
+    fun testInsertMultiplePhotosSequentially() {
+        val uri1 = "file:///attachments/photo1.jpg"
+        val uri2 = "file:///attachments/photo2.jpg"
+
+        // Step 1: Add first photo on empty note
+        val (step1Text, step1Cursor) = NoteTextFormatter.insertPhotoTag("", 0, uri1)
+        assertEquals("![photo]($uri1)\n", step1Text)
+        assertEquals(step1Text.length, step1Cursor)
+
+        // Step 2: Cursor is automatically on the next line (empty). Add second photo.
+        val (step2Text, step2Cursor) = NoteTextFormatter.insertPhotoTag(step1Text, step1Cursor, uri2)
+        assertEquals("![photo]($uri1)\n![photo]($uri2)\n", step2Text)
+        assertEquals(step2Text.length, step2Cursor)
+    }
 }
+

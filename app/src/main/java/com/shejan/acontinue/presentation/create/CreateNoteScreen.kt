@@ -8,6 +8,7 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -41,6 +42,15 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import android.content.Intent
+import androidx.compose.ui.graphics.asImageBitmap
+import androidx.compose.ui.layout.ContentScale
+import androidx.core.content.FileProvider
+import com.shejan.acontinue.core.util.AttachmentHelper
+import com.shejan.acontinue.core.util.ImageUtils
+import java.io.File
+import android.graphics.Bitmap
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Label
@@ -145,6 +155,10 @@ private data class NoteMenuOption(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun CreateNoteScreen(
+    initialTitle: String = "",
+    initialContent: String = "",
+    initialColorHex: Long = 0xFF121212L,
+    initialLabels: List<String> = emptyList(),
     onSaveNote: (title: String, content: String, colorHex: Long, labels: List<String>) -> Unit,
     onDiscard: () -> Unit,
     initialUpdatedAtMillis: Long? = null,
@@ -174,14 +188,14 @@ fun CreateNoteScreen(
     var lastEditedMillis by remember { mutableLongStateOf(openedAtMillis) }
     var hasUserModified by remember { mutableStateOf(false) }
 
-    var title by remember { mutableStateOf("") }
-    var noteTextState by remember { mutableStateOf(TextFieldValue("")) }
+    var title by remember { mutableStateOf(initialTitle) }
+    var noteTextState by remember { mutableStateOf(TextFieldValue(initialContent)) }
     var formatState by remember { mutableStateOf(NoteFormatState()) }
-    var selectedColorHex by remember { mutableLongStateOf(0xFF121212L) }
+    var selectedColorHex by remember { mutableLongStateOf(initialColorHex) }
     var isChecklistMode by remember { mutableStateOf(false) }
     var checklistItems by remember { mutableStateOf(listOf<ChecklistItem>()) }
     var attachedImageUris by remember { mutableStateOf(listOf<Uri>()) }
-    var selectedLabels by remember { mutableStateOf(setOf<String>()) }
+    var selectedLabels by remember { mutableStateOf(initialLabels.toSet()) }
     var showLabelScreen by remember { mutableStateOf(false) }
     var showBottomSheet by remember { mutableStateOf(false) }
     var showColorSheet by remember { mutableStateOf(false) }
@@ -193,6 +207,11 @@ fun CreateNoteScreen(
     var activeMatchIndex by remember { mutableIntStateOf(0) }
     val searchFocusRequester = remember { FocusRequester() }
 
+    var targetCursorPosition by remember { mutableIntStateOf(initialContent.length) }
+    var capturedPhotoFile by remember { mutableStateOf<File?>(null) }
+    var selectedPreviewPhotoUri by remember { mutableStateOf<Uri?>(null) }
+    var autoFocusAfterCaptureTrigger by remember { mutableIntStateOf(0) }
+
     val searchMatches = remember(noteTextState.text, searchQuery) {
         if (searchQuery.isBlank()) emptyList() else NoteTextFormatter.findMatches(noteTextState.text, searchQuery)
     }
@@ -201,14 +220,14 @@ fun CreateNoteScreen(
 
     val initialSnapshot = remember {
         NoteEditorSnapshot(
-            title = "",
-            noteTextState = TextFieldValue(""),
+            title = initialTitle,
+            noteTextState = TextFieldValue(initialContent),
             formatState = NoteFormatState(),
             checklistItems = emptyList(),
             isChecklistMode = false,
             attachedImageUris = emptyList(),
-            selectedColorHex = 0xFF121212L,
-            selectedLabels = emptySet()
+            selectedColorHex = initialColorHex,
+            selectedLabels = initialLabels.toSet()
         )
     }
     val undoManager = remember { NoteUndoManager(initialSnapshot = initialSnapshot) }
@@ -323,12 +342,53 @@ fun CreateNoteScreen(
         }
     }
 
+    val insertPhotoAtCursor: (Uri, Int) -> Unit = { permanentUri, cursorOffset ->
+        val (newText, newCursor) = NoteTextFormatter.insertPhotoTag(
+            currentText = noteTextState.text,
+            cursorOffset = cursorOffset,
+            photoUri = permanentUri.toString()
+        )
+        val updatedState = TextFieldValue(text = newText, selection = TextRange(newCursor))
+        noteTextState = updatedState
+        targetCursorPosition = newCursor
+        undoManager.recordAction(takeSnapshot(newNoteTextState = updatedState))
+    }
+
     val cameraLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.TakePicturePreview()
-    ) { bitmap ->
-        if (bitmap != null) {
-            Toast.makeText(context, "Photo captured", Toast.LENGTH_SHORT).show()
+        contract = ActivityResultContracts.TakePicture()
+    ) { success ->
+        val tempFile = capturedPhotoFile
+        if (success && tempFile?.exists() == true && tempFile.length() > 0L) {
+            val attachmentsDir = File(context.filesDir, "attachments").apply { if (!exists()) mkdirs() }
+            val permanentFile = File(attachmentsDir, "note_photo_${System.currentTimeMillis()}.jpg")
+            runCatching {
+                tempFile.copyTo(permanentFile, overwrite = true)
+                tempFile.delete()
+            }
+            val permanentUri = Uri.fromFile(permanentFile)
+            insertPhotoAtCursor(permanentUri, targetCursorPosition)
+            autoFocusAfterCaptureTrigger++
+        } else {
+            tempFile?.let { AttachmentHelper.deleteLocalFile(it.absolutePath) }
         }
+        capturedPhotoFile = null
+    }
+
+    LaunchedEffect(autoFocusAfterCaptureTrigger) {
+        if (autoFocusAfterCaptureTrigger > 0) {
+            kotlinx.coroutines.delay(150)
+            contentFocusRequester.requestFocus()
+            isContentFocused = true
+            keyboardController?.show()
+        }
+    }
+
+    val launchCamera: () -> Unit = {
+        val cameraCacheDir = File(context.cacheDir, "camera").apply { if (!exists()) mkdirs() }
+        val tempFile = File(cameraCacheDir, "temp_capture_${System.currentTimeMillis()}.jpg")
+        val uri = FileProvider.getUriForFile(context, "${context.packageName}.fileprovider", tempFile)
+        capturedPhotoFile = tempFile
+        cameraLauncher.launch(uri)
     }
 
     val buildFinalContent: () -> String = {
@@ -354,7 +414,9 @@ fun CreateNoteScreen(
     }
 
     BackHandler {
-        if (showDeleteNoteConfirmDialog) {
+        if (selectedPreviewPhotoUri != null) {
+            selectedPreviewPhotoUri = null
+        } else if (showDeleteNoteConfirmDialog) {
             showDeleteNoteConfirmDialog = false
         } else if (showLabelScreen) {
             showLabelScreen = false
@@ -420,7 +482,9 @@ fun CreateNoteScreen(
                 ) {
                     if (!isChecklistMode) {
                         contentFocusRequester.requestFocus()
+                        isContentFocused = true
                         noteTextState = noteTextState.copy(selection = TextRange(noteTextState.text.length))
+                        targetCursorPosition = noteTextState.text.length
                         keyboardController?.show()
                     }
                 }
@@ -466,6 +530,12 @@ fun CreateNoteScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(attachedImageUris) { uri ->
+                        var thumbBitmap by remember(uri) { mutableStateOf<Bitmap?>(null) }
+                        LaunchedEffect(uri) {
+                            thumbBitmap = withContext(Dispatchers.IO) {
+                                ImageUtils.loadSampledBitmapFromUri(context, uri, reqWidth = 144, reqHeight = 144)
+                            }
+                        }
                         Box(
                             modifier = Modifier
                                 .size(72.dp)
@@ -473,24 +543,34 @@ fun CreateNoteScreen(
                                 .background(colors.cardBackground)
                                 .border(1.dp, colors.borderStroke, RoundedCornerShape(8.dp))
                         ) {
+                            val currentThumb = thumbBitmap
+                            if (currentThumb != null) {
+                                Image(
+                                    bitmap = currentThumb.asImageBitmap(),
+                                    contentDescription = "Attachment thumbnail",
+                                    contentScale = ContentScale.Crop,
+                                    modifier = Modifier.fillMaxSize()
+                                )
+                            }
                             Box(
                                 modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .size(22.dp)
-                                .clip(CircleShape)
-                                .background(Color.Black.copy(alpha = 0.6f))
-                                .clickable {
-                                    val updated = attachedImageUris - uri
-                                    attachedImageUris = updated
-                                    undoManager.recordAction(takeSnapshot(newAttachedImageUris = updated))
-                                },
+                                    .align(Alignment.TopEnd)
+                                    .padding(4.dp)
+                                    .size(20.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Black.copy(alpha = 0.6f))
+                                    .clickable {
+                                        val updated = attachedImageUris - uri
+                                        attachedImageUris = updated
+                                        undoManager.recordAction(takeSnapshot(newAttachedImageUris = updated))
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Close,
                                     contentDescription = "Remove image",
                                     tint = Color.White,
-                                    modifier = Modifier.size(14.dp)
+                                    modifier = Modifier.size(12.dp)
                                 )
                             }
                         }
@@ -502,60 +582,168 @@ fun CreateNoteScreen(
 
             // Note Content or Checklist Mode
             if (!isChecklistMode) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .defaultMinSize(minHeight = 500.dp)
-                        .clickable(
-                            interactionSource = remember { MutableInteractionSource() },
-                            indication = null
-                        ) {
-                            contentFocusRequester.requestFocus()
-                            noteTextState = noteTextState.copy(selection = TextRange(noteTextState.text.length))
-                            keyboardController?.show()
-                        }
-                ) {
-                    BasicTextField(
-                        value = noteTextState,
-                        onValueChange = { newTfv ->
-                            val newFormatState = NoteTextFormatter.onTextChange(
-                                oldText = noteTextState.text,
-                                newText = newTfv.text,
-                                selection = newTfv.selection,
-                                state = formatState
-                            )
-                            formatState = newFormatState
-                            noteTextState = newTfv
-                            undoManager.recordTyping(takeSnapshot(newNoteTextState = newTfv, newFormatState = newFormatState))
-                        },
-                        visualTransformation = remember(formatState, colors.textPrimary, searchQuery, activeMatchRange) {
-                            NoteVisualTransformation(formatState, colors.textPrimary, searchQuery, activeMatchRange)
-                        },
+                val photoMatches = remember(noteTextState.text) {
+                    PHOTO_TAG_REGEX.findAll(noteTextState.text).toList()
+                }
+
+                if (photoMatches.isEmpty()) {
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .focusRequester(contentFocusRequester)
-                            .onFocusChanged { isContentFocused = it.isFocused },
-                        textStyle = TextStyle(
-                            color = colors.textPrimary,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Normal,
-                            lineHeight = 24.sp
-                        ),
-                        cursorBrush = SolidColor(colors.textPrimary),
-                        decorationBox = { innerTextField ->
-                            Box {
-                                if (noteTextState.text.isEmpty()) {
-                                    Text(
-                                        text = "Note",
-                                        color = colors.textSecondary.copy(alpha = 0.6f),
-                                        fontSize = 16.sp,
-                                        fontWeight = FontWeight.Normal
+                            .defaultMinSize(minHeight = 500.dp)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                contentFocusRequester.requestFocus()
+                                noteTextState = noteTextState.copy(selection = TextRange(noteTextState.text.length))
+                                targetCursorPosition = noteTextState.text.length
+                                keyboardController?.show()
+                            }
+                    ) {
+                        BasicTextField(
+                            value = noteTextState,
+                            onValueChange = { newTfv ->
+                                val newFormatState = NoteTextFormatter.onTextChange(
+                                    oldText = noteTextState.text,
+                                    newText = newTfv.text,
+                                    selection = newTfv.selection,
+                                    state = formatState
+                                )
+                                formatState = newFormatState
+                                noteTextState = newTfv
+                                targetCursorPosition = newTfv.selection.start
+                                undoManager.recordTyping(takeSnapshot(newNoteTextState = newTfv, newFormatState = newFormatState))
+                            },
+                            visualTransformation = remember(formatState, colors.textPrimary, searchQuery, activeMatchRange) {
+                                NoteVisualTransformation(formatState, colors.textPrimary, searchQuery, activeMatchRange)
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .focusRequester(contentFocusRequester)
+                                .onFocusChanged { isContentFocused = it.isFocused },
+                            textStyle = TextStyle(
+                                color = colors.textPrimary,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Normal,
+                                lineHeight = 24.sp
+                            ),
+                            cursorBrush = SolidColor(colors.textPrimary),
+                            decorationBox = { innerTextField ->
+                                Box {
+                                    if (noteTextState.text.isEmpty()) {
+                                        Text(
+                                            text = "Note",
+                                            color = colors.textSecondary.copy(alpha = 0.6f),
+                                            fontSize = 16.sp,
+                                            fontWeight = FontWeight.Normal
+                                        )
+                                    }
+                                    innerTextField()
+                                }
+                            }
+                        )
+                    }
+                } else {
+                    val elements = remember(noteTextState.text) {
+                        val matches = PHOTO_TAG_REGEX.findAll(noteTextState.text).toList()
+                        val list = mutableListOf<NoteContentElement>()
+                        var currentIndex = 0
+                        for (match in matches) {
+                            if (match.range.first > currentIndex) {
+                                val raw = noteTextState.text.substring(currentIndex, match.range.first)
+                                val segText = if (raw.endsWith("\n")) raw.substring(0, raw.length - 1) else raw
+                                list.add(
+                                    NoteContentElement.TextSegment(
+                                        text = segText,
+                                        startIndex = currentIndex
+                                    )
+                                )
+                            }
+                            val uriString = match.groupValues[1]
+                            val uri = runCatching { Uri.parse(uriString) }.getOrNull()
+                            if (uri != null) {
+                                list.add(NoteContentElement.InlinePhoto(uri = uri, tagRange = match.range))
+                            }
+                            var nextIndex = match.range.last + 1
+                            if (nextIndex < noteTextState.text.length && noteTextState.text[nextIndex] == '\n') {
+                                nextIndex++
+                            }
+                            currentIndex = nextIndex
+                        }
+                        if (currentIndex < noteTextState.text.length) {
+                            list.add(
+                                NoteContentElement.TextSegment(
+                                    text = noteTextState.text.substring(currentIndex),
+                                    startIndex = currentIndex
+                                )
+                            )
+                        } else {
+                            list.add(NoteContentElement.TextSegment(text = "", startIndex = currentIndex))
+                        }
+                        list
+                    }
+
+                    val lastTextSegmentIndex = remember(elements) {
+                        elements.indexOfLast { it is NoteContentElement.TextSegment }
+                    }
+
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .defaultMinSize(minHeight = 500.dp)
+                    ) {
+                        elements.forEachIndexed { elemIndex, element ->
+                            when (element) {
+                                is NoteContentElement.TextSegment -> {
+                                    val isLastSegment = elemIndex == lastTextSegmentIndex
+                                    val focusRequester = if (isLastSegment) {
+                                        contentFocusRequester
+                                    } else {
+                                        remember(elemIndex) { FocusRequester() }
+                                    }
+
+                                    NoteTextSegmentField(
+                                        text = element.text,
+                                        startIndex = element.startIndex,
+                                        isLastElement = isLastSegment,
+                                        focusRequester = focusRequester,
+                                        onTextChange = { newText, localCursor ->
+                                            val start = element.startIndex
+                                            val oldLen = element.text.length
+                                            val newFullText = noteTextState.text.replaceRange(start, start + oldLen, newText)
+                                            val updatedGlobalCursor = (start + localCursor).coerceIn(0, newFullText.length)
+                                            val updated = TextFieldValue(text = newFullText, selection = TextRange(updatedGlobalCursor))
+                                            noteTextState = updated
+                                            targetCursorPosition = updatedGlobalCursor
+                                            undoManager.recordTyping(takeSnapshot(newNoteTextState = updated))
+                                        },
+                                        onFocused = {
+                                            isContentFocused = true
+                                            targetCursorPosition = (element.startIndex + element.text.length).coerceIn(0, noteTextState.text.length)
+                                        }
                                     )
                                 }
-                                innerTextField()
+                                is NoteContentElement.InlinePhoto -> {
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                    NotePhotoCard(
+                                        uri = element.uri,
+                                        onDelete = {
+                                            val newFull = noteTextState.text.removeRange(element.tagRange).trim()
+                                            val updated = TextFieldValue(newFull)
+                                            noteTextState = updated
+                                            targetCursorPosition = 0
+                                            undoManager.recordAction(takeSnapshot(newNoteTextState = updated))
+                                        },
+                                        onClick = {
+                                            selectedPreviewPhotoUri = element.uri
+                                        }
+                                    )
+                                    Spacer(modifier = Modifier.height(10.dp))
+                                }
                             }
                         }
-                    )
+                    }
                 }
             } else {
                 // Interactive Checklists
@@ -1067,7 +1255,13 @@ fun CreateNoteScreen(
                 coroutineScope.launch {
                     sheetState.hide()
                     showBottomSheet = false
-                    cameraLauncher.launch(null)
+                    if (isChecklistMode) {
+                        isChecklistMode = false
+                        val converted = checklistItems.joinToString("\n") { it.text }
+                        noteTextState = TextFieldValue(converted)
+                    }
+                    targetCursorPosition = noteTextState.selection.start.coerceIn(0, noteTextState.text.length)
+                    launchCamera()
                 }
             },
             NoteMenuOption("Add image", Icons.Outlined.Image) {
@@ -1466,6 +1660,15 @@ fun CreateNoteScreen(
             }
         }
     }
+
+
+
+    if (selectedPreviewPhotoUri != null) {
+        FullPhotoPreviewDialog(
+            photoUri = selectedPreviewPhotoUri!!,
+            onDismiss = { selectedPreviewPhotoUri = null }
+        )
+    }
 }
 
 private tailrec fun Context.findActivity(): Activity? = when (this) {
@@ -1554,4 +1757,214 @@ private fun BottomBarIconButton(
         )
     }
 }
+
+private val PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
+
+private sealed interface NoteContentElement {
+    data class TextSegment(val text: String, val startIndex: Int) : NoteContentElement
+    data class InlinePhoto(val uri: Uri, val tagRange: IntRange) : NoteContentElement
+}
+
+@Composable
+private fun NoteTextSegmentField(
+    text: String,
+    startIndex: Int,
+    isLastElement: Boolean,
+    focusRequester: FocusRequester,
+    onTextChange: (newText: String, localCursor: Int) -> Unit,
+    onFocused: () -> Unit
+) {
+    val colors = LocalUtilitarianColors.current
+    val keyboardController = LocalSoftwareKeyboardController.current
+    var tfv by remember(startIndex) {
+        mutableStateOf(TextFieldValue(text = text, selection = TextRange(text.length)))
+    }
+
+    LaunchedEffect(text) {
+        if (tfv.text != text) {
+            val safeSelection = TextRange(tfv.selection.start.coerceIn(0, text.length))
+            tfv = tfv.copy(text = text, selection = safeSelection)
+        }
+    }
+
+    Box(
+        modifier = Modifier
+            .fillMaxWidth()
+            .then(
+                if (isLastElement) {
+                    Modifier.defaultMinSize(minHeight = 400.dp)
+                } else {
+                    Modifier.defaultMinSize(minHeight = 40.dp)
+                }
+            )
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null
+            ) {
+                tfv = tfv.copy(selection = TextRange(tfv.text.length))
+                focusRequester.requestFocus()
+                onFocused()
+                keyboardController?.show()
+            }
+    ) {
+        BasicTextField(
+            value = tfv,
+            onValueChange = { newTfv ->
+                tfv = newTfv
+                onTextChange(newTfv.text, newTfv.selection.start)
+            },
+            modifier = Modifier
+                .fillMaxWidth()
+                .focusRequester(focusRequester)
+                .onFocusChanged { state ->
+                    if (state.isFocused) {
+                        onFocused()
+                    }
+                }
+                .padding(vertical = 4.dp),
+            textStyle = TextStyle(
+                color = colors.textPrimary,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Normal,
+                lineHeight = 24.sp
+            ),
+            cursorBrush = SolidColor(colors.textPrimary),
+            decorationBox = { innerTextField ->
+                Box(modifier = Modifier.fillMaxWidth()) {
+                    innerTextField()
+                }
+            }
+        )
+    }
+}
+
+@Composable
+private fun NotePhotoCard(
+    uri: Uri,
+    onDelete: () -> Unit,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val colors = LocalUtilitarianColors.current
+    val context = LocalContext.current
+    var bitmap by remember(uri) { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(uri) {
+        bitmap = withContext(Dispatchers.IO) {
+            ImageUtils.loadSampledBitmapFromUri(context, uri, reqWidth = 900, reqHeight = 900)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(8.dp))
+            .background(colors.cardBackground)
+            .border(1.dp, colors.borderStroke, RoundedCornerShape(8.dp))
+            .clickable(onClick = onClick)
+    ) {
+        val currentBitmap = bitmap
+        if (currentBitmap != null) {
+            Image(
+                bitmap = currentBitmap.asImageBitmap(),
+                contentDescription = "Note photo",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(240.dp)
+            )
+        } else {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(180.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Text("Loading photo...", color = colors.textSecondary, fontSize = 13.sp)
+            }
+        }
+
+        Box(
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(8.dp)
+                .size(30.dp)
+                .clip(CircleShape)
+                .background(Color.Black.copy(alpha = 0.65f))
+                .border(1.dp, Color.White.copy(alpha = 0.3f), CircleShape)
+                .clickable(onClick = onDelete),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Close,
+                contentDescription = "Remove photo",
+                tint = Color.White,
+                modifier = Modifier.size(16.dp)
+            )
+        }
+    }
+}
+
+
+
+@Composable
+private fun FullPhotoPreviewDialog(
+    photoUri: Uri,
+    onDismiss: () -> Unit
+) {
+    val context = LocalContext.current
+    var bitmap by remember(photoUri) { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(photoUri) {
+        bitmap = withContext(Dispatchers.IO) {
+            ImageUtils.loadSampledBitmapFromUri(context, photoUri, reqWidth = 1080, reqHeight = 1920)
+        }
+    }
+
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(
+            usePlatformDefaultWidth = false,
+            decorFitsSystemWindows = false
+        )
+    ) {
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .background(Color.Black)
+                .statusBarsPadding()
+                .navigationBarsPadding()
+        ) {
+            val currentBitmap = bitmap
+            if (currentBitmap != null) {
+                Image(
+                    bitmap = currentBitmap.asImageBitmap(),
+                    contentDescription = "Full photo preview",
+                    contentScale = ContentScale.Fit,
+                    modifier = Modifier.fillMaxSize()
+                )
+            }
+
+            Box(
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .padding(16.dp)
+                    .size(44.dp)
+                    .clip(CircleShape)
+                    .background(Color(0xFF262626))
+                    .border(1.dp, Color(0xFF404040), CircleShape)
+                    .clickable(onClick = onDismiss),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Close,
+                    contentDescription = "Close preview",
+                    tint = Color.White,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+        }
+    }
+}
+
 

@@ -334,6 +334,8 @@ fun CreateEntryScreen(
 
     if (state.entryType == EntryType.NOTE) {
         CreateNoteScreen(
+            initialTitle = state.title,
+            initialContent = state.notes,
             onSaveNote = { title, content, colorHex, labels ->
                 viewModel.saveNote(title, content, colorHex, labels)
             },
