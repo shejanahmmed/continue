@@ -341,13 +341,42 @@ fun CreateNoteScreen(
         }
     }
 
-    val imagePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        if (uri != null) {
-            val updated = attachedImageUris + uri
-            attachedImageUris = updated
-            undoManager.recordAction(takeSnapshot(newAttachedImageUris = updated))
+    val galleryPickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetMultipleContents()
+    ) { uris: List<Uri> ->
+        if (uris.isNotEmpty()) {
+            coroutineScope.launch {
+                val attachmentsDir = File(context.filesDir, "attachments").apply { if (!exists()) mkdirs() }
+                var currentCursor = targetCursorPosition
+                var currentText = noteTextState.text
+
+                withContext(Dispatchers.IO) {
+                    uris.forEachIndexed { index, uri ->
+                        runCatching {
+                            val permanentFile = File(attachmentsDir, "note_photo_${System.currentTimeMillis()}_$index.jpg")
+                            context.contentResolver.openInputStream(uri)?.use { input ->
+                                permanentFile.outputStream().use { output ->
+                                    input.copyTo(output)
+                                }
+                            }
+                            val permanentUri = Uri.fromFile(permanentFile)
+                            val (newText, newCursor) = NoteTextFormatter.insertPhotoTag(
+                                currentText = currentText,
+                                cursorOffset = currentCursor,
+                                photoUri = permanentUri.toString()
+                            )
+                            currentText = newText
+                            currentCursor = newCursor
+                        }
+                    }
+                }
+
+                val updatedState = TextFieldValue(text = currentText, selection = TextRange(currentCursor))
+                noteTextState = updatedState
+                targetCursorPosition = currentCursor
+                undoManager.recordAction(takeSnapshot(newNoteTextState = updatedState))
+                autoFocusAfterCaptureTrigger++
+            }
         }
     }
 
@@ -1380,11 +1409,17 @@ fun CreateNoteScreen(
                     launchCamera()
                 }
             },
-            NoteMenuOption("Add image", Icons.Outlined.Image) {
+            NoteMenuOption("Add photo", Icons.Outlined.Image) {
                 coroutineScope.launch {
                     sheetState.hide()
                     showBottomSheet = false
-                    imagePickerLauncher.launch("image/*")
+                    if (isChecklistMode) {
+                        isChecklistMode = false
+                        val converted = checklistItems.joinToString("\n") { it.text }
+                        noteTextState = TextFieldValue(converted)
+                    }
+                    targetCursorPosition = noteTextState.selection.start.coerceIn(0, noteTextState.text.length)
+                    galleryPickerLauncher.launch("image/*")
                 }
             },
             NoteMenuOption("Recording", Icons.Outlined.Mic) {
