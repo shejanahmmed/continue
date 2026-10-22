@@ -459,11 +459,11 @@ private fun WorkspaceTabRow(
                     .clickable { onSelectTab(tab) },
                 shape = RoundedCornerShape(8.dp),
                 color = if (isSelected) UtilitarianCardBackground else UtilitarianPureBlack,
-                border = BorderStroke(1.dp, if (isSelected) UtilitarianTextPrimary else UtilitarianBorderStroke)
+                border = BorderStroke(1.dp, if (isSelected) UtilitarianTextPrimaryMuted else UtilitarianBorderStroke)
             ) {
                 Text(
                     text = label,
-                    color = if (isSelected) UtilitarianTextPrimary else UtilitarianTextSecondary,
+                    color = if (isSelected) UtilitarianTextPrimaryMuted else UtilitarianTextSecondary,
                     fontFamily = FontFamily.SansSerif,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     fontSize = 11.sp,
