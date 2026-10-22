@@ -494,7 +494,7 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Date
                     Row(
@@ -614,7 +614,7 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
-                    Spacer(modifier = Modifier.height(12.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Alert / Reminders
                     val alertText = EventFormatters.formatAlerts(activity) ?: "Not set"
@@ -645,7 +645,7 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Repeat / Recurrence
                     val repeatText = if (activity.recurrenceMode != RecurrenceMode.NONE) {
@@ -680,7 +680,7 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         )
                     }
 
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
 
                     // Priority
                     Row(
@@ -757,10 +757,13 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                         fontWeight = FontWeight.Bold,
                         letterSpacing = 1.sp
                     )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    Spacer(modifier = Modifier.height(8.dp))
                     if (aggregate.attachments.isNotEmpty()) {
                         val context = LocalContext.current
-                        aggregate.attachments.forEach { att ->
+                        aggregate.attachments.forEachIndexed { index, att ->
+                            if (index > 0) {
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
                             Surface(
                                 onClick = {
                                     AttachmentHelper.openAttachmentInDefaultApp(
@@ -775,9 +778,7 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                                         ).show()
                                     }
                                 },
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(vertical = 4.dp),
+                                modifier = Modifier.fillMaxWidth(),
                                 shape = RoundedCornerShape(8.dp),
                                 color = Color(0xFF1E1E20),
                                 border = BorderStroke(1.dp, Color(0xFF2C2C2E))
