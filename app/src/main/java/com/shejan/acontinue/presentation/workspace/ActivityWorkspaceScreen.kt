@@ -62,6 +62,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -341,110 +342,108 @@ fun ActivityWorkspaceScreen(
             onDismissRequest = { showDeleteConfirmDialog = false },
             properties = DialogProperties(usePlatformDefaultWidth = false)
         ) {
-            Surface(
-                shape = RoundedCornerShape(24.dp),
-                color = Color(0xFF202020),
-                border = BorderStroke(1.dp, Color(0xFF333333)),
+            Box(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 24.dp)
+                    .fillMaxSize()
+                    .navigationBarsPadding()
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) { showDeleteConfirmDialog = false },
+                contentAlignment = BiasAlignment(horizontalBias = 0f, verticalBias = 0.35f)
             ) {
-                Column(
+                Surface(
+                    shape = RoundedCornerShape(20.dp),
+                    color = Color(0xFF1E2023),
+                    border = BorderStroke(1.dp, Color(0xFF3F454C)),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
+                        .padding(horizontal = 24.dp)
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { /* Intercept touch to prevent dismissing on dialog body click */ }
                 ) {
-                    // Trash Icon in Red Circle Badge
-                    Box(
+                    Column(
                         modifier = Modifier
-                            .size(56.dp)
-                            .background(Color(0xFFD71921).copy(alpha = 0.15f), CircleShape),
-                        contentAlignment = Alignment.Center
+                            .fillMaxWidth()
+                            .padding(20.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Delete,
-                            contentDescription = null,
-                            tint = Color(0xFFD71921),
-                            modifier = Modifier.size(28.dp)
+                        Text(
+                            text = "Delete event?",
+                            color = UtilitarianTextPrimary,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            textAlign = TextAlign.Center
                         )
-                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                        Spacer(modifier = Modifier.height(10.dp))
 
-                    Text(
-                        text = "Delete event?",
-                        color = UtilitarianTextPrimary,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        textAlign = TextAlign.Center
-                    )
+                        Text(
+                            text = "Are you sure you want to delete this event? This action cannot be undone.",
+                            color = UtilitarianTextSecondary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Normal,
+                            textAlign = TextAlign.Center,
+                            lineHeight = 20.sp,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
 
-                    Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(20.dp))
 
-                    Text(
-                        text = "Are you sure you want to delete this event? This action cannot be undone.",
-                        color = UtilitarianTextSecondary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Normal,
-                        textAlign = TextAlign.Center,
-                        lineHeight = 20.sp,
-                        modifier = Modifier.padding(horizontal = 8.dp)
-                    )
-
-                    Spacer(modifier = Modifier.height(24.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(12.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Cancel Button Box
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(46.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFF2C3136))
-                                .border(1.dp, Color(0xFF3F454C), RoundedCornerShape(12.dp))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    showDeleteConfirmDialog = false
-                                },
-                            contentAlignment = Alignment.Center
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "Cancel",
-                                color = UtilitarianTextPrimary,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
+                            // Cancel Button Box
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFF2C3136))
+                                    .border(1.dp, Color(0xFF3F454C), RoundedCornerShape(12.dp))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        showDeleteConfirmDialog = false
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Cancel",
+                                    color = UtilitarianTextPrimary,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
 
-                        // Delete Button Box
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(46.dp)
-                                .clip(RoundedCornerShape(12.dp))
-                                .background(Color(0xFFD71921))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    showDeleteConfirmDialog = false
-                                    viewModel.deleteActivity()
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "Delete",
-                                color = Color.White,
-                                fontSize = 15.sp,
-                                fontWeight = FontWeight.SemiBold
-                            )
+                            // Delete Button Box
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .height(46.dp)
+                                    .clip(RoundedCornerShape(12.dp))
+                                    .background(Color(0xFFD71921))
+                                    .clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        showDeleteConfirmDialog = false
+                                        viewModel.deleteActivity()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = "Delete",
+                                    color = Color.White,
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.SemiBold
+                                )
+                            }
                         }
                     }
                 }
