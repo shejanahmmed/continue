@@ -29,10 +29,15 @@ class GetActivityWorkspaceUseCase(
             linksFlow,
             attachmentsFlow
         ) { activity, tasks, notes, links, attachments ->
+            val workspaceNotes = notes.filterNot { note ->
+                activity.description.isNotBlank() &&
+                (note.content.trim() == activity.description.trim() ||
+                 (note.title == "Notes" && note.content.trim() == activity.description.trim()))
+            }
             ActivityWorkspaceAggregate(
                 activity = activity,
                 tasks = tasks,
-                notes = notes,
+                notes = workspaceNotes,
                 links = links,
                 attachments = attachments
             )

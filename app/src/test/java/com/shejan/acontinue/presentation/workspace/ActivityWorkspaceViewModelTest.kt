@@ -87,6 +87,49 @@ class ActivityWorkspaceViewModelTest {
     }
 
     @Test
+    fun `test legacy note mirroring event description is excluded from workspace notes`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 200L,
+                title = "Physics Lecture",
+                description = "Read chapter 5 before attending",
+                category = ActivityCategory.CLASS,
+                startTimeMillis = 1000L,
+                endTimeMillis = 2000L
+            )
+        )
+        // Simulate legacy note that was auto-created from the event create page
+        noteRepository.insertNote(
+            com.shejan.acontinue.domain.model.ActivityNote(
+                id = 999L,
+                activityId = 200L,
+                title = "Notes",
+                content = "Read chapter 5 before attending"
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        val vm = ActivityWorkspaceViewModel(
+            200L,
+            getActivityWorkspaceUseCase,
+            activityRepository,
+            taskRepository,
+            noteRepository,
+            linkRepository
+        )
+        testScheduler.advanceUntilIdle()
+
+        vm.uiState.test {
+            val state = awaitItem()
+            assertNotNull(state.aggregate)
+            // Event note appears on the activity description (Overview card)
+            assertEquals("Read chapter 5 before attending", state.aggregate?.activity?.description)
+            // But is strictly excluded from the workspace notes tab
+            assertEquals(0, state.aggregate?.notes?.size)
+        }
+    }
+
+    @Test
     fun `test adding note, task, and link reflects in workspace`() = runTest(testDispatcher) {
         testScheduler.advanceUntilIdle()
 

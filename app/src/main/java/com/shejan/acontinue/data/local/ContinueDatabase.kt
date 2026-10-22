@@ -44,6 +44,21 @@ abstract class ContinueDatabase : RoomDatabase() {
             }
         }
 
+        private val DATABASE_CALLBACK = object : RoomDatabase.Callback() {
+            override fun onOpen(db: SupportSQLiteDatabase) {
+                super.onOpen(db)
+                // Purge any legacy notes that were previously auto-created from event description
+                db.execSQL("""
+                    DELETE FROM notes 
+                    WHERE activityId IN (SELECT id FROM activities WHERE entryType = 'ACTIVITY') 
+                      AND (
+                          (SELECT description FROM activities WHERE activities.id = notes.activityId) != ''
+                          AND content = (SELECT description FROM activities WHERE activities.id = notes.activityId)
+                      )
+                """.trimIndent())
+            }
+        }
+
         fun getInstance(context: Context): ContinueDatabase {
             return INSTANCE ?: synchronized(this) {
                 val instance = Room.databaseBuilder(
@@ -52,6 +67,7 @@ abstract class ContinueDatabase : RoomDatabase() {
                     "continue_app.db"
                 )
                     .addMigrations(MIGRATION_4_5)
+                    .addCallback(DATABASE_CALLBACK)
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()
                 INSTANCE = instance
