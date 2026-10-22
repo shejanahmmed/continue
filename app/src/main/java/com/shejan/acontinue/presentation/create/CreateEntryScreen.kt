@@ -948,15 +948,17 @@ fun CreateEntryScreen(
                                     cursorBrush = SolidColor(colors.accent),
                                     singleLine = true,
                                     decorationBox = { innerTextField ->
-                                        if (state.location.isEmpty()) {
-                                            Text(
-                                                text = "Location",
-                                                color = colors.textSecondary,
-                                                fontSize = 15.sp,
-                                                fontWeight = FontWeight.Normal
-                                            )
+                                        Box(contentAlignment = Alignment.CenterStart) {
+                                            if (state.location.isEmpty()) {
+                                                Text(
+                                                    text = "Location",
+                                                    color = colors.textSecondary,
+                                                    fontSize = 15.sp,
+                                                    fontWeight = FontWeight.Normal
+                                                )
+                                            }
+                                            innerTextField()
                                         }
-                                        innerTextField()
                                     }
                                 )
 

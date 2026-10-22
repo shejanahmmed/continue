@@ -818,11 +818,12 @@ private fun TimedAgendaActivityCard(
                         textDecoration = if (isReminder && activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
                     )
                     Spacer(modifier = Modifier.height(1.dp))
-                    val subtitle = if (isReminder && activity.location.isNotBlank()) {
+                    val hasLoc = activity.location.isNotBlank() && !activity.location.trim().equals("location", ignoreCase = true)
+                    val subtitle = if (isReminder && hasLoc) {
                         "${activity.reminderCategory} • $timeSpan  ${activity.location}"
                     } else if (isReminder) {
                         "${activity.reminderCategory} • $timeSpan"
-                    } else if (activity.location.isNotBlank()) {
+                    } else if (hasLoc) {
                         "$timeSpan  ${activity.location}"
                     } else {
                         timeSpan
@@ -884,7 +885,8 @@ private fun ExpandedCardContent(
         "${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
     }
     val repeatStr = if (activity.recurrenceMode != RecurrenceMode.NONE) formatRecurrenceRule(activity) else "None"
-    val locationStr = if (activity.location.isNotBlank()) activity.location else "None"
+    val hasLocation = activity.location.isNotBlank() && !activity.location.trim().equals("location", ignoreCase = true)
+    val locationStr = if (hasLocation) activity.location else "None"
     val noteStr = activity.description.ifBlank {
         workspace?.notes?.firstOrNull()?.content ?: ""
     }.ifBlank { "None" }
@@ -1354,7 +1356,8 @@ internal fun UtilitarianEventDetailSheet(
             )
 
             // Optional: Location if present
-            if (activity.location.isNotBlank()) {
+            val hasDetailLocation = activity.location.isNotBlank() && !activity.location.trim().equals("location", ignoreCase = true)
+            if (hasDetailLocation) {
                 Spacer(modifier = Modifier.height(14.dp))
                 UtilitarianDetailLine(
                     icon = Icons.Outlined.LocationOn,

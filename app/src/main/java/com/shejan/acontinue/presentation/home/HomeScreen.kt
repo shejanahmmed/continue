@@ -237,7 +237,8 @@ fun HomeScreen(
                             )
                         }
 
-                        if (focalEvent.location.isNotBlank()) {
+                        val hasLocation = focalEvent.location.isNotBlank() && !focalEvent.location.trim().equals("location", ignoreCase = true)
+                        if (hasLocation) {
                             Spacer(modifier = Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(

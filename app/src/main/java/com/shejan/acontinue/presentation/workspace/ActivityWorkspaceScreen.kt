@@ -72,6 +72,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -189,45 +190,62 @@ fun ActivityWorkspaceScreen(
                     DropdownMenu(
                         expanded = showMenu,
                         onDismissRequest = { showMenu = false },
-                        modifier = Modifier.background(Color(0xFF202020))
+                        offset = DpOffset(x = (-100).dp, y = 4.dp),
+                        shape = RoundedCornerShape(14.dp),
+                        containerColor = Color(0xFF1E2023),
+                        border = BorderStroke(1.dp, Color(0xFF33383F)),
+                        modifier = Modifier.width(140.dp)
                     ) {
                         DropdownMenuItem(
                             text = {
-                                Text(
-                                    text = "Edit",
-                                    color = UtilitarianTextPrimary,
-                                    fontSize = 14.sp
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Edit,
+                                        contentDescription = null,
+                                        tint = UtilitarianTextPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Edit",
+                                        color = UtilitarianTextPrimary,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Outlined.Edit,
-                                    contentDescription = "Edit",
-                                    tint = UtilitarianTextPrimary,
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.height(36.dp),
                             onClick = {
                                 showMenu = false
                                 onEditActivity(activity.id)
                             }
                         )
+                        HorizontalDivider(
+                            color = Color(0xFF2C3136),
+                            thickness = 0.5.dp,
+                            modifier = Modifier.padding(horizontal = 8.dp)
+                        )
                         DropdownMenuItem(
                             text = {
-                                Text(
-                                    text = "Delete",
-                                    color = Color(0xFFD71921),
-                                    fontSize = 14.sp
-                                )
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Delete,
+                                        contentDescription = null,
+                                        tint = Color(0xFFD71921),
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = "Delete",
+                                        color = Color(0xFFD71921),
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium
+                                    )
+                                }
                             },
-                            leadingIcon = {
-                                Icon(
-                                    imageVector = Icons.Outlined.Delete,
-                                    contentDescription = "Delete",
-                                    tint = Color(0xFFD71921),
-                                    modifier = Modifier.size(18.dp)
-                                )
-                            },
+                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 0.dp),
+                            modifier = Modifier.height(36.dp),
                             onClick = {
                                 showMenu = false
                                 showDeleteConfirmDialog = true
@@ -531,8 +549,10 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
 
                     // Location
                     val context = LocalContext.current
-                    if (activity.location.isNotBlank()) {
-                        val isLink = LocationHelper.isMapLocationLink(activity.location)
+                    val effectiveLocation = activity.location.trim()
+                    val hasLocation = effectiveLocation.isNotBlank() && !effectiveLocation.equals("location", ignoreCase = true)
+                    if (hasLocation) {
+                        val isLink = LocationHelper.isMapLocationLink(effectiveLocation)
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -541,7 +561,7 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                                     interactionSource = remember { MutableInteractionSource() },
                                     indication = null
                                 ) {
-                                    LocationHelper.openLocationInMapApp(context, activity.location)
+                                    LocationHelper.openLocationInMapApp(context, effectiveLocation)
                                 }
                                 .padding(vertical = 4.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -554,7 +574,7 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = activity.location,
+                                text = effectiveLocation,
                                 color = if (isLink) Color(0xFF3897F0) else UtilitarianTextSecondary,
                                 fontSize = 13.sp,
                                 modifier = Modifier.weight(1f)
@@ -797,12 +817,6 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                                             fontSize = 11.sp
                                         )
                                     }
-                                    Icon(
-                                        imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                                        contentDescription = "Open",
-                                        tint = Color(0xFF3897F0),
-                                        modifier = Modifier.size(16.dp)
-                                    )
                                 }
                             }
                         }
