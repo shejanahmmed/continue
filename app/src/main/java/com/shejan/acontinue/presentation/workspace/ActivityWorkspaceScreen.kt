@@ -140,6 +140,7 @@ fun ActivityWorkspaceScreen(
             .background(UtilitarianPureBlack)
             .padding(horizontal = 16.dp)
             .navigationBarsPadding(),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
         contentPadding = PaddingValues(bottom = 32.dp)
     ) {
         // Top Bar
@@ -147,7 +148,7 @@ fun ActivityWorkspaceScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 12.dp, bottom = 8.dp),
+                    .padding(top = 12.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 IconButton(
@@ -254,16 +255,11 @@ fun ActivityWorkspaceScreen(
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(4.dp))
         }
 
         // Header Title Card with Subtitles Icon and First-Line Alignment
         item {
-            MonochromeCard(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(bottom = 12.dp)
-            ) {
+            MonochromeCard {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.Top
@@ -297,7 +293,6 @@ fun ActivityWorkspaceScreen(
                 tasksCount = aggregate.tasks.size,
                 linksCount = aggregate.links.size
             )
-            Spacer(modifier = Modifier.height(12.dp))
         }
 
         // Tab Content
@@ -483,7 +478,10 @@ private fun WorkspaceTabRow(
 private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
     val activity = aggregate.activity
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         // Card 1: DATE, TIME & LOCATION
         MonochromeCard {
                 Column {
@@ -607,7 +605,6 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
 
         // Card 2: EVENT SETTINGS
         MonochromeCard {
@@ -717,7 +714,6 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
 
         // Card 3: EVENT NOTE
         MonochromeCard {
@@ -748,7 +744,6 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(12.dp))
 
         // Card 4: ATTACHMENTS
         MonochromeCard {
@@ -829,7 +824,6 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                     }
                 }
             }
-            Spacer(modifier = Modifier.height(16.dp))
     }
 }
 
@@ -842,7 +836,10 @@ private fun NotesTabContent(
     var titleInput by remember { mutableStateOf("") }
     var contentInput by remember { mutableStateOf("") }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         // Quick Add Note Box
         MonochromeCard {
             Column {
@@ -893,7 +890,6 @@ private fun NotesTabContent(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(12.dp))
 
         if (notes.isEmpty()) {
             Text(
@@ -931,7 +927,6 @@ private fun NotesTabContent(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
@@ -946,11 +941,12 @@ private fun TasksTabContent(
 ) {
     var taskInput by remember { mutableStateOf("") }
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(vertical = 4.dp),
+            modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically
         ) {
             TextField(
@@ -977,7 +973,6 @@ private fun TasksTabContent(
                 }
             )
         }
-        Spacer(modifier = Modifier.height(12.dp))
 
         if (tasks.isEmpty()) {
             Text(
@@ -989,9 +984,7 @@ private fun TasksTabContent(
         } else {
             tasks.forEach { task ->
                 Surface(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp),
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
                     color = UtilitarianCardBackground,
                     border = BorderStroke(1.dp, UtilitarianBorderStroke)
@@ -1039,7 +1032,10 @@ private fun LinksTabContent(
     var titleInput by remember { mutableStateOf("") }
     val context = LocalContext.current
 
-    Column(modifier = Modifier.fillMaxWidth()) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
         MonochromeCard {
             Column {
                 Text(
@@ -1089,7 +1085,6 @@ private fun LinksTabContent(
                 )
             }
         }
-        Spacer(modifier = Modifier.height(12.dp))
 
         if (links.isEmpty()) {
             Text(
@@ -1126,7 +1121,6 @@ private fun LinksTabContent(
                         }
                     }
                 }
-                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
