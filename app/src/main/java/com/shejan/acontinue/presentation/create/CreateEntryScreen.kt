@@ -92,7 +92,9 @@ import com.shejan.acontinue.core.util.AttachmentHelper
 import com.shejan.acontinue.core.util.ProcessedAttachment
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
@@ -477,8 +479,59 @@ fun CreateEntryScreen(
                 .padding(top = 16.dp, bottom = if (showEmojiKeyboard) 360.dp else if (isImeVisible) 280.dp else 120.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Top Segmented Pill Toggle: Event vs Reminder vs Notes
-            if (state.editingActivityId == null) {
+            // Top Bar: Edit Mode Header vs New Entry Segmented Toggle
+            if (state.editingActivityId != null) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(bottom = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(36.dp)
+                            .clip(CircleShape)
+                            .clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                if (hasModifications) {
+                                    showDiscardSheet = true
+                                } else {
+                                    onDismiss()
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                            contentDescription = "Back",
+                            tint = colors.textPrimary,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    Icon(
+                        imageVector = Icons.Outlined.Edit,
+                        contentDescription = null,
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(20.dp)
+                    )
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Text(
+                        text = if (state.entryType == EntryType.REMINDER) "EDIT REMINDER" else "EDIT EVENT",
+                        color = colors.textPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 20.sp,
+                        letterSpacing = 1.2.sp
+                    )
+                }
+            } else {
                 SegmentedTopToggle(
                     selectedType = state.entryType,
                     onSelectType = {
