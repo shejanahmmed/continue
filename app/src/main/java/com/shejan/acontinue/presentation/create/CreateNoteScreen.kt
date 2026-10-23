@@ -96,7 +96,6 @@ import androidx.compose.material.icons.outlined.Colorize
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DragIndicator
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.FormatColorText
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Mic
@@ -1827,13 +1826,6 @@ fun CreateNoteScreen(
                     sheetState.hide()
                 }
                 requestRecording()
-            },
-            NoteMenuOption("Drawing", Icons.Outlined.Edit) {
-                coroutineScope.launch {
-                    sheetState.hide()
-                    showBottomSheet = false
-                    Toast.makeText(context, "Drawing feature", Toast.LENGTH_SHORT).show()
-                }
             },
             if (!isChecklistMode) {
                 NoteMenuOption("Checkboxes", Icons.Outlined.CheckBox) {
