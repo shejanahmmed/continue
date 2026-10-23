@@ -18,6 +18,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -138,7 +139,7 @@ fun HomeScreen(
                 reminderProgress = uiState.reminderProgress,
                 onClick = onNavigateToCalendar
             )
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
         }
 
         // Card 2: Current / Upcoming Event Focus
@@ -166,7 +167,7 @@ fun HomeScreen(
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.sp,
-                    modifier = Modifier.padding(bottom = 6.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
 
                 MonochromeCard(
@@ -328,7 +329,7 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(if (focalReminder != null) 16.dp else 24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
 
@@ -347,7 +348,7 @@ fun HomeScreen(
                     fontSize = 12.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.sp,
-                    modifier = Modifier.padding(bottom = 6.dp)
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
 
                 MonochromeCard(
@@ -558,7 +559,7 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(24.dp))
+                Spacer(modifier = Modifier.height(20.dp))
             }
         }
 
@@ -589,10 +590,10 @@ fun HomeScreen(
                         lineHeight = 18.sp
                     )
                 }
-                Spacer(modifier = Modifier.height(16.dp))
+                Spacer(modifier = Modifier.height(20.dp))
             }
         } else {
-            items(uiState.todayActivities, key = { "activity_${it.id}" }) { activity ->
+            itemsIndexed(uiState.todayActivities, key = { _, it -> "activity_${it.id}" }) { index, activity ->
                 val isReminder = activity.entryType == EntryType.REMINDER
                 TimelineActivityItem(
                     activity = activity,
@@ -607,14 +608,14 @@ fun HomeScreen(
                         viewModel.toggleActivityCompletion(activity.id, isCompleted)
                     }
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                val isLast = index == uiState.todayActivities.lastIndex
+                Spacer(modifier = Modifier.height(if (isLast) 20.dp else 8.dp))
             }
         }
 
         // Section 2B: Past Schedule
         if (uiState.pastActivities.isNotEmpty()) {
             item {
-                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "PAST SCHEDULE",
                     color = UtilitarianTextPrimaryMuted,
@@ -626,7 +627,7 @@ fun HomeScreen(
                 )
             }
 
-            items(uiState.pastActivities, key = { "past_activity_${it.id}" }) { activity ->
+            itemsIndexed(uiState.pastActivities, key = { _, it -> "past_activity_${it.id}" }) { index, activity ->
                 val isReminder = activity.entryType == EntryType.REMINDER
                 TimelineActivityItem(
                     activity = activity,
@@ -641,14 +642,14 @@ fun HomeScreen(
                         viewModel.toggleActivityCompletion(activity.id, isCompleted)
                     }
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                val isLast = index == uiState.pastActivities.lastIndex
+                Spacer(modifier = Modifier.height(if (isLast) 20.dp else 8.dp))
             }
         }
 
         // Section 3: Pending Responsibilities
         if (uiState.pendingTasks.isNotEmpty()) {
             item {
-                Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "PENDING ACTION ITEMS (${uiState.pendingTasks.size})",
                     color = UtilitarianTextSecondary,
@@ -666,7 +667,7 @@ fun HomeScreen(
                     onToggle = { isChecked -> viewModel.toggleTask(task.id, isChecked) },
                     onClick = { task.activityId?.let(onActivityClick) }
                 )
-                Spacer(modifier = Modifier.height(6.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
     }
