@@ -80,6 +80,7 @@ import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
 import com.shejan.acontinue.ui.theme.UtilitarianPureBlack
 import com.shejan.acontinue.ui.theme.UtilitarianTextDisabled
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
+import com.shejan.acontinue.ui.theme.UtilitarianTextPrimaryMuted
 import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -177,12 +178,10 @@ fun HomeScreen(
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.Top
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             Box(
-                                modifier = Modifier
-                                    .padding(top = 5.dp)
-                                    .size(14.dp),
+                                modifier = Modifier.size(14.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Box(
@@ -195,15 +194,15 @@ fun HomeScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = focalEvent.title,
-                                color = UtilitarianTextPrimary,
-                                fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Normal,
-                                fontSize = 18.sp,
+                                color = UtilitarianTextPrimaryMuted,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 12.5.sp,
                                 modifier = Modifier.weight(1f)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(6.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -232,14 +231,14 @@ fun HomeScreen(
                                 text = timeSpan,
                                 color = UtilitarianTextSecondary,
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 12.sp,
+                                fontSize = 11.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         }
 
                         val hasLocation = focalEvent.location.isNotBlank() && !focalEvent.location.trim().equals("location", ignoreCase = true)
                         if (hasLocation) {
-                            Spacer(modifier = Modifier.height(4.dp))
+                            Spacer(modifier = Modifier.height(8.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier.size(14.dp),
@@ -256,15 +255,15 @@ fun HomeScreen(
                                 Text(
                                     text = focalEvent.location,
                                     color = UtilitarianTextSecondary,
-                                    fontSize = 12.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 11.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
 
-
-                        Spacer(modifier = Modifier.height(14.dp))
+                        Spacer(modifier = Modifier.height(8.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
