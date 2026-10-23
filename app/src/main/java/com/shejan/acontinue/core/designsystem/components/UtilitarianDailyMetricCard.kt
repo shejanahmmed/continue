@@ -162,14 +162,14 @@ fun UtilitarianDailyMetricCard(
             ) {
                 Text(
                     text = "TODAY'S OVERVIEW",
-                    color = colors.textPrimaryMuted,
+                    color = colors.textPrimary,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.5.sp,
+                    fontSize = 10.sp,
                     fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 1.sp
+                    letterSpacing = 1.2.sp
                 )
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(10.dp))
 
                 // Line 1: Events Row
                 MetricCountRow(
@@ -230,7 +230,9 @@ private fun MetricCountRow(
     val colors = LocalUtilitarianColors.current
 
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Indicator dot tied directly to the corresponding gauge ring color
@@ -258,7 +260,7 @@ private fun MetricCountRow(
 
         Text(
             text = String.format(Locale.US, "%02d / %02d", completed, total),
-            color = colors.textPrimaryMuted,
+            color = colors.textPrimary,
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
@@ -283,7 +285,9 @@ private fun SingleMetricRow(
     val colors = LocalUtilitarianColors.current
 
     Row(
-        modifier = modifier.fillMaxWidth(),
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(vertical = 2.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Indicator dot tied directly to the alert status
@@ -311,7 +315,7 @@ private fun SingleMetricRow(
 
         Text(
             text = String.format(Locale.US, "%02d", count),
-            color = if (count > 0) dotColor else colors.textPrimaryMuted,
+            color = if (count > 0) dotColor else colors.textPrimary,
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,

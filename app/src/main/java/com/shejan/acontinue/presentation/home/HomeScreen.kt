@@ -18,7 +18,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -81,7 +80,6 @@ import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
 import com.shejan.acontinue.ui.theme.UtilitarianPureBlack
 import com.shejan.acontinue.ui.theme.UtilitarianTextDisabled
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
-import com.shejan.acontinue.ui.theme.UtilitarianTextPrimaryMuted
 import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -139,14 +137,14 @@ fun HomeScreen(
                 reminderProgress = uiState.reminderProgress,
                 onClick = onNavigateToCalendar
             )
-            Spacer(modifier = Modifier.height(20.dp))
+            Spacer(modifier = Modifier.height(16.dp))
         }
 
         // Card 2: Current / Upcoming Event Focus
         if (focalEvent != null) {
             item {
                 val headerText = if (isEventNow) "NOW" else "UPCOMING EVENT"
-                val headerColor = if (isEventNow) UtilitarianAccentRed else UtilitarianTextPrimaryMuted
+                val headerColor = if (isEventNow) UtilitarianAccentRed else UtilitarianTextSecondary
                 val cardBorderColor = if (isEventNow) UtilitarianAccentRed else UtilitarianBorderActive
 
                 val infiniteTransition = rememberInfiniteTransition(label = "nowEventPulse")
@@ -164,10 +162,10 @@ fun HomeScreen(
                     text = headerText,
                     color = headerColor,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.5.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 6.dp)
                 )
 
                 MonochromeCard(
@@ -197,15 +195,15 @@ fun HomeScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = focalEvent.title,
-                                color = UtilitarianTextPrimaryMuted,
+                                color = UtilitarianTextPrimary,
                                 fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.SemiBold,
+                                fontWeight = FontWeight.Normal,
                                 fontSize = 18.sp,
                                 modifier = Modifier.weight(1f)
                             )
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+                        Spacer(modifier = Modifier.height(6.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -234,14 +232,14 @@ fun HomeScreen(
                                 text = timeSpan,
                                 color = UtilitarianTextSecondary,
                                 fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
+                                fontSize = 12.sp,
                                 fontWeight = FontWeight.Medium
                             )
                         }
 
                         val hasLocation = focalEvent.location.isNotBlank() && !focalEvent.location.trim().equals("location", ignoreCase = true)
                         if (hasLocation) {
-                            Spacer(modifier = Modifier.height(8.dp))
+                            Spacer(modifier = Modifier.height(4.dp))
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Box(
                                     modifier = Modifier.size(14.dp),
@@ -258,15 +256,15 @@ fun HomeScreen(
                                 Text(
                                     text = focalEvent.location,
                                     color = UtilitarianTextSecondary,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontSize = 11.sp,
+                                    fontSize = 12.sp,
                                     maxLines = 1,
                                     overflow = TextOverflow.Ellipsis
                                 )
                             }
                         }
 
-                        Spacer(modifier = Modifier.height(8.dp))
+
+                        Spacer(modifier = Modifier.height(14.dp))
 
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -329,7 +327,7 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(if (focalReminder != null) 16.dp else 24.dp))
             }
         }
 
@@ -338,17 +336,17 @@ fun HomeScreen(
             item {
                 val isReminderMissed = uiState.isReminderMissed || (!focalReminder.isCompleted && focalReminder.startTimeMillis < liveNow)
                 val reminderHeader = if (isReminderMissed) "MISSED REMINDER" else "UPCOMING REMINDER"
-                val reminderAccent = if (isReminderMissed) UtilitarianAccentRed else UtilitarianTextPrimaryMuted
+                val reminderAccent = if (isReminderMissed) UtilitarianAccentRed else UtilitarianTextSecondary
                 val reminderBorder = if (isReminderMissed) UtilitarianAccentRed else UtilitarianBorderActive
 
                 Text(
                     text = reminderHeader,
                     color = reminderAccent,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.5.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
+                    modifier = Modifier.padding(bottom = 6.dp)
                 )
 
                 MonochromeCard(
@@ -378,7 +376,7 @@ fun HomeScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = focalReminder.title,
-                                color = UtilitarianTextPrimaryMuted,
+                                color = UtilitarianTextPrimary,
                                 fontFamily = FontFamily.SansSerif,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 18.sp,
@@ -559,7 +557,7 @@ fun HomeScreen(
                     }
                 }
 
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(24.dp))
             }
         }
 
@@ -567,9 +565,9 @@ fun HomeScreen(
         item {
             Text(
                 text = "TODAY'S SCHEDULE",
-                color = UtilitarianTextPrimaryMuted,
+                color = UtilitarianTextSecondary,
                 fontFamily = FontFamily.Monospace,
-                fontSize = 12.5.sp,
+                fontSize = 11.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 1.sp,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -590,10 +588,10 @@ fun HomeScreen(
                         lineHeight = 18.sp
                     )
                 }
-                Spacer(modifier = Modifier.height(20.dp))
+                Spacer(modifier = Modifier.height(16.dp))
             }
         } else {
-            itemsIndexed(uiState.todayActivities, key = { _, it -> "activity_${it.id}" }) { index, activity ->
+            items(uiState.todayActivities, key = { "activity_${it.id}" }) { activity ->
                 val isReminder = activity.entryType == EntryType.REMINDER
                 TimelineActivityItem(
                     activity = activity,
@@ -608,26 +606,26 @@ fun HomeScreen(
                         viewModel.toggleActivityCompletion(activity.id, isCompleted)
                     }
                 )
-                val isLast = index == uiState.todayActivities.lastIndex
-                Spacer(modifier = Modifier.height(if (isLast) 20.dp else 8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
 
         // Section 2B: Past Schedule
         if (uiState.pastActivities.isNotEmpty()) {
             item {
+                Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "PAST SCHEDULE",
-                    color = UtilitarianTextPrimaryMuted,
+                    color = UtilitarianTextSecondary,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 12.5.sp,
+                    fontSize = 11.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.sp,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
             }
 
-            itemsIndexed(uiState.pastActivities, key = { _, it -> "past_activity_${it.id}" }) { index, activity ->
+            items(uiState.pastActivities, key = { "past_activity_${it.id}" }) { activity ->
                 val isReminder = activity.entryType == EntryType.REMINDER
                 TimelineActivityItem(
                     activity = activity,
@@ -642,14 +640,14 @@ fun HomeScreen(
                         viewModel.toggleActivityCompletion(activity.id, isCompleted)
                     }
                 )
-                val isLast = index == uiState.pastActivities.lastIndex
-                Spacer(modifier = Modifier.height(if (isLast) 20.dp else 8.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
         }
 
         // Section 3: Pending Responsibilities
         if (uiState.pendingTasks.isNotEmpty()) {
             item {
+                Spacer(modifier = Modifier.height(16.dp))
                 Text(
                     text = "PENDING ACTION ITEMS (${uiState.pendingTasks.size})",
                     color = UtilitarianTextSecondary,
@@ -667,7 +665,7 @@ fun HomeScreen(
                     onToggle = { isChecked -> viewModel.toggleTask(task.id, isChecked) },
                     onClick = { task.activityId?.let(onActivityClick) }
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(6.dp))
             }
         }
     }
@@ -770,7 +768,7 @@ private fun TimelineActivityItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = activity.title,
-                    color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimaryMuted,
+                    color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Normal,
                     maxLines = 1,
