@@ -13,6 +13,8 @@ class AudioRecordHelper(private val context: Context) {
     private var mediaRecorder: MediaRecorder? = null
     var isRecording: Boolean = false
         private set
+    var isPaused: Boolean = false
+        private set
     var currentFile: File? = null
         private set
 
@@ -42,9 +44,32 @@ class AudioRecordHelper(private val context: Context) {
             mediaRecorder = recorder
             currentFile = outputFile
             isRecording = true
+            isPaused = false
             true
         } catch (e: Exception) {
             release()
+            false
+        }
+    }
+
+    fun pauseRecording(): Boolean {
+        if (!isRecording || isPaused) return false
+        return try {
+            mediaRecorder?.pause()
+            isPaused = true
+            true
+        } catch (_: Exception) {
+            false
+        }
+    }
+
+    fun resumeRecording(): Boolean {
+        if (!isRecording || !isPaused) return false
+        return try {
+            mediaRecorder?.resume()
+            isPaused = false
+            true
+        } catch (_: Exception) {
             false
         }
     }
@@ -58,6 +83,7 @@ class AudioRecordHelper(private val context: Context) {
             }
             mediaRecorder = null
             isRecording = false
+            isPaused = false
             currentFile
         } catch (e: Exception) {
             release()
@@ -82,6 +108,7 @@ class AudioRecordHelper(private val context: Context) {
         } catch (_: Exception) {}
         mediaRecorder = null
         isRecording = false
+        isPaused = false
         currentFile = null
     }
 }

@@ -8,12 +8,16 @@ import android.widget.Toast
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -53,6 +57,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextLayoutResult
+import androidx.compose.ui.zIndex
 import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
 import android.content.Intent
@@ -62,8 +67,11 @@ import android.Manifest
 import android.content.pm.PackageManager
 import android.media.MediaMetadataRetriever
 import android.media.MediaPlayer
+import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material.icons.outlined.Pause
 import androidx.compose.material.icons.outlined.PlayArrow
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.scale
 import androidx.core.content.FileProvider
 import androidx.core.content.ContextCompat
 import com.shejan.acontinue.core.util.AttachmentHelper
@@ -246,8 +254,14 @@ fun CreateNoteScreen(
     var autoFocusAfterCaptureTrigger by remember { mutableIntStateOf(0) }
 
     val audioRecordHelper = remember { AudioRecordHelper(context) }
+    var isRecordingIslandVisible by remember { mutableStateOf(false) }
     var isRecordingAudio by remember { mutableStateOf(false) }
-    var recordingElapsedSeconds by remember { mutableIntStateOf(0) }
+    var isRecordingPaused by remember { mutableStateOf(false) }
+    var recordingElapsedMillis by remember { mutableLongStateOf(0L) }
+
+    val islandScale = remember { Animatable(0f) }
+    val islandWidthDp = remember { Animatable(44f) }
+    val islandContentAlpha = remember { Animatable(0f) }
 
     val searchMatches = remember(noteTextState.text, searchQuery) {
         if (searchQuery.isBlank()) emptyList() else NoteTextFormatter.findMatches(noteTextState.text, searchQuery)
@@ -504,15 +518,15 @@ fun CreateNoteScreen(
         cameraLauncher.launch(uri)
     }
 
-    LaunchedEffect(isRecordingAudio) {
-        if (isRecordingAudio) {
-            recordingElapsedSeconds = 0
-            while (isRecordingAudio) {
-                kotlinx.coroutines.delay(1000)
-                recordingElapsedSeconds++
+    LaunchedEffect(isRecordingAudio, isRecordingPaused) {
+        if (isRecordingAudio && !isRecordingPaused) {
+            var lastTime = System.currentTimeMillis()
+            while (isRecordingAudio && !isRecordingPaused) {
+                kotlinx.coroutines.delay(33)
+                val now = System.currentTimeMillis()
+                recordingElapsedMillis += (now - lastTime)
+                lastTime = now
             }
-        } else {
-            recordingElapsedSeconds = 0
         }
     }
 
@@ -525,38 +539,107 @@ fun CreateNoteScreen(
         }
     }
 
-    val startAudioRecording: () -> Unit = {
-        val attachmentsDir = File(context.filesDir, "attachments").apply { if (!exists()) mkdirs() }
-        val audioFile = File(attachmentsDir, "note_audio_${System.currentTimeMillis()}.m4a")
-        if (audioRecordHelper.startRecording(audioFile)) {
-            isRecordingAudio = true
-            recordingElapsedSeconds = 0
-        } else {
-            Toast.makeText(context, "Could not start recording", Toast.LENGTH_SHORT).show()
+    val startRecordingWithIslandAnimation: () -> Unit = {
+        coroutineScope.launch {
+            val attachmentsDir = File(context.filesDir, "attachments").apply { if (!exists()) mkdirs() }
+            val audioFile = File(attachmentsDir, "note_audio_${System.currentTimeMillis()}.m4a")
+
+            // 1. Show island, reset state, pop circle in at top center
+            isRecordingIslandVisible = true
+            isRecordingPaused = false
+            recordingElapsedMillis = 0L
+            islandScale.snapTo(0f)
+            islandWidthDp.snapTo(44f)
+            islandContentAlpha.snapTo(0f)
+
+            // Circle pops in with bouncy spring
+            islandScale.animateTo(
+                targetValue = 1f,
+                animationSpec = spring(
+                    dampingRatio = 0.65f,
+                    stiffness = Spring.StiffnessMediumLow
+                )
+            )
+
+            // 2. Extend horizontally outward left and right into full dynamic island
+            val expandJob = launch {
+                islandWidthDp.animateTo(
+                    targetValue = 296f,
+                    animationSpec = spring(
+                        dampingRatio = 0.78f,
+                        stiffness = Spring.StiffnessMediumLow
+                    )
+                )
+            }
+            islandContentAlpha.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 180)
+            )
+            expandJob.join()
+
+            // 3. Audio recording begins after circle has extended into pill
+            if (audioRecordHelper.startRecording(audioFile)) {
+                isRecordingAudio = true
+            } else {
+                Toast.makeText(context, "Could not start recording", Toast.LENGTH_SHORT).show()
+                islandScale.animateTo(0f, tween(100))
+                isRecordingIslandVisible = false
+            }
         }
     }
 
     val stopAndSaveAudioRecording: () -> Unit = {
-        val file = audioRecordHelper.stopRecording()
-        isRecordingAudio = false
-        if (file != null && file.exists() && file.length() > 0L) {
-            val audioUri = Uri.fromFile(file)
-            val updated = recordedAudioUris + audioUri
-            recordedAudioUris = updated
-            undoManager.recordAction(takeSnapshot(newRecordedAudioUris = updated))
+        coroutineScope.launch {
+            val file = audioRecordHelper.stopRecording()
+            isRecordingAudio = false
+            isRecordingPaused = false
+
+            // Collapse animation: fade controls, retract horizontally to circle, shrink scale to 0
+            val fadeJob = launch { islandContentAlpha.animateTo(0f, tween(100)) }
+            islandWidthDp.animateTo(44f, tween(180, easing = LinearOutSlowInEasing))
+            fadeJob.join()
+            islandScale.animateTo(0f, tween(120, easing = FastOutSlowInEasing))
+            isRecordingIslandVisible = false
+
+            if (file != null && file.exists() && file.length() > 0L) {
+                val audioUri = Uri.fromFile(file)
+                val updated = recordedAudioUris + audioUri
+                recordedAudioUris = updated
+                undoManager.recordAction(takeSnapshot(newRecordedAudioUris = updated))
+            }
+        }
+    }
+
+    val togglePauseResumeRecording: () -> Unit = {
+        if (isRecordingPaused) {
+            if (audioRecordHelper.resumeRecording()) {
+                isRecordingPaused = false
+            }
+        } else {
+            if (audioRecordHelper.pauseRecording()) {
+                isRecordingPaused = true
+            }
         }
     }
 
     val cancelAudioRecording: () -> Unit = {
-        audioRecordHelper.cancelRecording()
-        isRecordingAudio = false
+        coroutineScope.launch {
+            audioRecordHelper.cancelRecording()
+            isRecordingAudio = false
+            isRecordingPaused = false
+            val fadeJob = launch { islandContentAlpha.animateTo(0f, tween(100)) }
+            islandWidthDp.animateTo(44f, tween(180, easing = LinearOutSlowInEasing))
+            fadeJob.join()
+            islandScale.animateTo(0f, tween(120, easing = FastOutSlowInEasing))
+            isRecordingIslandVisible = false
+        }
     }
 
     val recordAudioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            startAudioRecording()
+            startRecordingWithIslandAnimation()
         } else {
             Toast.makeText(context, "Microphone permission required for voice recording", Toast.LENGTH_SHORT).show()
         }
@@ -564,7 +647,7 @@ fun CreateNoteScreen(
 
     val requestRecording: () -> Unit = {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            startAudioRecording()
+            startRecordingWithIslandAnimation()
         } else {
             recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -587,6 +670,15 @@ fun CreateNoteScreen(
     }
 
     val handleExit = {
+        if (isRecordingIslandVisible) {
+            val file = audioRecordHelper.stopRecording()
+            isRecordingAudio = false
+            isRecordingIslandVisible = false
+            if (file != null && file.exists() && file.length() > 0L) {
+                val audioUri = Uri.fromFile(file)
+                recordedAudioUris = recordedAudioUris + audioUri
+            }
+        }
         val finalContent = buildFinalContent()
         if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || recordedAudioUris.isNotEmpty() || selectedLabels.isNotEmpty()) {
             onSaveNote(title, finalContent, selectedColorHex, selectedLabels.toList())
@@ -596,7 +688,9 @@ fun CreateNoteScreen(
     }
 
     BackHandler {
-        if (selectedPreviewPhotoUri != null) {
+        if (isRecordingIslandVisible) {
+            stopAndSaveAudioRecording()
+        } else if (selectedPreviewPhotoUri != null) {
             selectedPreviewPhotoUri = null
         } else if (showDeleteNoteConfirmDialog) {
             showDeleteNoteConfirmDialog = false
@@ -1511,6 +1605,29 @@ fun CreateNoteScreen(
             }
         }
     }
+
+    // Dynamic Island Recording Bar at top of page (direct child of root Box)
+    if (isRecordingIslandVisible) {
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.TopCenter)
+                .zIndex(99f)
+                .statusBarsPadding()
+                .padding(top = 6.dp),
+            contentAlignment = Alignment.TopCenter
+        ) {
+            DynamicIslandRecordingBar(
+                scale = islandScale.value,
+                widthDp = islandWidthDp.value,
+                contentAlpha = islandContentAlpha.value,
+                elapsedMillis = recordingElapsedMillis,
+                isPaused = isRecordingPaused,
+                onTogglePause = togglePauseResumeRecording,
+                onStop = stopAndSaveAudioRecording
+            )
+        }
+    }
 }
 
     // Exact Bottom Sheet matching user's reference screenshot
@@ -1546,10 +1663,10 @@ fun CreateNoteScreen(
             },
             NoteMenuOption("Recording", Icons.Outlined.Mic) {
                 coroutineScope.launch {
-                    sheetState.hide()
                     showBottomSheet = false
-                    requestRecording()
+                    sheetState.hide()
                 }
+                requestRecording()
             },
             NoteMenuOption("Drawing", Icons.Outlined.Edit) {
                 coroutineScope.launch {
@@ -1694,24 +1811,6 @@ fun CreateNoteScreen(
                         }
                     }
                 }
-            }
-        }
-
-        // Floating Non-Blocking Recording Pill
-        if (isRecordingAudio) {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .statusBarsPadding()
-                    .padding(top = 56.dp)
-                    .padding(horizontal = 20.dp),
-                contentAlignment = Alignment.TopCenter
-            ) {
-                FloatingRecordingPill(
-                    elapsedSeconds = recordingElapsedSeconds,
-                    onSave = { stopAndSaveAudioRecording() },
-                    onCancel = { cancelAudioRecording() }
-                )
             }
         }
     }
@@ -2273,16 +2372,21 @@ private fun FullPhotoPreviewDialog(
 private val AUDIO_TAG_REGEX = Regex("""!\[audio\]\(([^)]+)\)""")
 
 @Composable
-private fun FloatingRecordingPill(
-    elapsedSeconds: Int,
-    onSave: () -> Unit,
-    onCancel: () -> Unit,
+private fun DynamicIslandRecordingBar(
+    scale: Float,
+    widthDp: Float,
+    contentAlpha: Float,
+    elapsedMillis: Long,
+    isPaused: Boolean,
+    onTogglePause: () -> Unit,
+    onStop: () -> Unit,
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+
     val infiniteTransition = rememberInfiniteTransition(label = "recordingPulse")
     val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.35f,
+        initialValue = 0.45f,
         targetValue = 1f,
         animationSpec = infiniteRepeatable(
             animation = tween(durationMillis = 650, easing = LinearEasing),
@@ -2291,91 +2395,117 @@ private fun FloatingRecordingPill(
         label = "pulseAlpha"
     )
 
-    fun formatSeconds(sec: Int): String {
-        val m = sec / 60
-        val s = sec % 60
-        return "%02d:%02d".format(m, s)
+    fun formatElapsed(millis: Long): String {
+        val totalCentis = millis / 10
+        val centis = totalCentis % 100
+        val totalSec = totalCentis / 100
+        val sec = totalSec % 60
+        val min = totalSec / 60
+        return "%02d:%02d,%02d".format(min, sec, centis)
     }
 
     Box(
         modifier = modifier
-            .clip(RoundedCornerShape(24.dp))
-            .background(Color(0xFF161A1D))
-            .border(1.dp, Color(0xFF33383F), RoundedCornerShape(24.dp))
-            .padding(horizontal = 14.dp, vertical = 8.dp)
+            .scale(scale)
+            .width(widthDp.dp)
+            .height(44.dp)
+            .clip(RoundedCornerShape(percent = 50))
+            .background(Color.Black)
+            .border(1.dp, Color(0xFF242426), RoundedCornerShape(percent = 50))
+            .padding(horizontal = 7.dp),
+        contentAlignment = Alignment.CenterStart
     ) {
         Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+            modifier = Modifier.fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
         ) {
+            // Left: Amber circular recording badge
             Box(
                 modifier = Modifier
-                    .size(10.dp)
+                    .size(30.dp)
                     .clip(CircleShape)
-                    .background(Color(0xFFD71921).copy(alpha = pulseAlpha))
-            )
-
-            Text(
-                text = "Recording",
-                color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.Medium
-            )
-
-            Text(
-                text = "•",
-                color = Color(0xFF6B7280),
-                fontSize = 12.sp
-            )
-
-            Text(
-                text = formatSeconds(elapsedSeconds),
-                color = Color.White,
-                fontSize = 13.sp,
-                fontWeight = FontWeight.SemiBold,
-                fontFamily = FontFamily.Monospace
-            )
-
-            Spacer(modifier = Modifier.width(6.dp))
-
-            // Save / Done
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF2C3136))
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onSave()
-                    },
+                    .background(Color(0xFF241908))
+                    .border(
+                        width = 1.5.dp,
+                        color = Color(0xFFFF9F0A).copy(alpha = if (isPaused) 0.4f else pulseAlpha),
+                        shape = CircleShape
+                    ),
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Check,
-                    contentDescription = "Save recording",
-                    tint = Color.White,
+                    imageVector = Icons.Outlined.Mic,
+                    contentDescription = "Recording",
+                    tint = Color(0xFFFF9F0A).copy(alpha = if (isPaused) 0.5f else 1f),
                     modifier = Modifier.size(16.dp)
                 )
             }
 
-            // Cancel / Discard
-            Box(
-                modifier = Modifier
-                    .size(28.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF2C3136))
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onCancel()
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Close,
-                    contentDescription = "Cancel recording",
-                    tint = Color(0xFF9E9E9E),
-                    modifier = Modifier.size(16.dp)
-                )
+            // Right-side controls (revealed as pill expands)
+            if (widthDp > 80f && contentAlpha > 0f) {
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .alpha(contentAlpha)
+                        .padding(start = 10.dp, end = 2.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.End
+                ) {
+                    // Elapsed timer in warm amber (matching reference image)
+                    Text(
+                        text = formatElapsed(elapsedMillis),
+                        color = Color(0xFFFF9F0A),
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.SemiBold,
+                        fontFamily = FontFamily.Monospace,
+                        letterSpacing = 0.5.sp
+                    )
+
+                    Spacer(modifier = Modifier.width(10.dp))
+
+                    // Pause / Resume Toggle Button
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1C1C1E))
+                            .border(1.dp, Color(0xFF333336), CircleShape)
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onTogglePause()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (isPaused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause,
+                            contentDescription = if (isPaused) "Resume" else "Pause",
+                            tint = if (isPaused) Color(0xFFFF9F0A) else Color.White,
+                            modifier = Modifier.size(16.dp)
+                        )
+                    }
+
+                    Spacer(modifier = Modifier.width(6.dp))
+
+                    // Stop / Save Button
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF1C1C1E))
+                            .border(1.dp, Color(0xFF333336), CircleShape)
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onStop()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Filled.Stop,
+                            contentDescription = "Stop recording",
+                            tint = Color(0xFFD71921),
+                            modifier = Modifier.size(14.dp)
+                        )
+                    }
+                }
             }
         }
     }
