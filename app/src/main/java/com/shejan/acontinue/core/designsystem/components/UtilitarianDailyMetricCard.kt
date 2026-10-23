@@ -258,7 +258,7 @@ private fun MetricCountRow(
 
         Text(
             text = String.format(Locale.US, "%02d / %02d", completed, total),
-            color = colors.textPrimary,
+            color = colors.textPrimaryMuted,
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,
@@ -311,7 +311,7 @@ private fun SingleMetricRow(
 
         Text(
             text = String.format(Locale.US, "%02d", count),
-            color = if (count > 0) dotColor else colors.textPrimary,
+            color = if (count > 0) dotColor else colors.textPrimaryMuted,
             fontFamily = FontFamily.Monospace,
             fontSize = 13.sp,
             fontWeight = FontWeight.Bold,

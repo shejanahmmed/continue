@@ -196,7 +196,7 @@ fun HomeScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = focalEvent.title,
-                                color = UtilitarianTextPrimary,
+                                color = UtilitarianTextPrimaryMuted,
                                 fontFamily = FontFamily.SansSerif,
                                 fontWeight = FontWeight.SemiBold,
                                 fontSize = 18.sp,
@@ -377,7 +377,7 @@ fun HomeScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = focalReminder.title,
-                                color = UtilitarianTextPrimary,
+                                color = UtilitarianTextPrimaryMuted,
                                 fontFamily = FontFamily.SansSerif,
                                 fontWeight = FontWeight.Normal,
                                 fontSize = 18.sp,
@@ -769,7 +769,7 @@ private fun TimelineActivityItem(
             Column(modifier = Modifier.weight(1f)) {
                 Text(
                     text = activity.title,
-                    color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                    color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimaryMuted,
                     fontSize = 15.sp,
                     fontWeight = FontWeight.Normal,
                     maxLines = 1,
