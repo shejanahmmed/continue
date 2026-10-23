@@ -145,7 +145,7 @@ fun HomeScreen(
         if (focalEvent != null) {
             item {
                 val headerText = if (isEventNow) "NOW" else "UPCOMING EVENT"
-                val headerColor = if (isEventNow) UtilitarianAccentRed else UtilitarianTextSecondary
+                val headerColor = if (isEventNow) UtilitarianAccentRed else UtilitarianTextPrimaryMuted
                 val cardBorderColor = if (isEventNow) UtilitarianAccentRed else UtilitarianBorderActive
 
                 val infiniteTransition = rememberInfiniteTransition(label = "nowEventPulse")
@@ -163,7 +163,7 @@ fun HomeScreen(
                     text = headerText,
                     color = headerColor,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    fontSize = 12.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.sp,
                     modifier = Modifier.padding(bottom = 6.dp)
@@ -178,10 +178,12 @@ fun HomeScreen(
                     Column(modifier = Modifier.fillMaxWidth()) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
+                            verticalAlignment = Alignment.Top
                         ) {
                             Box(
-                                modifier = Modifier.size(14.dp),
+                                modifier = Modifier
+                                    .padding(top = 5.dp)
+                                    .size(14.dp),
                                 contentAlignment = Alignment.Center
                             ) {
                                 Box(
@@ -194,10 +196,10 @@ fun HomeScreen(
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = focalEvent.title,
-                                color = UtilitarianTextPrimaryMuted,
-                                fontFamily = FontFamily.Monospace,
+                                color = UtilitarianTextPrimary,
+                                fontFamily = FontFamily.SansSerif,
                                 fontWeight = FontWeight.SemiBold,
-                                fontSize = 12.5.sp,
+                                fontSize = 18.sp,
                                 modifier = Modifier.weight(1f)
                             )
                         }
@@ -335,14 +337,14 @@ fun HomeScreen(
             item {
                 val isReminderMissed = uiState.isReminderMissed || (!focalReminder.isCompleted && focalReminder.startTimeMillis < liveNow)
                 val reminderHeader = if (isReminderMissed) "MISSED REMINDER" else "UPCOMING REMINDER"
-                val reminderAccent = if (isReminderMissed) UtilitarianAccentRed else UtilitarianTextSecondary
+                val reminderAccent = if (isReminderMissed) UtilitarianAccentRed else UtilitarianTextPrimaryMuted
                 val reminderBorder = if (isReminderMissed) UtilitarianAccentRed else UtilitarianBorderActive
 
                 Text(
                     text = reminderHeader,
                     color = reminderAccent,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    fontSize = 12.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.sp,
                     modifier = Modifier.padding(bottom = 6.dp)
@@ -564,9 +566,9 @@ fun HomeScreen(
         item {
             Text(
                 text = "TODAY'S SCHEDULE",
-                color = UtilitarianTextSecondary,
+                color = UtilitarianTextPrimaryMuted,
                 fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
+                fontSize = 12.5.sp,
                 fontWeight = FontWeight.SemiBold,
                 letterSpacing = 1.sp,
                 modifier = Modifier.padding(bottom = 8.dp)
@@ -615,9 +617,9 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(
                     text = "PAST SCHEDULE",
-                    color = UtilitarianTextSecondary,
+                    color = UtilitarianTextPrimaryMuted,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
+                    fontSize = 12.5.sp,
                     fontWeight = FontWeight.SemiBold,
                     letterSpacing = 1.sp,
                     modifier = Modifier.padding(bottom = 8.dp)
