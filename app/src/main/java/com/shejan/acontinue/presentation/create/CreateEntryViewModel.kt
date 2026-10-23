@@ -22,6 +22,8 @@ import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.repository.LinkRepository
 import com.shejan.acontinue.domain.repository.NoteRepository
 import com.shejan.acontinue.domain.repository.SettingsRepository
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -35,6 +37,7 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Calendar
 
 fun defaultStartMillis(): Long {
@@ -96,6 +99,8 @@ data class CreateEntryState(
     val selectedReminderCategory: ReminderCategory = ReminderCategory.DEFAULT,
     val savedReminderCategories: List<ReminderCategory> = listOf(ReminderCategory.DEFAULT),
     val categoryReminderCounts: Map<String, Int> = emptyMap(),
+    val reminderCategory: String = "Notes",
+    val reminderCategoryColorHex: Long = 0xFF121212L,
     val savedNoteLabels: List<String> = emptyList(),
     val isSaving: Boolean = false,
     val editingActivityId: Long? = null
@@ -203,7 +208,7 @@ class CreateEntryViewModel(
             _state.update { current ->
                 current.copy(
                     editingActivityId = activity.id,
-                    entryType = EntryType.ACTIVITY,
+                    entryType = activity.entryType,
                     title = activity.title,
                     notes = activity.description,
                     category = activity.category,
@@ -212,6 +217,8 @@ class CreateEntryViewModel(
                     endMillis = activity.endTimeMillis,
                     location = if (activity.location.trim().equals("location", ignoreCase = true)) "" else activity.location,
                     priority = activity.priority,
+                    reminderCategory = activity.reminderCategory,
+                    reminderCategoryColorHex = activity.reminderCategoryColorHex,
                     alertsEnabled = activity.reminderMinutesList.isNotEmpty() || activity.reminderMinutesBefore >= 0,
                     selectedAlertMinutes = activity.reminderMinutesList.toSet(),
                     earlyAlertMinutes = activity.reminderMinutesBefore,
@@ -697,49 +704,121 @@ class CreateEntryViewModel(
     ) {
         val trimmedTitle = title.trim()
         val trimmedContent = content.trim()
+        val currentEditId = _state.value.editingActivityId
+
         if (trimmedTitle.isBlank() && trimmedContent.isBlank()) {
             return
         }
 
         viewModelScope.launch {
-            _state.update { it.copy(isSaving = true) }
-            val now = System.currentTimeMillis()
-            val effectiveTitle = trimmedTitle.ifBlank {
-                trimmedContent.lineSequence().firstOrNull()?.take(40) ?: "Untitled Note"
+            // NonCancellable guarantees the Room database write commits even if the screen pops immediately
+            withContext(NonCancellable) {
+                _state.update { it.copy(isSaving = true) }
+                val now = System.currentTimeMillis()
+                val effectiveTitle = trimmedTitle.ifBlank {
+                    val firstLine = trimmedContent.lineSequence().firstOrNull()?.trim() ?: ""
+                    val cleanLine = firstLine
+                        .removePrefix("[ ] ")
+                        .removePrefix("[x] ")
+                        .removePrefix("[X] ")
+                        .trim()
+                    if (cleanLine.isNotBlank()) cleanLine.take(40) else "Untitled Note"
+                }
+                val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
+
+                if (currentEditId != null) {
+                    val existing = activityRepository.getActivityById(currentEditId).firstOrNull()
+                    val updatedActivity = (existing ?: ActivityItem(
+                        id = currentEditId,
+                        title = effectiveTitle,
+                        description = trimmedContent,
+                        entryType = EntryType.NOTE,
+                        category = ActivityCategory.OTHER,
+                        isAllDay = false,
+                        startTimeMillis = now,
+                        endTimeMillis = now,
+                        location = "",
+                        priority = ActivityPriority.MEDIUM,
+                        reminderMinutesBefore = -1,
+                        reminderMinutesList = emptyList(),
+                        recurrenceMode = RecurrenceMode.NONE,
+                        isCompleted = false,
+                        reminderCategory = categoryString,
+                        reminderCategoryColorHex = colorHex,
+                        createdAtMillis = now
+                    )).copy(
+                        title = effectiveTitle,
+                        description = trimmedContent,
+                        entryType = EntryType.NOTE,
+                        reminderCategory = categoryString,
+                        reminderCategoryColorHex = colorHex
+                    )
+                    activityRepository.updateActivity(updatedActivity)
+
+                    val existingNotes = noteRepository.getNotesForActivity(currentEditId).firstOrNull() ?: emptyList()
+                    val targetNote = existingNotes.firstOrNull()
+                    if (targetNote != null) {
+                        noteRepository.updateNote(
+                            targetNote.copy(
+                                title = effectiveTitle,
+                                content = trimmedContent,
+                                updatedAtMillis = now
+                            )
+                        )
+                    } else {
+                        noteRepository.insertNote(
+                            ActivityNote(
+                                activityId = currentEditId,
+                                title = effectiveTitle,
+                                content = trimmedContent,
+                                updatedAtMillis = now
+                            )
+                        )
+                    }
+                } else {
+                    val activity = ActivityItem(
+                        title = effectiveTitle,
+                        description = trimmedContent,
+                        entryType = EntryType.NOTE,
+                        category = ActivityCategory.OTHER,
+                        isAllDay = false,
+                        startTimeMillis = now,
+                        endTimeMillis = now,
+                        location = "",
+                        priority = ActivityPriority.MEDIUM,
+                        reminderMinutesBefore = -1,
+                        reminderMinutesList = emptyList(),
+                        recurrenceMode = RecurrenceMode.NONE,
+                        isCompleted = false,
+                        reminderCategory = categoryString,
+                        reminderCategoryColorHex = colorHex,
+                        createdAtMillis = now
+                    )
+
+                    val newId = activityRepository.insertActivity(activity)
+                    noteRepository.insertNote(
+                        ActivityNote(
+                            activityId = newId,
+                            title = effectiveTitle,
+                            content = trimmedContent,
+                            updatedAtMillis = now
+                        )
+                    )
+                }
+
+                _state.update { it.copy(isSaving = false) }
+                _events.emit(CreateEntryEvent.SavedSuccessfully)
             }
-            val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
+        }
+    }
 
-            val activity = ActivityItem(
-                title = effectiveTitle,
-                description = trimmedContent,
-                entryType = EntryType.NOTE,
-                category = ActivityCategory.OTHER,
-                isAllDay = false,
-                startTimeMillis = now,
-                endTimeMillis = now,
-                location = "",
-                priority = ActivityPriority.MEDIUM,
-                reminderMinutesBefore = -1,
-                reminderMinutesList = emptyList(),
-                recurrenceMode = RecurrenceMode.NONE,
-                isCompleted = false,
-                reminderCategory = categoryString,
-                reminderCategoryColorHex = colorHex,
-                createdAtMillis = now
-            )
-
-            val newId = activityRepository.insertActivity(activity)
-            noteRepository.insertNote(
-                ActivityNote(
-                    activityId = newId,
-                    title = effectiveTitle,
-                    content = trimmedContent,
-                    updatedAtMillis = now
-                )
-            )
-
-            _state.update { it.copy(isSaving = false) }
-            _events.emit(CreateEntryEvent.SavedSuccessfully)
+    fun deleteCurrentNote() {
+        val currentEditId = _state.value.editingActivityId ?: return
+        viewModelScope.launch {
+            withContext(NonCancellable) {
+                activityRepository.deleteActivity(currentEditId)
+                _events.emit(CreateEntryEvent.SavedSuccessfully)
+            }
         }
     }
 
@@ -756,40 +835,48 @@ class CreateEntryViewModel(
         }
 
         viewModelScope.launch {
-            val now = System.currentTimeMillis()
-            val effectiveTitle = trimmedTitle.ifBlank {
-                trimmedContent.lineSequence().firstOrNull()?.take(40) ?: "Untitled Note"
-            }
-            val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
+            withContext(NonCancellable) {
+                val now = System.currentTimeMillis()
+                val effectiveTitle = trimmedTitle.ifBlank {
+                    val firstLine = trimmedContent.lineSequence().firstOrNull()?.trim() ?: ""
+                    val cleanLine = firstLine
+                        .removePrefix("[ ] ")
+                        .removePrefix("[x] ")
+                        .removePrefix("[X] ")
+                        .trim()
+                    if (cleanLine.isNotBlank()) cleanLine.take(40) else "Untitled Note"
+                }
+                val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
 
-            val activity = ActivityItem(
-                title = effectiveTitle,
-                description = trimmedContent,
-                entryType = EntryType.NOTE,
-                category = ActivityCategory.OTHER,
-                isAllDay = false,
-                startTimeMillis = now,
-                endTimeMillis = now,
-                location = "",
-                priority = ActivityPriority.MEDIUM,
-                reminderMinutesBefore = -1,
-                reminderMinutesList = emptyList(),
-                recurrenceMode = RecurrenceMode.NONE,
-                isCompleted = false,
-                reminderCategory = categoryString,
-                reminderCategoryColorHex = colorHex,
-                createdAtMillis = now
-            )
-
-            val newId = activityRepository.insertActivity(activity)
-            noteRepository.insertNote(
-                ActivityNote(
-                    activityId = newId,
+                val activity = ActivityItem(
                     title = effectiveTitle,
-                    content = trimmedContent,
-                    updatedAtMillis = now
+                    description = trimmedContent,
+                    entryType = EntryType.NOTE,
+                    category = ActivityCategory.OTHER,
+                    isAllDay = false,
+                    startTimeMillis = now,
+                    endTimeMillis = now,
+                    location = "",
+                    priority = ActivityPriority.MEDIUM,
+                    reminderMinutesBefore = -1,
+                    reminderMinutesList = emptyList(),
+                    recurrenceMode = RecurrenceMode.NONE,
+                    isCompleted = false,
+                    reminderCategory = categoryString,
+                    reminderCategoryColorHex = colorHex,
+                    createdAtMillis = now
                 )
-            )
+
+                val newId = activityRepository.insertActivity(activity)
+                noteRepository.insertNote(
+                    ActivityNote(
+                        activityId = newId,
+                        title = effectiveTitle,
+                        content = trimmedContent,
+                        updatedAtMillis = now
+                    )
+                )
+            }
         }
     }
 }

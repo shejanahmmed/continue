@@ -698,7 +698,8 @@ fun CreateNoteScreen(
     val buildFinalContent: () -> String = {
         val stringBuilder = StringBuilder()
         if (isChecklistMode) {
-            checklistItems.forEach { item ->
+            val validItems = checklistItems.filter { it.text.isNotBlank() }
+            validItems.forEach { item ->
                 val box = if (item.isChecked) "[x]" else "[ ]"
                 stringBuilder.append("$box ${item.text}\n")
             }

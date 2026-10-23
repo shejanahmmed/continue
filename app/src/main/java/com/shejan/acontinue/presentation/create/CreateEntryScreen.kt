@@ -333,17 +333,32 @@ fun CreateEntryScreen(
     }
 
     if (state.entryType == EntryType.NOTE) {
+        val initialLabels = remember(state.reminderCategory) {
+            if (state.reminderCategory.isBlank() || state.reminderCategory == "Notes") {
+                emptyList()
+            } else {
+                state.reminderCategory.split(",").map { it.trim() }.filter { it.isNotBlank() }
+            }
+        }
         CreateNoteScreen(
             initialTitle = state.title,
             initialContent = state.notes,
+            initialColorHex = if (state.reminderCategoryColorHex != 0L) state.reminderCategoryColorHex else 0xFF121212L,
+            initialLabels = initialLabels,
             onSaveNote = { title, content, colorHex, labels ->
                 viewModel.saveNote(title, content, colorHex, labels)
+                onDismiss()
             },
             onDiscard = {
                 onDismiss()
             },
+            onDeleteNote = {
+                viewModel.deleteCurrentNote()
+                onDismiss()
+            },
             onMakeCopy = { title, content, colorHex, labels ->
                 viewModel.makeCopyOfNote(title, content, colorHex, labels)
+                onDismiss()
             },
             allLabels = state.savedNoteLabels,
             onCreateLabel = { viewModel.addNoteLabel(it) },

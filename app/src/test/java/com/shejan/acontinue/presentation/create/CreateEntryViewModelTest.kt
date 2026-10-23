@@ -8,6 +8,7 @@ import com.shejan.acontinue.FakeScheduler
 import com.shejan.acontinue.FakeSettingsRepository
 import com.shejan.acontinue.domain.model.ActivityCategory
 import com.shejan.acontinue.domain.model.ActivityItem
+import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.ActivityPriority
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.RecurrenceMode
@@ -980,6 +981,156 @@ class CreateEntryViewModelTest {
         assertEquals(55L, updated.id)
         assertEquals("Updated Meeting", updated.title)
         assertEquals("Revised agenda", updated.description)
+    }
+
+    @Test
+    fun `test saveNote with single character content creates activity and note with clean title`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.events.test {
+            viewModel.saveNote(title = "", content = "a")
+            testScheduler.advanceUntilIdle()
+
+            val event = awaitItem()
+            assertEquals(CreateEntryEvent.SavedSuccessfully, event)
+
+            val activities = activityRepository.activitiesFlow.value
+            assertEquals(1, activities.size)
+            val activity = activities.first()
+            assertEquals("a", activity.title)
+            assertEquals("a", activity.description)
+            assertEquals(EntryType.NOTE, activity.entryType)
+
+            val notes = noteRepository.notesFlow.value
+            assertEquals(1, notes.size)
+            val note = notes.first()
+            assertEquals("a", note.title)
+            assertEquals("a", note.content)
+            assertEquals(activity.id, note.activityId)
+        }
+    }
+
+    @Test
+    fun `test saveNote with checklist content extracts clean title without checkbox prefix`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.events.test {
+            viewModel.saveNote(title = "", content = "[ ] Buy milk\n[ ] Eggs")
+            testScheduler.advanceUntilIdle()
+
+            val event = awaitItem()
+            assertEquals(CreateEntryEvent.SavedSuccessfully, event)
+
+            val activities = activityRepository.activitiesFlow.value
+            assertEquals(1, activities.size)
+            assertEquals("Buy milk", activities.first().title)
+            assertEquals("[ ] Buy milk\n[ ] Eggs", activities.first().description)
+        }
+    }
+
+    @Test
+    fun `test saveNote when editing existing note updates record without duplicate`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        val initialActivity = ActivityItem(
+            id = 88L,
+            title = "Original Note Title",
+            description = "Original Note Content",
+            entryType = EntryType.NOTE,
+            startTimeMillis = 1000L,
+            endTimeMillis = 2000L,
+            reminderCategory = "Work",
+            reminderCategoryColorHex = 0xFF5C1324L
+        )
+        activityRepository.insertActivity(initialActivity)
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 101L,
+                activityId = 88L,
+                title = "Original Note Title",
+                content = "Original Note Content",
+                updatedAtMillis = 1000L
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        viewModel.loadActivityForEditing(88L)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(88L, viewModel.state.value.editingActivityId)
+        assertEquals(EntryType.NOTE, viewModel.state.value.entryType)
+        assertEquals("Work", viewModel.state.value.reminderCategory)
+        assertEquals(0xFF5C1324L, viewModel.state.value.reminderCategoryColorHex)
+
+        viewModel.events.test {
+            viewModel.saveNote(
+                title = "Updated Note Title",
+                content = "Updated Note Content",
+                colorHex = 0xFF1C4635L,
+                labels = listOf("Personal")
+            )
+            testScheduler.advanceUntilIdle()
+
+            val event = awaitItem()
+            assertEquals(CreateEntryEvent.SavedSuccessfully, event)
+
+            // Should remain 1 activity and 1 note (no duplicate records)
+            val activities = activityRepository.activitiesFlow.value
+            assertEquals(1, activities.size)
+            val updatedAct = activities.first()
+            assertEquals(88L, updatedAct.id)
+            assertEquals("Updated Note Title", updatedAct.title)
+            assertEquals("Updated Note Content", updatedAct.description)
+            assertEquals("Personal", updatedAct.reminderCategory)
+            assertEquals(0xFF1C4635L, updatedAct.reminderCategoryColorHex)
+
+            val notes = noteRepository.notesFlow.value
+            assertEquals(1, notes.size)
+            val updatedNote = notes.first()
+            assertEquals(101L, updatedNote.id)
+            assertEquals("Updated Note Title", updatedNote.title)
+            assertEquals("Updated Note Content", updatedNote.content)
+        }
+    }
+
+    @Test
+    fun `test saveNote with blank title and content is a no-op`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.saveNote(title = "   ", content = "   ")
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(activityRepository.activitiesFlow.value.isEmpty())
+        assertTrue(noteRepository.notesFlow.value.isEmpty())
+    }
+
+    @Test
+    fun `test deleteCurrentNote removes existing note and activity`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        val initialActivity = ActivityItem(
+            id = 99L,
+            title = "To Delete",
+            description = "Some content",
+            entryType = EntryType.NOTE,
+            startTimeMillis = 1000L,
+            endTimeMillis = 2000L
+        )
+        activityRepository.insertActivity(initialActivity)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.loadActivityForEditing(99L)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.events.test {
+            viewModel.deleteCurrentNote()
+            testScheduler.advanceUntilIdle()
+
+            val event = awaitItem()
+            assertEquals(CreateEntryEvent.SavedSuccessfully, event)
+
+            assertTrue(activityRepository.activitiesFlow.value.isEmpty())
+        }
     }
 }
 
