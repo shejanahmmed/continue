@@ -56,6 +56,7 @@ import com.shejan.acontinue.ui.theme.UtilitarianPureBlack
 import com.shejan.acontinue.ui.theme.UtilitarianTextDisabled
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimaryMuted
+import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
 
 enum class NavDestination(val route: String, val label: String) {
     HOME("home", "Home"),
@@ -270,7 +271,7 @@ private fun NavBarItem(
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (isSelected) UtilitarianTextPrimary else UtilitarianTextDisabled,
+            tint = if (isSelected) UtilitarianTextPrimary else UtilitarianTextSecondary,
             modifier = Modifier.size(22.dp)
         )
     }
