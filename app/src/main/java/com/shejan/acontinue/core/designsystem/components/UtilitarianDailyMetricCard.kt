@@ -162,14 +162,14 @@ fun UtilitarianDailyMetricCard(
             ) {
                 Text(
                     text = "TODAY'S OVERVIEW",
-                    color = colors.textPrimary,
+                    color = colors.textPrimaryMuted,
                     fontFamily = FontFamily.Monospace,
-                    fontSize = 10.sp,
+                    fontSize = 12.5.sp,
                     fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 1.2.sp
+                    letterSpacing = 1.sp
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
                 // Line 1: Events Row
                 MetricCountRow(
@@ -230,9 +230,7 @@ private fun MetricCountRow(
     val colors = LocalUtilitarianColors.current
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Indicator dot tied directly to the corresponding gauge ring color
@@ -285,9 +283,7 @@ private fun SingleMetricRow(
     val colors = LocalUtilitarianColors.current
 
     Row(
-        modifier = modifier
-            .fillMaxWidth()
-            .padding(vertical = 2.dp),
+        modifier = modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically
     ) {
         // Indicator dot tied directly to the alert status
