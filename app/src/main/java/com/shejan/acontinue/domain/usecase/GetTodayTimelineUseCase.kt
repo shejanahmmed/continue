@@ -37,7 +37,10 @@ class GetTodayTimelineUseCase(
         val now = System.currentTimeMillis()
 
         return activityRepository.getActivitiesForDateRange(startOfDay, endOfDay).map { list ->
-            val sorted = list.sortedBy { it.startTimeMillis }
+            val scheduledItems = list.filter {
+                it.entryType == EntryType.ACTIVITY || it.entryType == EntryType.REMINDER
+            }
+            val sorted = scheduledItems.sortedBy { it.startTimeMillis }
             val current = sorted.firstOrNull {
                 it.entryType == EntryType.ACTIVITY && now in it.startTimeMillis..it.endTimeMillis
             }

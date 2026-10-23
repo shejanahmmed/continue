@@ -25,10 +25,13 @@ import com.shejan.acontinue.presentation.diary.DiaryViewModel
 import com.shejan.acontinue.presentation.home.HomeScreen
 import com.shejan.acontinue.presentation.home.HomeViewModel
 import com.shejan.acontinue.presentation.settings.SettingsScreen
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.UserSettings
+import com.shejan.acontinue.presentation.create.CreateNoteScreen
 import com.shejan.acontinue.presentation.welcome.WelcomeScreen
 import com.shejan.acontinue.presentation.workspace.ActivityWorkspaceScreen
 import com.shejan.acontinue.presentation.workspace.ActivityWorkspaceViewModel
@@ -50,6 +53,11 @@ sealed class Screen(val route: String) {
             if (editActivityId != null) params.add("editActivityId=$editActivityId")
             if (entryType != null) params.add("entryType=${entryType.name}")
             return if (params.isNotEmpty()) "create?${params.joinToString("&")}" else "create"
+        }
+    }
+    data object NoteEditor : Screen("note_editor?editActivityId={editActivityId}") {
+        fun createRoute(editActivityId: Long? = null): String {
+            return if (editActivityId != null) "note_editor?editActivityId=$editActivityId" else "note_editor"
         }
     }
     data object Workspace : Screen("workspace/{activityId}") {
@@ -102,10 +110,18 @@ fun ContinueNavHost(
             }
         },
         onCreateClick = {
-            navController.navigate(Screen.Create.route)
+            if (currentRoute == Screen.Diary.route) {
+                navController.navigate(Screen.NoteEditor.createRoute())
+            } else {
+                navController.navigate(Screen.Create.route)
+            }
         },
         onQuickCreate = { entryType ->
-            navController.navigate(Screen.Create.createRoute(entryType = entryType))
+            if (entryType == EntryType.NOTE) {
+                navController.navigate(Screen.NoteEditor.createRoute())
+            } else {
+                navController.navigate(Screen.Create.createRoute(entryType = entryType))
+            }
         },
         showBottomBar = isTopLevelRoute
     ) { innerPadding ->
@@ -163,6 +179,9 @@ fun ContinueNavHost(
                     viewModel = diaryViewModel,
                     onActivityClick = { activityId ->
                         navController.navigate(Screen.Workspace.createRoute(activityId))
+                    },
+                    onNoteClick = { activityId ->
+                        navController.navigate(Screen.NoteEditor.createRoute(activityId))
                     },
                     modifier = Modifier.statusBarsPadding()
                 )
@@ -237,6 +256,61 @@ fun ContinueNavHost(
                 CreateEntryScreen(
                     viewModel = createViewModel,
                     onDismiss = { navController.popBackStack() }
+                )
+            }
+
+            // Note Editor Destination (Dedicated Note Creation & Editing)
+            composable(
+                route = Screen.NoteEditor.route,
+                arguments = listOf(
+                    navArgument("editActivityId") {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    }
+                )
+            ) { backStackEntry ->
+                val editActivityId = backStackEntry.arguments?.getLong("editActivityId") ?: -1L
+                val noteViewModel: CreateEntryViewModel = viewModel(
+                    key = if (editActivityId > 0L) "note_editor_$editActivityId" else "note_editor_new",
+                    factory = container.provideCreateEntryViewModelFactory()
+                )
+                if (editActivityId > 0L) {
+                    noteViewModel.loadActivityForEditing(editActivityId)
+                } else {
+                    noteViewModel.updateEntryType(EntryType.NOTE)
+                }
+                val state by noteViewModel.state.collectAsState()
+                val initialLabels = remember(state.reminderCategory) {
+                    if (state.reminderCategory.isBlank() || state.reminderCategory == "Notes") {
+                        emptyList()
+                    } else {
+                        state.reminderCategory.split(",").map { it.trim() }.filter { it.isNotBlank() }
+                    }
+                }
+                CreateNoteScreen(
+                    initialTitle = state.title,
+                    initialContent = state.notes,
+                    initialColorHex = if (state.reminderCategoryColorHex != 0L) state.reminderCategoryColorHex else 0xFF121212L,
+                    initialLabels = initialLabels,
+                    onSaveNote = { title, content, colorHex, labels ->
+                        noteViewModel.saveNote(title, content, colorHex, labels)
+                        navController.popBackStack()
+                    },
+                    onDiscard = {
+                        navController.popBackStack()
+                    },
+                    onDeleteNote = {
+                        noteViewModel.deleteCurrentNote()
+                        navController.popBackStack()
+                    },
+                    onMakeCopy = { title, content, colorHex, labels ->
+                        noteViewModel.makeCopyOfNote(title, content, colorHex, labels)
+                        navController.popBackStack()
+                    },
+                    allLabels = state.savedNoteLabels,
+                    onCreateLabel = { noteViewModel.addNoteLabel(it) },
+                    onEditLabel = { oldName, newName -> noteViewModel.updateNoteLabel(oldName, newName) },
+                    onDeleteLabel = { noteViewModel.deleteNoteLabel(it) }
                 )
             }
 

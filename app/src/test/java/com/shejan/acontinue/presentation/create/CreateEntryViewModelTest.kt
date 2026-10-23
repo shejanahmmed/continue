@@ -1000,6 +1000,8 @@ class CreateEntryViewModelTest {
             assertEquals("a", activity.title)
             assertEquals("a", activity.description)
             assertEquals(EntryType.NOTE, activity.entryType)
+            assertEquals(0L, activity.startTimeMillis)
+            assertEquals(0L, activity.endTimeMillis)
 
             val notes = noteRepository.notesFlow.value
             assertEquals(1, notes.size)
@@ -1083,6 +1085,8 @@ class CreateEntryViewModelTest {
             assertEquals("Updated Note Content", updatedAct.description)
             assertEquals("Personal", updatedAct.reminderCategory)
             assertEquals(0xFF1C4635L, updatedAct.reminderCategoryColorHex)
+            assertEquals(0L, updatedAct.startTimeMillis)
+            assertEquals(0L, updatedAct.endTimeMillis)
 
             val notes = noteRepository.notesFlow.value
             assertEquals(1, notes.size)

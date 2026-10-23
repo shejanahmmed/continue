@@ -52,6 +52,7 @@ import java.util.Locale
 fun DiaryScreen(
     viewModel: DiaryViewModel,
     onActivityClick: (Long) -> Unit,
+    onNoteClick: (Long) -> Unit = onActivityClick,
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -156,7 +157,7 @@ fun DiaryScreen(
 
             items(uiState.notes, key = { "diary_note_${it.id}" }) { note ->
                 MonochromeCard(
-                    onClick = { onActivityClick(note.activityId) }
+                    onClick = { onNoteClick(note.activityId) }
                 ) {
                     Column {
                         Row(

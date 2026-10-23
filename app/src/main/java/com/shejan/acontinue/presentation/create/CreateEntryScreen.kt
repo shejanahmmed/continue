@@ -1842,11 +1842,6 @@ private fun SegmentedTopToggle(
                 isSelected = selectedType == EntryType.REMINDER,
                 onClick = { onSelectType(EntryType.REMINDER) }
             )
-            SegmentItem(
-                label = "Notes",
-                isSelected = selectedType == EntryType.NOTE,
-                onClick = { onSelectType(EntryType.NOTE) }
-            )
         }
     }
 }

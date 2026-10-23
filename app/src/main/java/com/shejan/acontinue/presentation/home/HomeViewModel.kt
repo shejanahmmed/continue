@@ -133,11 +133,13 @@ class HomeViewModel(
             }
 
             val activeActivities = timeline.activities
+                .filter { it.entryType == EntryType.ACTIVITY || it.entryType == EntryType.REMINDER }
                 .distinctBy { it.id }
                 .filter { !isItemPast(it, now) }
                 .sortedBy { it.startTimeMillis }
 
             val pastActivities = timeline.activities
+                .filter { it.entryType == EntryType.ACTIVITY || it.entryType == EntryType.REMINDER }
                 .distinctBy { it.id }
                 .filter { isItemPast(it, now) }
                 .sortedBy { it.startTimeMillis }

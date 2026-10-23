@@ -470,4 +470,41 @@ class CalendarViewModelTest {
             assertNull(state.expandedActivityId)
         }
     }
+
+    @Test
+    fun `test note entries are excluded from calendar day dots and selected day activities`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        val note = ActivityItem(
+            id = 101L,
+            title = "Personal Diary Note",
+            entryType = EntryType.NOTE,
+            startTimeMillis = now,
+            endTimeMillis = now
+        )
+        val event = ActivityItem(
+            id = 102L,
+            title = "Design Review",
+            entryType = EntryType.ACTIVITY,
+            startTimeMillis = now,
+            endTimeMillis = now + 3600000L
+        )
+
+        activityRepository.insertActivity(note)
+        activityRepository.insertActivity(event)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.selectDate(now)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(1, state.selectedDayActivities.size)
+            assertEquals("Design Review", state.selectedDayActivities.first().title)
+
+            val matchingDay = state.monthDays.firstOrNull { it.isSelected }
+            assertNotNull(matchingDay)
+            assertEquals(1, matchingDay!!.activities.size)
+            assertEquals("Design Review", matchingDay.activities.first().title)
+        }
+    }
 }

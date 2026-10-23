@@ -705,4 +705,40 @@ class HomeViewModelTest {
             assertEquals(901L, pastState.pastActivities.first().id)
         }
     }
+
+    @Test
+    fun `test note entries are strictly excluded from home timeline and schedule lists`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        testTickerFlow.value = now
+
+        val noteItem = ActivityItem(
+            id = 999L,
+            title = "My Secret Note",
+            description = "Some note content",
+            entryType = EntryType.NOTE,
+            startTimeMillis = now,
+            endTimeMillis = now
+        )
+        val eventItem = ActivityItem(
+            id = 1000L,
+            title = "Team Standup",
+            entryType = EntryType.ACTIVITY,
+            startTimeMillis = now + 1000L,
+            endTimeMillis = now + 3600000L
+        )
+
+        activityRepository.insertActivity(noteItem)
+        activityRepository.insertActivity(eventItem)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(1, state.timeline.activities.size)
+            assertEquals("Team Standup", state.timeline.activities.first().title)
+            assertEquals(1, state.todayActivities.size)
+            assertEquals("Team Standup", state.todayActivities.first().title)
+            assertEquals(0, state.pastActivities.size)
+            assertEquals(1, state.todayEventCount)
+        }
+    }
 }

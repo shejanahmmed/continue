@@ -284,6 +284,9 @@ class CalendarViewModel(
         expandedWs: ActivityWorkspaceAggregate?,
         activities: List<ActivityItem>
     ): CalendarUiState {
+        val scheduledActivities = activities.filter {
+            it.entryType == EntryType.ACTIVITY || it.entryType == EntryType.REMINDER
+        }
         val bounds = calculateGridBounds(monthMillis)
         val monthCal = Calendar.getInstance().apply { timeInMillis = monthMillis }
         val targetMonth = monthCal.get(Calendar.MONTH)
@@ -296,7 +299,7 @@ class CalendarViewModel(
             val startOfDay = getStartOfDayMillis(dayCal.timeInMillis)
             val endOfDay = getEndOfDayMillis(dayCal.timeInMillis)
 
-            val dayActivities = activities.flatMap { item ->
+            val dayActivities = scheduledActivities.flatMap { item ->
                 RecurrenceEvaluator.expandOccurrencesForRange(item, startOfDay, endOfDay)
             }.sortedBy { it.startTimeMillis }
 
@@ -313,7 +316,7 @@ class CalendarViewModel(
         val selStart = getStartOfDayMillis(selectedMillis)
         val selEnd = getEndOfDayMillis(selectedMillis)
 
-        val selectedActivities = activities.flatMap { item ->
+        val selectedActivities = scheduledActivities.flatMap { item ->
             RecurrenceEvaluator.expandOccurrencesForRange(item, selStart, selEnd)
         }.sortedBy { it.startTimeMillis }
 
