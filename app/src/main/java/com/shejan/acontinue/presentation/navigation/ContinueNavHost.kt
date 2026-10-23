@@ -27,6 +27,7 @@ import com.shejan.acontinue.presentation.home.HomeViewModel
 import com.shejan.acontinue.presentation.settings.SettingsScreen
 import androidx.compose.runtime.rememberCoroutineScope
 import kotlinx.coroutines.launch
+import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.UserSettings
 import com.shejan.acontinue.presentation.welcome.WelcomeScreen
 import com.shejan.acontinue.presentation.workspace.ActivityWorkspaceScreen
@@ -38,11 +39,16 @@ sealed class Screen(val route: String) {
     data object Diary : Screen("diary")
     data object Calendar : Screen("calendar")
     data object Settings : Screen("settings")
-    data object Create : Screen("create?initialDate={initialDate}&editActivityId={editActivityId}") {
-        fun createRoute(initialDate: Long? = null, editActivityId: Long? = null): String {
+    data object Create : Screen("create?initialDate={initialDate}&editActivityId={editActivityId}&entryType={entryType}") {
+        fun createRoute(
+            initialDate: Long? = null,
+            editActivityId: Long? = null,
+            entryType: EntryType? = null
+        ): String {
             val params = mutableListOf<String>()
             if (initialDate != null) params.add("initialDate=$initialDate")
             if (editActivityId != null) params.add("editActivityId=$editActivityId")
+            if (entryType != null) params.add("entryType=${entryType.name}")
             return if (params.isNotEmpty()) "create?${params.joinToString("&")}" else "create"
         }
     }
@@ -97,6 +103,9 @@ fun ContinueNavHost(
         },
         onCreateClick = {
             navController.navigate(Screen.Create.route)
+        },
+        onQuickCreate = { entryType ->
+            navController.navigate(Screen.Create.createRoute(entryType = entryType))
         },
         showBottomBar = isTopLevelRoute
     ) { innerPadding ->
@@ -201,11 +210,17 @@ fun ContinueNavHost(
                     navArgument("editActivityId") {
                         type = NavType.LongType
                         defaultValue = -1L
+                    },
+                    navArgument("entryType") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
                     }
                 )
             ) { backStackEntry ->
                 val initialDate = backStackEntry.arguments?.getLong("initialDate") ?: -1L
                 val editActivityId = backStackEntry.arguments?.getLong("editActivityId") ?: -1L
+                val entryTypeStr = backStackEntry.arguments?.getString("entryType")
                 val createViewModel: CreateEntryViewModel = viewModel(
                     factory = container.provideCreateEntryViewModelFactory()
                 )
@@ -213,6 +228,11 @@ fun ContinueNavHost(
                     createViewModel.loadActivityForEditing(editActivityId)
                 } else if (initialDate > 0L) {
                     createViewModel.setInitialDate(initialDate)
+                }
+                if (entryTypeStr != null) {
+                    runCatching { EntryType.valueOf(entryTypeStr) }.getOrNull()?.let {
+                        createViewModel.updateEntryType(it)
+                    }
                 }
                 CreateEntryScreen(
                     viewModel = createViewModel,
