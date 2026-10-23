@@ -182,42 +182,24 @@ fun CalendarScreen(
                         }
                     }
 
-                    // Right Actions: Search & Persistent Today Badge
-                    Row(
-                        modifier = Modifier.align(Alignment.CenterEnd),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    // Right Action: Persistent Today Badge
+                    Surface(
+                        shape = RoundedCornerShape(7.dp),
+                        color = Color.Transparent,
+                        border = BorderStroke(1.5.dp, UtilitarianTextPrimary),
+                        modifier = Modifier
+                            .align(Alignment.CenterEnd)
+                            .size(28.dp)
+                            .clickable { viewModel.jumpToToday() }
                     ) {
-                        IconButton(
-                            onClick = { /* Search */ },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Search,
-                                contentDescription = "Search",
-                                tint = UtilitarianTextPrimary,
-                                modifier = Modifier.size(22.dp)
+                        Box(contentAlignment = Alignment.Center) {
+                            Text(
+                                text = uiState.todayDateNumber.toString(),
+                                fontFamily = FontFamily.SansSerif,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                color = UtilitarianTextPrimary
                             )
-                        }
-
-                        // Today Jump Badge [16]
-                        Surface(
-                            shape = RoundedCornerShape(7.dp),
-                            color = Color.Transparent,
-                            border = BorderStroke(1.5.dp, UtilitarianTextPrimary),
-                            modifier = Modifier
-                                .size(28.dp)
-                                .clickable { viewModel.jumpToToday() }
-                        ) {
-                            Box(contentAlignment = Alignment.Center) {
-                                Text(
-                                    text = uiState.todayDateNumber.toString(),
-                                    fontFamily = FontFamily.SansSerif,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 12.sp,
-                                    color = UtilitarianTextPrimary
-                                )
-                            }
                         }
                     }
                 }
