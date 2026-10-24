@@ -42,7 +42,11 @@ fun ActivityEntity.toDomain(): ActivityItem {
         emptyList()
     }
 
-    val parsedEntryType = runCatching { EntryType.valueOf(entryType) }.getOrDefault(EntryType.ACTIVITY)
+    val parsedEntryType = when (entryType.trim().uppercase()) {
+        "REMINDER" -> EntryType.REMINDER
+        "NOTE", "NOTES" -> EntryType.NOTE
+        else -> EntryType.ACTIVITY
+    }
 
     return ActivityItem(
         id = id,

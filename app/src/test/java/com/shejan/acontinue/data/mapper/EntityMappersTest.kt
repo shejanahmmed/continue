@@ -176,4 +176,45 @@ class EntityMappersTest {
         val remapped = domain.toEntity()
         assertEquals(true, remapped.isCompleted)
     }
+
+    @Test
+    fun `test entity entryType strings parse robustly to domain EntryType`() {
+        val baseEntity = ActivityEntity(
+            id = 50L,
+            title = "Test Entry",
+            description = "",
+            entryType = "NOTE",
+            category = ActivityCategory.OTHER.name,
+            isAllDay = false,
+            startTimeMillis = 1000L,
+            endTimeMillis = 1000L,
+            location = "",
+            priority = ActivityPriority.MEDIUM.name,
+            reminderMinutesBefore = 0,
+            reminderMinutesCsv = "",
+            recurrenceMode = RecurrenceMode.NONE.name,
+            recurrenceInterval = 1,
+            recurrenceDaysOfWeekCsv = "",
+            monthlyRepeatType = "SAME_DAY_OF_MONTH",
+            monthlySelectedDaysCsv = "",
+            yearlyRepeatType = "SAME_DATE",
+            yearlySelectedMonthsCsv = "",
+            recurrenceEndType = "FOREVER",
+            recurrenceEndCount = 0,
+            recurrenceEndDateMillis = 0L,
+            isCompleted = false,
+            reminderCategory = "",
+            reminderCategoryColorHex = 0L,
+            reminderCategoryIcon = "",
+            createdAtMillis = 1000L
+        )
+
+        assertEquals(EntryType.NOTE, baseEntity.copy(entryType = "NOTE").toDomain().entryType)
+        assertEquals(EntryType.NOTE, baseEntity.copy(entryType = "note").toDomain().entryType)
+        assertEquals(EntryType.NOTE, baseEntity.copy(entryType = "notes").toDomain().entryType)
+        assertEquals(EntryType.REMINDER, baseEntity.copy(entryType = "REMINDER").toDomain().entryType)
+        assertEquals(EntryType.REMINDER, baseEntity.copy(entryType = "reminder").toDomain().entryType)
+        assertEquals(EntryType.ACTIVITY, baseEntity.copy(entryType = "ACTIVITY").toDomain().entryType)
+        assertEquals(EntryType.ACTIVITY, baseEntity.copy(entryType = "unknown").toDomain().entryType)
+    }
 }

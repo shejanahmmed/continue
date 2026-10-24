@@ -292,7 +292,8 @@ class CalendarViewModel(
         activities: List<ActivityItem>
     ): CalendarUiState {
         val scheduledActivities = activities.filter {
-            it.entryType == EntryType.ACTIVITY || it.entryType == EntryType.REMINDER
+            (it.entryType == EntryType.ACTIVITY || it.entryType == EntryType.REMINDER) &&
+            it.entryType != EntryType.NOTE
         }
         val bounds = calculateGridBounds(monthMillis)
         val monthCal = Calendar.getInstance().apply { timeInMillis = monthMillis }

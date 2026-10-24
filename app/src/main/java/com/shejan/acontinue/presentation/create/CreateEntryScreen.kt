@@ -179,7 +179,8 @@ enum class ActivePickerField {
 fun CreateEntryScreen(
     viewModel: CreateEntryViewModel,
     onDismiss: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    allowNotes: Boolean = true
 ) {
     val state by viewModel.state.collectAsState()
     val colors = LocalUtilitarianColors.current
@@ -555,7 +556,8 @@ fun CreateEntryScreen(
                         focusManager.clearFocus()
                         keyboardController?.hide()
                         viewModel.updateEntryType(it)
-                    }
+                    },
+                    allowNotes = allowNotes
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
@@ -1819,7 +1821,8 @@ private fun ColorPaletteCircle(
 @Composable
 private fun SegmentedTopToggle(
     selectedType: EntryType,
-    onSelectType: (EntryType) -> Unit
+    onSelectType: (EntryType) -> Unit,
+    allowNotes: Boolean = true
 ) {
     val colors = LocalUtilitarianColors.current
 
@@ -1842,11 +1845,13 @@ private fun SegmentedTopToggle(
                 isSelected = selectedType == EntryType.REMINDER,
                 onClick = { onSelectType(EntryType.REMINDER) }
             )
-            SegmentItem(
-                label = "Note",
-                isSelected = selectedType == EntryType.NOTE,
-                onClick = { onSelectType(EntryType.NOTE) }
-            )
+            if (allowNotes) {
+                SegmentItem(
+                    label = "Note",
+                    isSelected = selectedType == EntryType.NOTE,
+                    onClick = { onSelectType(EntryType.NOTE) }
+                )
+            }
         }
     }
 }

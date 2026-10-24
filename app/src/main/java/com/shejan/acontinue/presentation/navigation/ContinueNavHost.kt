@@ -255,6 +255,7 @@ fun ContinueNavHost(
                 }
                 CreateEntryScreen(
                     viewModel = createViewModel,
+                    allowNotes = initialDate <= 0L,
                     onDismiss = { navController.popBackStack() }
                 )
             }

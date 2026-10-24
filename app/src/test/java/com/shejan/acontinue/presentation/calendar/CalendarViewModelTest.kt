@@ -523,4 +523,61 @@ class CalendarViewModelTest {
             assertTrue(todayDay!!.isSelected)
         }
     }
+
+    @Test
+    fun `test calendar strictly excludes notes from scheduled activities`() = runTest(testDispatcher) {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 24, 14, 0, 0)
+        }
+        val baseTime = cal.timeInMillis
+
+        // Insert Note
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 101L,
+                title = "Hello dear note",
+                entryType = EntryType.NOTE,
+                startTimeMillis = baseTime,
+                endTimeMillis = baseTime + 3600000L
+            )
+        )
+        // Insert Event
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 102L,
+                title = "Strategy Meeting",
+                entryType = EntryType.ACTIVITY,
+                startTimeMillis = baseTime,
+                endTimeMillis = baseTime + 3600000L
+            )
+        )
+        // Insert Reminder
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 103L,
+                title = "Doctor Reminder",
+                entryType = EntryType.REMINDER,
+                startTimeMillis = baseTime,
+                endTimeMillis = baseTime
+            )
+        )
+
+        viewModel.selectDate(baseTime)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            // Only Event and Reminder should be present
+            assertEquals(2, state.selectedDayActivities.size)
+            assertTrue(state.selectedDayActivities.none { it.entryType == EntryType.NOTE })
+            assertTrue(state.selectedDayActivities.any { it.title == "Strategy Meeting" })
+            assertTrue(state.selectedDayActivities.any { it.title == "Doctor Reminder" })
+
+            val matchingDay = state.monthDays.firstOrNull { it.isSelected }
+            assertNotNull(matchingDay)
+            assertEquals(2, matchingDay!!.activities.size)
+            assertTrue(matchingDay.activities.none { it.entryType == EntryType.NOTE })
+        }
+    }
 }
+
