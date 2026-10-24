@@ -35,7 +35,7 @@ data class FormatSpan(
 data class NoteFormatState(
     val spans: List<FormatSpan> = emptyList(),
     val lineHeadings: Map<Int, HeadingType> = emptyMap(),
-    val activeTypingStyles: Set<InlineStyle> = emptySet()
+    val activeTypingStyles: Set<InlineStyle>? = null
 )
 
 object NoteTextFormatter {
@@ -50,23 +50,48 @@ object NoteTextFormatter {
         return state.lineHeadings[lineIndex] ?: HeadingType.BODY
     }
 
+    fun setHeadingForSelection(
+        text: String,
+        selection: TextRange,
+        heading: HeadingType,
+        state: NoteFormatState
+    ): NoteFormatState {
+        val startLine = getLineIndex(text, selection.min)
+        val endLine = getLineIndex(text, selection.max)
+        val newHeadings = state.lineHeadings.toMutableMap()
+
+        // Check if all selected lines already have this heading
+        val allAlreadyHaveHeading = (startLine..endLine).all { line ->
+            (newHeadings[line] ?: HeadingType.BODY) == heading
+        }
+
+        // Toggling matching Google Docs:
+        // If all selected lines currently have this heading, or heading is BODY, revert all to BODY.
+        // Otherwise, apply the heading to all selected lines.
+        val targetHeading = if (allAlreadyHaveHeading || heading == HeadingType.BODY) {
+            HeadingType.BODY
+        } else {
+            heading
+        }
+
+        for (line in startLine..endLine) {
+            if (targetHeading == HeadingType.BODY) {
+                newHeadings.remove(line)
+            } else {
+                newHeadings[line] = targetHeading
+            }
+        }
+
+        return state.copy(lineHeadings = newHeadings)
+    }
+
     fun setHeadingForLine(
         text: String,
         cursorIndex: Int,
         heading: HeadingType,
         state: NoteFormatState
     ): NoteFormatState {
-        val lineIndex = getLineIndex(text, cursorIndex)
-        val current = getHeadingForLine(state, lineIndex)
-        val newHeadings = state.lineHeadings.toMutableMap()
-        if (current == heading && heading != HeadingType.BODY) {
-            newHeadings.remove(lineIndex)
-        } else if (heading == HeadingType.BODY) {
-            newHeadings.remove(lineIndex)
-        } else {
-            newHeadings[lineIndex] = heading
-        }
-        return state.copy(lineHeadings = newHeadings)
+        return setHeadingForSelection(text, TextRange(cursorIndex, cursorIndex), heading, state)
     }
 
     fun isStyleActiveAt(
@@ -75,7 +100,12 @@ object NoteTextFormatter {
         state: NoteFormatState
     ): Boolean {
         if (selection.collapsed) {
-            return style in state.activeTypingStyles
+            state.activeTypingStyles?.let {
+                return style in it
+            }
+            val pos = selection.min
+            val probe = if (pos > 0) pos - 1 else 0
+            return state.spans.any { it.start <= probe && it.end > probe && style in it.styles }
         }
         val min = selection.min
         val max = selection.max
@@ -98,10 +128,16 @@ object NoteTextFormatter {
         state: NoteFormatState
     ): NoteFormatState {
         if (selection.collapsed) {
-            val newActive = if (style in state.activeTypingStyles) {
-                state.activeTypingStyles - style
+            val isCurrentlyActive = isStyleActiveAt(style, selection, state)
+            val baseStyles = state.activeTypingStyles ?: run {
+                val pos = selection.min
+                val probe = if (pos > 0) pos - 1 else 0
+                state.spans.firstOrNull { it.start <= probe && it.end > probe }?.styles ?: emptySet()
+            }
+            val newActive = if (isCurrentlyActive) {
+                baseStyles - style
             } else {
-                state.activeTypingStyles + style
+                baseStyles + style
             }
             return state.copy(activeTypingStyles = newActive)
         }
@@ -158,48 +194,177 @@ object NoteTextFormatter {
         selection: TextRange,
         state: NoteFormatState
     ): NoteFormatState {
+        if (oldText == newText) return state
+
         val diff = newText.length - oldText.length
-        if (diff == 0) return state
 
-        val cursor = selection.min
-        val newSpans = mutableListOf<FormatSpan>()
+        var editStart = 0
+        while (editStart < oldText.length && editStart < newText.length && oldText[editStart] == newText[editStart]) {
+            editStart++
+        }
 
-        if (diff > 0) {
-            val insertPoint = (cursor - diff).coerceAtLeast(0)
-            for (span in state.spans) {
-                when {
-                    span.end <= insertPoint -> newSpans.add(span)
-                    span.start >= insertPoint -> newSpans.add(span.copy(start = span.start + diff, end = span.end + diff))
-                    else -> {
-                        newSpans.add(span.copy(end = span.end + diff))
+        var oldEnd = oldText.length
+        var newEnd = newText.length
+        while (oldEnd > editStart && newEnd > editStart && oldText[oldEnd - 1] == newText[newEnd - 1]) {
+            oldEnd--
+            newEnd--
+        }
+
+        val deletedText = oldText.substring(editStart, oldEnd)
+        val insertedText = newText.substring(editStart, newEnd)
+
+        val newlinesDeleted = deletedText.count { it == '\n' }
+        val newlinesInserted = insertedText.count { it == '\n' }
+        val lineWhereEditStarted = oldText.substring(0, editStart).count { it == '\n' }
+
+        // --- 1. Line Headings Shifting (Google Docs Behavior) ---
+        val newHeadings = mutableMapOf<Int, HeadingType>()
+
+        if (newlinesInserted == 0 && newlinesDeleted == 0) {
+            val totalLines = newText.count { it == '\n' } + 1
+            state.lineHeadings.forEach { (lineIdx, heading) ->
+                if (lineIdx < totalLines) {
+                    newHeadings[lineIdx] = heading
+                }
+            }
+        } else {
+            // Lines strictly before the edit line are completely untouched
+            state.lineHeadings.forEach { (lineIdx, heading) ->
+                if (lineIdx < lineWhereEditStarted) {
+                    newHeadings[lineIdx] = heading
+                }
+            }
+
+            val lineOffsetInOld = oldText.lastIndexOf('\n', (editStart - 1).coerceAtLeast(0)).let { if (it == -1) 0 else it + 1 }
+            val nextNewlineInOld = oldText.indexOf('\n', editStart).let { if (it == -1) oldText.length else it }
+            val restOfLineInOld = oldText.substring(editStart, nextNewlineInOld)
+            val isEnterAtStartOfLine = (editStart == lineOffsetInOld)
+            val isEnterAtEndOfLine = restOfLineInOld.isBlank()
+
+            val headingAtEditLine = state.lineHeadings[lineWhereEditStarted] ?: HeadingType.BODY
+
+            if (newlinesDeleted > 0 && newlinesInserted == 0) {
+                // Lines were joined (e.g. Backspace)
+                val lineWhereEditEnded = lineWhereEditStarted + newlinesDeleted
+                val mergedHeading = if (headingAtEditLine != HeadingType.BODY) {
+                    headingAtEditLine
+                } else {
+                    state.lineHeadings[lineWhereEditEnded] ?: HeadingType.BODY
+                }
+                if (mergedHeading != HeadingType.BODY) {
+                    newHeadings[lineWhereEditStarted] = mergedHeading
+                }
+            } else if (newlinesInserted > 0) {
+                if (isEnterAtStartOfLine) {
+                    // Enter pressed at the start of the line: empty line added above.
+                    // The original line content moves down by newlinesInserted and preserves its heading.
+                    if (headingAtEditLine != HeadingType.BODY) {
+                        newHeadings[lineWhereEditStarted + newlinesInserted] = headingAtEditLine
+                    }
+                } else if (isEnterAtEndOfLine) {
+                    // Enter pressed at the end of a heading line (Google Docs standard):
+                    // The heading line preserves its style, and newly created lines default to BODY.
+                    if (headingAtEditLine != HeadingType.BODY) {
+                        newHeadings[lineWhereEditStarted] = headingAtEditLine
+                    }
+                } else {
+                    // Enter pressed in the middle of a heading line: split heading across lines
+                    if (headingAtEditLine != HeadingType.BODY) {
+                        newHeadings[lineWhereEditStarted] = headingAtEditLine
+                        newHeadings[lineWhereEditStarted + newlinesInserted] = headingAtEditLine
                     }
                 }
             }
-            if (state.activeTypingStyles.isNotEmpty()) {
-                newSpans.add(FormatSpan(insertPoint, insertPoint + diff, state.activeTypingStyles))
-            }
-        } else {
-            val deletePoint = cursor
-            val deleteCount = -diff
-            for (span in state.spans) {
-                when {
-                    span.end <= deletePoint -> newSpans.add(span)
-                    span.start >= deletePoint + deleteCount -> newSpans.add(span.copy(start = span.start - deleteCount, end = span.end - deleteCount))
-                    else -> {
-                        val newStart = minOf(span.start, deletePoint)
-                        val newEnd = (span.end - deleteCount).coerceAtLeast(newStart)
-                        if (newEnd > newStart) {
-                            newSpans.add(span.copy(start = newStart, end = newEnd))
-                        }
+
+            // Shift subsequent lines
+            val lineWhereEditEnded = lineWhereEditStarted + newlinesDeleted
+            state.lineHeadings.forEach { (lineIdx, heading) ->
+                if (lineIdx > lineWhereEditEnded) {
+                    val shiftedLine = lineIdx + newlinesInserted - newlinesDeleted
+                    if (shiftedLine >= 0) {
+                        newHeadings[shiftedLine] = heading
                     }
                 }
             }
         }
 
-        val lines = newText.split('\n')
-        val updatedLineHeadings = state.lineHeadings.filterKeys { it < lines.size }
+        // --- 2. Format Spans Shifting ---
+        val newSpans = mutableListOf<FormatSpan>()
 
-        return state.copy(spans = mergeSpans(newSpans), lineHeadings = updatedLineHeadings)
+        val stylesToApply = state.activeTypingStyles ?: if (diff > 0 && oldText.isNotEmpty()) {
+            val probe = (editStart - 1).coerceAtLeast(0)
+            state.spans.firstOrNull { it.start <= probe && it.end > probe }?.styles ?: emptySet()
+        } else {
+            emptySet()
+        }
+
+        if (diff > 0) {
+            val insertPoint = editStart
+            val insertLen = diff
+
+            for (span in state.spans) {
+                when {
+                    span.end <= insertPoint -> {
+                        newSpans.add(span)
+                    }
+                    span.start >= insertPoint -> {
+                        newSpans.add(span.copy(start = span.start + insertLen, end = span.end + insertLen))
+                    }
+                    else -> {
+                        val matchingStyles = span.styles.filter { it in stylesToApply }.toSet()
+                        val nonMatchingStyles = span.styles.filter { it !in stylesToApply }.toSet()
+
+                        if (nonMatchingStyles.isEmpty()) {
+                            newSpans.add(span.copy(end = span.end + insertLen))
+                        } else {
+                            newSpans.add(span.copy(end = insertPoint))
+                            newSpans.add(span.copy(start = insertPoint + insertLen, end = span.end + insertLen))
+                            if (matchingStyles.isNotEmpty()) {
+                                newSpans.add(FormatSpan(insertPoint, insertPoint + insertLen, matchingStyles))
+                            }
+                        }
+                    }
+                }
+            }
+
+            if (stylesToApply.isNotEmpty()) {
+                newSpans.add(FormatSpan(insertPoint, insertPoint + insertLen, stylesToApply))
+            }
+        } else if (diff < 0) {
+            val deleteStart = editStart
+            val deleteEnd = oldEnd
+            val deleteCount = deleteEnd - deleteStart
+
+            for (span in state.spans) {
+                when {
+                    span.end <= deleteStart -> {
+                        newSpans.add(span)
+                    }
+                    span.start >= deleteEnd -> {
+                        newSpans.add(span.copy(start = span.start - deleteCount, end = span.end - deleteCount))
+                    }
+                    span.start >= deleteStart && span.end <= deleteEnd -> {
+                        // Fully deleted
+                    }
+                    span.start < deleteStart && span.end > deleteEnd -> {
+                        newSpans.add(span.copy(end = span.end - deleteCount))
+                    }
+                    span.start < deleteStart && span.end <= deleteEnd -> {
+                        newSpans.add(span.copy(end = deleteStart))
+                    }
+                    span.start >= deleteStart && span.end > deleteEnd -> {
+                        newSpans.add(span.copy(start = deleteStart, end = span.end - deleteCount))
+                    }
+                }
+            }
+        } else {
+            newSpans.addAll(state.spans)
+        }
+
+        return state.copy(
+            spans = mergeSpans(newSpans),
+            lineHeadings = newHeadings
+        )
     }
 
     private fun mergeSpans(spans: List<FormatSpan>): List<FormatSpan> {
@@ -242,17 +407,26 @@ object NoteTextFormatter {
         state: NoteFormatState,
         baseColor: Color,
         searchQuery: String = "",
-        activeMatchRange: IntRange? = null
+        activeMatchRange: IntRange? = null,
+        baseOffset: Int = 0,
+        fullNoteText: String = text
     ): AnnotatedString {
         return buildAnnotatedString {
             append(text)
 
             if (text.isNotEmpty()) {
+                val baseLine = if (baseOffset > 0 && fullNoteText.isNotEmpty()) {
+                    fullNoteText.substring(0, baseOffset.coerceAtMost(fullNoteText.length)).count { it == '\n' }
+                } else {
+                    0
+                }
+
                 val lines = text.split('\n')
                 var lineStart = 0
                 lines.forEachIndexed { lineIdx, lineText ->
                     val lineEnd = lineStart + lineText.length
-                    val heading = state.lineHeadings[lineIdx] ?: HeadingType.BODY
+                    val globalLineIdx = baseLine + lineIdx
+                    val heading = state.lineHeadings[globalLineIdx] ?: HeadingType.BODY
                     when (heading) {
                         HeadingType.H1 -> {
                             addStyle(
@@ -285,8 +459,8 @@ object NoteTextFormatter {
             }
 
             for (span in state.spans) {
-                val s = span.start.coerceIn(0, text.length)
-                val e = span.end.coerceIn(0, text.length)
+                val s = (span.start - baseOffset).coerceIn(0, text.length)
+                val e = (span.end - baseOffset).coerceIn(0, text.length)
                 if (s >= e) continue
 
                 val hasBold = InlineStyle.BOLD in span.styles
@@ -315,9 +489,10 @@ object NoteTextFormatter {
             if (searchQuery.isNotBlank() && text.isNotEmpty()) {
                 val matches = findMatches(text, searchQuery)
                 for (match in matches) {
+                    val globalMatchStart = baseOffset + match.first
                     val isCurrentActive = activeMatchRange != null &&
-                        activeMatchRange.first == match.first &&
-                        activeMatchRange.last == match.last
+                        activeMatchRange.first == globalMatchStart &&
+                        activeMatchRange.last == (baseOffset + match.last)
 
                     val bgColor = if (isCurrentActive) {
                         Color(0xFFFFEE58)
@@ -526,15 +701,20 @@ class NoteVisualTransformation(
     private val formatState: NoteFormatState,
     private val baseColor: Color,
     private val searchQuery: String = "",
-    private val activeMatchRange: IntRange? = null
+    private val activeMatchRange: IntRange? = null,
+    private val baseOffset: Int = 0,
+    private val fullNoteText: String = ""
 ) : VisualTransformation {
     override fun filter(text: AnnotatedString): TransformedText {
+        val full = if (fullNoteText.isNotEmpty()) fullNoteText else text.text
         val annotated = NoteTextFormatter.buildAnnotatedString(
-            text.text,
-            formatState,
-            baseColor,
-            searchQuery,
-            activeMatchRange
+            text = text.text,
+            state = formatState,
+            baseColor = baseColor,
+            searchQuery = searchQuery,
+            activeMatchRange = activeMatchRange,
+            baseOffset = baseOffset,
+            fullNoteText = full
         )
         return TransformedText(annotated, OffsetMapping.Identity)
     }

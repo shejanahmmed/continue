@@ -241,5 +241,166 @@ class NoteTextFormatterTest {
         assertEquals("![photo]($uri1)\n![photo]($uri2)\n", step2Text)
         assertEquals(step2Text.length, step2Cursor)
     }
+
+    @Test
+    fun testEnterAtEndOfHeadingCreatesBodyAndPreservesHeading() {
+        val oldText = "My Heading"
+        val state = NoteFormatState(lineHeadings = mapOf(0 to HeadingType.H1))
+
+        // Press Enter at the end of "My Heading"
+        val newText = "My Heading\n"
+        val newState = NoteTextFormatter.onTextChange(
+            oldText = oldText,
+            newText = newText,
+            selection = TextRange(newText.length),
+            state = state
+        )
+
+        // Line 0 must remain H1
+        assertEquals(HeadingType.H1, NoteTextFormatter.getHeadingForLine(newState, 0))
+        // The newly created Line 1 must default to BODY (Google Docs behavior)
+        assertEquals(HeadingType.BODY, NoteTextFormatter.getHeadingForLine(newState, 1))
+    }
+
+    @Test
+    fun testEnterAtStartOfHeadingShiftsHeadingDown() {
+        val oldText = "My Heading"
+        val state = NoteFormatState(lineHeadings = mapOf(0 to HeadingType.H1))
+
+        // Press Enter at the start of "My Heading"
+        val newText = "\nMy Heading"
+        val newState = NoteTextFormatter.onTextChange(
+            oldText = oldText,
+            newText = newText,
+            selection = TextRange(1),
+            state = state
+        )
+
+        // Line 0 is new empty line -> BODY
+        assertEquals(HeadingType.BODY, NoteTextFormatter.getHeadingForLine(newState, 0))
+        // Line 1 is the shifted "My Heading" -> H1
+        assertEquals(HeadingType.H1, NoteTextFormatter.getHeadingForLine(newState, 1))
+    }
+
+    @Test
+    fun testEnterBeforeHeadingPreservesSubsequentHeadings() {
+        val oldText = "Line 1\nHeading 2"
+        val state = NoteFormatState(lineHeadings = mapOf(1 to HeadingType.H2))
+
+        // Press Enter at end of Line 1
+        val newText = "Line 1\n\nHeading 2"
+        val newState = NoteTextFormatter.onTextChange(
+            oldText = oldText,
+            newText = newText,
+            selection = TextRange(7),
+            state = state
+        )
+
+        assertEquals(HeadingType.BODY, NoteTextFormatter.getHeadingForLine(newState, 0))
+        assertEquals(HeadingType.BODY, NoteTextFormatter.getHeadingForLine(newState, 1))
+        // "Heading 2" moved to line 2 and MUST still be H2
+        assertEquals(HeadingType.H2, NoteTextFormatter.getHeadingForLine(newState, 2))
+    }
+
+    @Test
+    fun testBackspaceDeletesLineAndShiftsHeadingsUp() {
+        val oldText = "Title\n\nSection"
+        val state = NoteFormatState(lineHeadings = mapOf(0 to HeadingType.H1, 2 to HeadingType.H2))
+
+        // Delete empty line 1
+        val newText = "Title\nSection"
+        val newState = NoteTextFormatter.onTextChange(
+            oldText = oldText,
+            newText = newText,
+            selection = TextRange(6),
+            state = state
+        )
+
+        assertEquals(HeadingType.H1, NoteTextFormatter.getHeadingForLine(newState, 0))
+        // "Section" shifted from line 2 to line 1 and MUST still be H2
+        assertEquals(HeadingType.H2, NoteTextFormatter.getHeadingForLine(newState, 1))
+    }
+
+    @Test
+    fun testSetHeadingForSelectionMultiLine() {
+        val text = "Paragraph 1\nParagraph 2\nParagraph 3"
+        var state = NoteFormatState()
+
+        // Select across Paragraph 1 and 2 (from 0 to 20)
+        val selection = TextRange(0, 20)
+        state = NoteTextFormatter.setHeadingForSelection(text, selection, HeadingType.H1, state)
+
+        assertEquals(HeadingType.H1, NoteTextFormatter.getHeadingForLine(state, 0))
+        assertEquals(HeadingType.H1, NoteTextFormatter.getHeadingForLine(state, 1))
+        assertEquals(HeadingType.BODY, NoteTextFormatter.getHeadingForLine(state, 2))
+
+        // Toggle H1 again on the same selection: reverts both to BODY
+        state = NoteTextFormatter.setHeadingForSelection(text, selection, HeadingType.H1, state)
+        assertEquals(HeadingType.BODY, NoteTextFormatter.getHeadingForLine(state, 0))
+        assertEquals(HeadingType.BODY, NoteTextFormatter.getHeadingForLine(state, 1))
+        assertEquals(HeadingType.BODY, NoteTextFormatter.getHeadingForLine(state, 2))
+    }
+
+    @Test
+    fun testToggleBoldAtCollapsedCursorPreservesPriorBoldText() {
+        // User typed "Hello" which is bold
+        val oldText = "Hello"
+        var state = NoteFormatState(spans = listOf(FormatSpan(0, 5, setOf(InlineStyle.BOLD))))
+
+        // Cursor is at end of "Hello" (index 5)
+        val cursorRange = TextRange(5, 5)
+        assertTrue(NoteTextFormatter.isStyleActiveAt(InlineStyle.BOLD, cursorRange, state))
+
+        // User clicks Bold button to disable bold for future typing
+        state = NoteTextFormatter.toggleStyle(cursorRange, InlineStyle.BOLD, state)
+        assertFalse(NoteTextFormatter.isStyleActiveAt(InlineStyle.BOLD, cursorRange, state))
+
+        // User types " world"
+        val newText = "Hello world"
+        state = NoteTextFormatter.onTextChange(
+            oldText = oldText,
+            newText = newText,
+            selection = TextRange(11),
+            state = state
+        )
+
+        // Existing "Hello" (0..5) MUST remain bold!
+        val boldSpan = state.spans.firstOrNull { InlineStyle.BOLD in it.styles }
+        assertTrue("Expected bold span to be preserved", boldSpan != null)
+        assertEquals(0, boldSpan!!.start)
+        assertEquals(5, boldSpan.end)
+
+        // New text " world" (5..11) must NOT be bold
+        assertFalse(NoteTextFormatter.isStyleActiveAt(InlineStyle.BOLD, TextRange(7, 10), state))
+    }
+
+    @Test
+    fun testFullMarkdownParsingAndRoundtripWithHeadingsAndStyles() {
+        val markdown = "# Main Title\nNormal text with **bold** and *italic* and <u>under</u> and ~~strike~~.\n## Subtitle"
+        val (plainText, state) = NoteTextFormatter.parseMarkdownToState(markdown)
+
+        assertEquals("Main Title\nNormal text with bold and italic and under and strike.\nSubtitle", plainText)
+        assertEquals(HeadingType.H1, NoteTextFormatter.getHeadingForLine(state, 0))
+        assertEquals(HeadingType.BODY, NoteTextFormatter.getHeadingForLine(state, 1))
+        assertEquals(HeadingType.H2, NoteTextFormatter.getHeadingForLine(state, 2))
+
+        // Check spans
+        val boldSpan = state.spans.find { InlineStyle.BOLD in it.styles }
+        assertTrue(boldSpan != null)
+
+        val italicSpan = state.spans.find { InlineStyle.ITALIC in it.styles }
+        assertTrue(italicSpan != null)
+
+        val underSpan = state.spans.find { InlineStyle.UNDERLINE in it.styles }
+        assertTrue(underSpan != null)
+
+        val strikeSpan = state.spans.find { InlineStyle.STRIKETHROUGH in it.styles }
+        assertTrue(strikeSpan != null)
+
+        // Re-serialize
+        val reSerialized = NoteTextFormatter.serializeToMarkdown(plainText, state)
+        assertEquals(markdown, reSerialized)
+    }
 }
+
 
