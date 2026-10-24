@@ -61,10 +61,9 @@ import java.util.Calendar
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateContentSize
-import androidx.compose.ui.unit.IntOffset
-import androidx.compose.ui.unit.IntSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
@@ -72,6 +71,10 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
+import androidx.compose.ui.layout.Layout
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
+import kotlin.math.roundToInt
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -321,48 +324,17 @@ fun CalendarScreen(
                         )
                     }
             ) {
-                AnimatedContent(
-                    targetState = uiState.isWeekMode,
-                    transitionSpec = {
-                        val animDuration = 260
-                        val animEasing = FastOutSlowInEasing
-                        val sizeSpec = tween<IntSize>(durationMillis = animDuration, easing = animEasing)
-                        val floatSpec = tween<Float>(durationMillis = animDuration, easing = animEasing)
-                        val offsetSpec = tween<IntOffset>(durationMillis = animDuration, easing = animEasing)
-
-                        (fadeIn(animationSpec = floatSpec) +
-                                slideInVertically(animationSpec = offsetSpec) { height -> -height / 4 }
-                        ).togetherWith(
-                            fadeOut(animationSpec = floatSpec) +
-                                    slideOutVertically(animationSpec = offsetSpec) { height -> -height / 4 }
-                        ).using(
-                            SizeTransform(
-                                clip = true,
-                                sizeAnimationSpec = { _, _ -> sizeSpec }
-                            )
-                        )
-                    },
-                    label = "CalendarCollapsibleTransition"
-                ) { inWeekMode ->
-                    if (inWeekMode) {
-                        UtilitarianWeekRow(
-                            days = uiState.currentWeekDays,
-                            todayPulseTrigger = uiState.todayPulseTrigger,
-                            onDayClick = { day -> viewModel.selectDate(day.dateMillis) }
-                        )
-                    } else {
-                        UtilitarianMonthGrid(
-                            days = uiState.monthDays,
-                            todayPulseTrigger = uiState.todayPulseTrigger,
-                            onDayClick = { day ->
-                                viewModel.selectDate(day.dateMillis)
-                                if (day.activities.isNotEmpty()) {
-                                    viewModel.setWeekMode(true)
-                                }
-                            }
-                        )
+                UtilitarianAccordionCalendar(
+                    isWeekMode = uiState.isWeekMode,
+                    monthDays = uiState.monthDays,
+                    todayPulseTrigger = uiState.todayPulseTrigger,
+                    onDayClick = { day ->
+                        viewModel.selectDate(day.dateMillis)
+                        if (day.activities.isNotEmpty()) {
+                            viewModel.setWeekMode(true)
+                        }
                     }
-                }
+                )
             }
 
             Spacer(modifier = Modifier.height(14.dp))
@@ -560,51 +532,99 @@ private fun DayOfWeekHeaderRow() {
 }
 
 @Composable
-private fun UtilitarianMonthGrid(
-    days: List<CalendarDay>,
+private fun UtilitarianAccordionCalendar(
+    isWeekMode: Boolean,
+    monthDays: List<CalendarDay>,
     todayPulseTrigger: Long = 0L,
-    onDayClick: (CalendarDay) -> Unit
+    onDayClick: (CalendarDay) -> Unit,
+    modifier: Modifier = Modifier
 ) {
-    Column(
-        modifier = Modifier.fillMaxWidth(),
-        verticalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        val rows = days.chunked(7)
-        rows.forEach { weekDays ->
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                weekDays.forEach { day ->
-                    MonthDayCell(
-                        day = day,
-                        todayPulseTrigger = todayPulseTrigger,
-                        onClick = { onDayClick(day) },
-                        modifier = Modifier.weight(1f)
-                    )
+    // 450ms duration provides a readable, deliberate physical accordion fold
+    val collapseProgress by animateFloatAsState(
+        targetValue = if (isWeekMode) 1f else 0f,
+        animationSpec = tween(
+            durationMillis = 450,
+            easing = FastOutSlowInEasing
+        ),
+        label = "CalendarAccordionAnimation"
+    )
+
+    val rows = monthDays.chunked(7)
+    // Anchor onto the week row containing the selected date or today's date
+    val activeRowIndex = rows.indexOfFirst { week -> week.any { it.isSelected } }
+        .takeIf { it >= 0 }
+        ?: rows.indexOfFirst { week -> week.any { it.isToday } }.takeIf { it >= 0 }
+        ?: 0
+
+    Layout(
+        content = {
+            rows.forEachIndexed { rowIndex, weekDays ->
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    weekDays.forEach { day ->
+                        MonthDayCell(
+                            day = day,
+                            todayPulseTrigger = todayPulseTrigger,
+                            onClick = {
+                                if (collapseProgress == 0f || rowIndex == activeRowIndex) {
+                                    onDayClick(day)
+                                }
+                            },
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
                 }
             }
-        }
-    }
-}
+        },
+        modifier = modifier
+            .fillMaxWidth()
+            .clipToBounds()
+    ) { measurables, constraints ->
+        val rowSpacingPx = 4.dp.roundToPx()
+        val placeables = measurables.map { it.measure(constraints.copy(minHeight = 0)) }
+        val rowHeight = placeables.firstOrNull()?.height ?: 54.dp.roundToPx()
+        val rowPitch = rowHeight + rowSpacingPx
 
-@Composable
-private fun UtilitarianWeekRow(
-    days: List<CalendarDay>,
-    todayPulseTrigger: Long = 0L,
-    onDayClick: (CalendarDay) -> Unit
-) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(4.dp)
-    ) {
-        days.forEach { day ->
-            MonthDayCell(
-                day = day,
-                todayPulseTrigger = todayPulseTrigger,
-                onClick = { onDayClick(day) },
-                modifier = Modifier.weight(1f)
-            )
+        val totalMonthHeight = if (placeables.isNotEmpty()) {
+            placeables.size * rowHeight + (placeables.size - 1) * rowSpacingPx
+        } else {
+            rowHeight
+        }
+        val weekHeight = rowHeight
+
+        val currentContainerHeight = (totalMonthHeight + (weekHeight - totalMonthHeight) * collapseProgress).roundToInt()
+        val activeTargetY = (activeRowIndex * rowPitch) * (1f - collapseProgress)
+
+        layout(constraints.maxWidth, currentContainerHeight) {
+            placeables.forEachIndexed { rowIndex, placeable ->
+                if (rowIndex == activeRowIndex) {
+                    // Active date row stays fully opaque on top (zIndex = 2f) and glides to Y = 0
+                    placeable.placeRelativeWithLayer(
+                        x = 0,
+                        y = activeTargetY.roundToInt(),
+                        zIndex = 2f
+                    ) {
+                        alpha = 1f
+                    }
+                } else {
+                    // Non-active rows tuck underneath the active row (zIndex = 0f) and fade out
+                    val rowInitialY = rowIndex * rowPitch
+                    val currentY = rowInitialY + (activeTargetY - rowInitialY) * collapseProgress
+                    val rowAlpha = (1f - collapseProgress * 1.15f).coerceIn(0f, 1f)
+
+                    if (rowAlpha > 0f) {
+                        placeable.placeRelativeWithLayer(
+                            x = 0,
+                            y = currentY.roundToInt(),
+                            zIndex = 0f
+                        ) {
+                            alpha = rowAlpha
+                        }
+                    }
+                }
+            }
         }
     }
 }
