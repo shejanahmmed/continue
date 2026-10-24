@@ -763,7 +763,7 @@ private fun TimelineActivityItem(
                     .background(barColor, RoundedCornerShape(1.5.dp))
             )
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(11.dp))
 
             Column(modifier = Modifier.weight(1f)) {
                 Text(
@@ -775,7 +775,7 @@ private fun TimelineActivityItem(
                     overflow = TextOverflow.Ellipsis,
                     textDecoration = if (isReminder && activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
                 )
-                Spacer(modifier = Modifier.height(3.dp))
+                Spacer(modifier = Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (isReminder) {
                         Icon(

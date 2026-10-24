@@ -873,7 +873,7 @@ private fun CalendarActivityCard(
                     .background(barColor, RoundedCornerShape(1.5.dp))
             )
 
-            Spacer(modifier = Modifier.width(8.dp))
+            Spacer(modifier = Modifier.width(11.dp))
 
             // Activity Info
             Column(modifier = Modifier.weight(1f)) {
@@ -886,7 +886,7 @@ private fun CalendarActivityCard(
                     overflow = TextOverflow.Ellipsis,
                     textDecoration = if (isCompleted) TextDecoration.LineThrough else TextDecoration.None
                 )
-                Spacer(modifier = Modifier.height(3.dp))
+                Spacer(modifier = Modifier.height(5.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (isReminder) {
                         Icon(
