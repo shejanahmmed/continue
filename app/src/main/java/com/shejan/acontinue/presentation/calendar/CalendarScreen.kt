@@ -255,14 +255,16 @@ fun CalendarScreen(
                 }
 
                 // Right Action: Persistent Today Badge
+                val todayBadgeShape = RoundedCornerShape(7.dp)
                 Surface(
-                    shape = RoundedCornerShape(7.dp),
+                    onClick = { viewModel.jumpToToday() },
+                    shape = todayBadgeShape,
                     color = Color.Transparent,
                     border = BorderStroke(1.5.dp, UtilitarianTextPrimary),
                     modifier = Modifier
                         .align(Alignment.CenterEnd)
                         .size(28.dp)
-                        .clickable { viewModel.jumpToToday() }
+                        .clip(todayBadgeShape)
                 ) {
                     Box(contentAlignment = Alignment.Center) {
                         Text(
@@ -457,10 +459,11 @@ fun CalendarScreen(
 
         // Floating Quick Action Pill Button
         Surface(
+            onClick = { onCreateClick(uiState.selectedDateMillis) },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 16.dp)
-                .clickable { onCreateClick(uiState.selectedDateMillis) },
+                .clip(CircleShape),
             shape = CircleShape,
             color = Color(0xFF222222),
             border = BorderStroke(1.dp, UtilitarianBorderStroke)
@@ -647,11 +650,14 @@ private fun MonthDayCell(
         else -> Color(0xFF14171A)
     }
 
+    val cellShape = RoundedCornerShape(8.dp)
+
     Surface(
+        onClick = onClick,
         modifier = modifier
             .height(54.dp)
-            .clickable { onClick() },
-        shape = RoundedCornerShape(8.dp),
+            .clip(cellShape),
+        shape = cellShape,
         color = cellBackgroundColor,
         border = BorderStroke(1.dp, cellBorderColor)
     ) {

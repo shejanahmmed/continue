@@ -15,6 +15,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -37,16 +38,34 @@ fun MonochromeCard(
     onClick: (() -> Unit)? = null,
     content: @Composable () -> Unit
 ) {
-    Surface(
-        modifier = modifier
-            .fillMaxWidth()
-            .then(if (onClick != null) Modifier.clickable(onClick = onClick) else Modifier),
-        shape = RoundedCornerShape(12.dp),
-        color = backgroundColor,
-        border = BorderStroke(1.dp, borderColor)
-    ) {
-        Box(modifier = Modifier.padding(16.dp)) {
-            content()
+    val cardShape = RoundedCornerShape(12.dp)
+
+    if (onClick != null) {
+        Surface(
+            onClick = onClick,
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(cardShape),
+            shape = cardShape,
+            color = backgroundColor,
+            border = BorderStroke(1.dp, borderColor)
+        ) {
+            Box(modifier = Modifier.padding(16.dp)) {
+                content()
+            }
+        }
+    } else {
+        Surface(
+            modifier = modifier
+                .fillMaxWidth()
+                .clip(cardShape),
+            shape = cardShape,
+            color = backgroundColor,
+            border = BorderStroke(1.dp, borderColor)
+        ) {
+            Box(modifier = Modifier.padding(16.dp)) {
+                content()
+            }
         }
     }
 }
