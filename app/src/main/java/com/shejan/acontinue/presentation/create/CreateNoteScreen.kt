@@ -171,8 +171,13 @@ import androidx.core.view.WindowCompat
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import kotlinx.coroutines.launch
 
+const val DEFAULT_NOTE_COLOR_HEX = 0xFF000000L
+
+fun isDefaultNoteColor(hex: Long): Boolean =
+    hex == 0xFF000000L || hex == 0xFF121212L || hex == 0L
+
 val NOTE_COLORS = listOf(
-    0xFF121212L, // Default
+    DEFAULT_NOTE_COLOR_HEX, // Default (matches app background)
     0xFF5C1324L, // Crimson / Burgundy
     0xFF6E2B1AL, // Rust / Terracotta
     0xFF6B4407L, // Amber / Warm Ochre
@@ -203,7 +208,7 @@ private data class NoteMenuOption(
 fun CreateNoteScreen(
     initialTitle: String = "",
     initialContent: String = "",
-    initialColorHex: Long = 0xFF121212L,
+    initialColorHex: Long = DEFAULT_NOTE_COLOR_HEX,
     initialLabels: List<String> = emptyList(),
     onSaveNote: (title: String, content: String, colorHex: Long, labels: List<String>) -> Unit,
     onDiscard: () -> Unit,
@@ -261,6 +266,8 @@ fun CreateNoteScreen(
     }
     var formatState by remember { mutableStateOf(NoteFormatState()) }
     var selectedColorHex by remember { mutableLongStateOf(initialColorHex) }
+    val isDefaultColor = remember(selectedColorHex) { isDefaultNoteColor(selectedColorHex) }
+    val effectiveBackgroundColor = if (isDefaultColor) colors.background else Color(selectedColorHex)
     var isChecklistMode by remember { mutableStateOf(initialParsedChecklist != null) }
     var checklistItems by remember { mutableStateOf(initialParsedChecklist ?: listOf<ChecklistItem>()) }
     val checklistFocusRequesters = remember { mutableMapOf<Long, FocusRequester>() }
@@ -392,7 +399,7 @@ fun CreateNoteScreen(
         }
     }
 
-    DisposableEffect(activity, selectedColorHex) {
+    DisposableEffect(activity, selectedColorHex, colors.background, colors.isDark) {
         val window = activity?.window
         if (window != null) {
             val previousStatusBarColor = window.statusBarColor
@@ -401,11 +408,12 @@ fun CreateNoteScreen(
             val previousLightStatus = insetsController.isAppearanceLightStatusBars
             val previousLightNav = insetsController.isAppearanceLightNavigationBars
 
-            val targetArgb = Color(selectedColorHex).toArgb()
+            val targetArgb = effectiveBackgroundColor.toArgb()
             window.statusBarColor = targetArgb
             window.navigationBarColor = targetArgb
-            insetsController.isAppearanceLightStatusBars = false
-            insetsController.isAppearanceLightNavigationBars = false
+            val isLightBars = !colors.isDark && isDefaultColor
+            insetsController.isAppearanceLightStatusBars = isLightBars
+            insetsController.isAppearanceLightNavigationBars = isLightBars
 
             onDispose {
                 window.statusBarColor = previousStatusBarColor
@@ -420,12 +428,13 @@ fun CreateNoteScreen(
 
     SideEffect {
         activity?.window?.let { window ->
-            val targetArgb = Color(selectedColorHex).toArgb()
+            val targetArgb = effectiveBackgroundColor.toArgb()
             window.statusBarColor = targetArgb
             window.navigationBarColor = targetArgb
+            val isLightBars = !colors.isDark && isDefaultColor
             WindowCompat.getInsetsController(window, view).apply {
-                isAppearanceLightStatusBars = false
-                isAppearanceLightNavigationBars = false
+                isAppearanceLightStatusBars = isLightBars
+                isAppearanceLightNavigationBars = isLightBars
             }
         }
     }
@@ -757,7 +766,7 @@ fun CreateNoteScreen(
     Box(
         modifier = modifier
             .fillMaxSize()
-            .background(Color(selectedColorHex))
+            .background(effectiveBackgroundColor)
     ) {
         Column(
             modifier = Modifier
@@ -1950,15 +1959,17 @@ fun CreateNoteScreen(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     items(NOTE_COLORS) { colorHex ->
-                        val isSelected = colorHex == selectedColorHex
+                        val isItemDefault = isDefaultNoteColor(colorHex)
+                        val isSelected = if (isItemDefault) isDefaultColor else colorHex == selectedColorHex
+                        val swatchColor = if (isItemDefault) colors.background else Color(colorHex)
                         Box(
                             modifier = Modifier
                                 .size(50.dp)
                                 .clip(CircleShape)
-                                .background(Color(colorHex))
+                                .background(swatchColor)
                                 .border(
                                     width = if (isSelected) 2.5.dp else 1.dp,
-                                    color = if (isSelected) Color(0xFF76D1FF) else Color.White.copy(alpha = 0.2f),
+                                    color = if (isSelected) Color(0xFF76D1FF) else colors.borderStroke,
                                     shape = CircleShape
                                 )
                                 .clickable {
@@ -1976,7 +1987,7 @@ fun CreateNoteScreen(
                                 Icon(
                                     imageVector = Icons.Outlined.Check,
                                     contentDescription = "Selected color",
-                                    tint = if (colorHex == 0xFF121212L) Color(0xFF76D1FF) else Color.White,
+                                    tint = if (isItemDefault) Color(0xFF76D1FF) else Color.White,
                                     modifier = Modifier.size(24.dp)
                                 )
                             }

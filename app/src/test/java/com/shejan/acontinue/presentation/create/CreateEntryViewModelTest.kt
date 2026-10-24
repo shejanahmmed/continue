@@ -799,6 +799,22 @@ class CreateEntryViewModelTest {
     }
 
     @Test
+    fun `test saveNote with default parameters uses 0xFF000000L background color`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.saveNote(
+            title = "Default Color Note",
+            content = "Testing background parity"
+        )
+        testScheduler.advanceUntilIdle()
+
+        val activities = activityRepository.activitiesFlow.value
+        assertEquals(1, activities.size)
+        val activity = activities.first()
+        assertEquals(0xFF000000L, activity.reminderCategoryColorHex)
+    }
+
+    @Test
     fun `test updateNoteLabel renames label and updates savedNoteLabels state`() = runTest(testDispatcher) {
         testScheduler.advanceUntilIdle()
 

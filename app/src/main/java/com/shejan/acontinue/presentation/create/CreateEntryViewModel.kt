@@ -100,7 +100,7 @@ data class CreateEntryState(
     val savedReminderCategories: List<ReminderCategory> = listOf(ReminderCategory.DEFAULT),
     val categoryReminderCounts: Map<String, Int> = emptyMap(),
     val reminderCategory: String = "Notes",
-    val reminderCategoryColorHex: Long = 0xFF121212L,
+    val reminderCategoryColorHex: Long = 0xFF000000L,
     val savedNoteLabels: List<String> = emptyList(),
     val isSaving: Boolean = false,
     val editingActivityId: Long? = null
@@ -699,7 +699,7 @@ class CreateEntryViewModel(
     fun saveNote(
         title: String,
         content: String,
-        colorHex: Long = 0xFF121212L,
+        colorHex: Long = 0xFF000000L,
         labels: List<String> = emptyList()
     ) {
         val trimmedTitle = title.trim()
@@ -827,7 +827,7 @@ class CreateEntryViewModel(
     fun makeCopyOfNote(
         title: String,
         content: String,
-        colorHex: Long = 0xFF121212L,
+        colorHex: Long = 0xFF000000L,
         labels: List<String> = emptyList()
     ) {
         val trimmedTitle = title.trim()

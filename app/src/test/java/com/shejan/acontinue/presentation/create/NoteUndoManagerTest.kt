@@ -19,7 +19,7 @@ class NoteUndoManagerTest {
             checklistItems = emptyList(),
             isChecklistMode = false,
             attachedImageUris = emptyList(),
-            selectedColorHex = 0xFF121212L
+            selectedColorHex = 0xFF000000L
         )
     }
 
