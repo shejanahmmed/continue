@@ -290,7 +290,7 @@ fun CreateNoteScreen(
     var showLabelScreen by remember { mutableStateOf(false) }
     var showBottomSheet by remember { mutableStateOf(false) }
     var showColorSheet by remember { mutableStateOf(false) }
-    var showFormattingBar by remember { mutableStateOf(false) }
+    var showFormattingSheet by remember { mutableStateOf(false) }
     var showMoreSheet by remember { mutableStateOf(false) }
     var showDeleteNoteConfirmDialog by remember { mutableStateOf(false) }
     var showFindBar by remember { mutableStateOf(false) }
@@ -376,7 +376,7 @@ fun CreateNoteScreen(
 
     LaunchedEffect(isTitleFocused) {
         if (isTitleFocused) {
-            showFormattingBar = false
+            showFormattingSheet = false
         }
     }
 
@@ -756,8 +756,8 @@ fun CreateNoteScreen(
         } else if (showFindBar) {
             showFindBar = false
             searchQuery = ""
-        } else if (showFormattingBar) {
-            showFormattingBar = false
+        } else if (showFormattingSheet) {
+            showFormattingSheet = false
         } else {
             handleExit()
         }
@@ -792,7 +792,7 @@ fun CreateNoteScreen(
                 Icon(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                     contentDescription = "Back",
-                    tint = colors.textPrimary,
+                    tint = colors.textPrimaryMuted,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -848,7 +848,7 @@ fun CreateNoteScreen(
                         if (title.isEmpty()) {
                             Text(
                                 text = "Title",
-                                color = colors.textSecondary.copy(alpha = 0.6f),
+                                color = colors.textDisabled,
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
@@ -984,7 +984,7 @@ fun CreateNoteScreen(
                                     if (noteTextState.text.isEmpty()) {
                                         Text(
                                             text = "Note",
-                                            color = colors.textSecondary.copy(alpha = 0.6f),
+                                            color = colors.textDisabled,
                                             fontSize = 18.sp,
                                             fontWeight = FontWeight.Normal
                                         )
@@ -1263,7 +1263,7 @@ fun CreateNoteScreen(
                                         if (item.text.isEmpty()) {
                                             Text(
                                                 text = "List item",
-                                                color = colors.textSecondary.copy(alpha = 0.6f),
+                                                color = colors.textDisabled,
                                                 fontSize = 18.sp
                                             )
                                         }
@@ -1333,7 +1333,7 @@ fun CreateNoteScreen(
                         Spacer(modifier = Modifier.width(14.dp))
                         Text(
                             text = "List item",
-                            color = colors.textSecondary,
+                            color = colors.textDisabled,
                             fontSize = 18.sp
                         )
                     }
@@ -1441,7 +1441,7 @@ fun CreateNoteScreen(
                         Icon(
                             imageVector = Icons.Outlined.Search,
                             contentDescription = "Search",
-                            tint = colors.textPrimary,
+                            tint = colors.textPrimaryMuted,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -1463,7 +1463,7 @@ fun CreateNoteScreen(
                                     if (searchQuery.isEmpty()) {
                                         Text(
                                             text = "Find in note",
-                                            color = colors.textSecondary.copy(alpha = 0.6f),
+                                            color = colors.textDisabled,
                                             fontSize = 15.sp,
                                             fontWeight = FontWeight.Normal
                                         )
@@ -1490,7 +1490,7 @@ fun CreateNoteScreen(
                     Icon(
                         imageVector = Icons.Outlined.KeyboardArrowUp,
                         contentDescription = "Previous match",
-                        tint = if (canNavigate) colors.textPrimary else colors.textDisabled.copy(alpha = 0.35f),
+                        tint = if (canNavigate) colors.textPrimaryMuted else colors.textDisabled,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -1509,7 +1509,7 @@ fun CreateNoteScreen(
                     Icon(
                         imageVector = Icons.Outlined.KeyboardArrowDown,
                         contentDescription = "Next match",
-                        tint = if (canNavigate) colors.textPrimary else colors.textDisabled.copy(alpha = 0.35f),
+                        tint = if (canNavigate) colors.textPrimaryMuted else colors.textDisabled,
                         modifier = Modifier.size(24.dp)
                     )
                 }
@@ -1519,7 +1519,7 @@ fun CreateNoteScreen(
                     modifier = Modifier
                         .size(38.dp)
                         .clip(CircleShape)
-                        .background(Color(0xFF262C30))
+                        .background(Color(0xFF202020))
                         .clickable {
                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             showFindBar = false
@@ -1530,155 +1530,8 @@ fun CreateNoteScreen(
                     Icon(
                         imageVector = Icons.Outlined.Close,
                         contentDescription = "Close find",
-                        tint = colors.textPrimary,
+                        tint = colors.textPrimaryMuted,
                         modifier = Modifier.size(18.dp)
-                    )
-                }
-            }
-        } else if (showFormattingBar) {
-            val currentLine = remember(noteTextState.text, noteTextState.selection.min) {
-                NoteTextFormatter.getLineIndex(noteTextState.text, noteTextState.selection.min)
-            }
-            val currentHeading = remember(formatState, currentLine) {
-                NoteTextFormatter.getHeadingForLine(formatState, currentLine)
-            }
-
-            // Rich Text Formatting Toolbar
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 10.dp, vertical = 6.dp)
-                    .horizontalScroll(rememberScrollState()),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(4.dp)
-            ) {
-                // H1
-                FormatToolbarTextItem(
-                    label = "H1",
-                    isSelected = currentHeading == HeadingType.H1,
-                    onClick = {
-                        val updated = NoteTextFormatter.setHeadingForLine(
-                            noteTextState.text,
-                            noteTextState.selection.min,
-                            HeadingType.H1,
-                            formatState
-                        )
-                        formatState = updated
-                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
-                    }
-                )
-
-                // H2
-                FormatToolbarTextItem(
-                    label = "H2",
-                    isSelected = currentHeading == HeadingType.H2,
-                    onClick = {
-                        val updated = NoteTextFormatter.setHeadingForLine(
-                            noteTextState.text,
-                            noteTextState.selection.min,
-                            HeadingType.H2,
-                            formatState
-                        )
-                        formatState = updated
-                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
-                    }
-                )
-
-                // Aa (Body Text)
-                FormatToolbarTextItem(
-                    label = "Aa",
-                    isSelected = currentHeading == HeadingType.BODY,
-                    onClick = {
-                        val updated = NoteTextFormatter.setHeadingForLine(
-                            noteTextState.text,
-                            noteTextState.selection.min,
-                            HeadingType.BODY,
-                            formatState
-                        )
-                        formatState = updated
-                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
-                    }
-                )
-
-                // Vertical Divider
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .width(1.dp)
-                        .height(18.dp)
-                        .background(colors.borderStroke.copy(alpha = 0.5f))
-                )
-
-                // Bold
-                FormatToolbarTextItem(
-                    label = "B",
-                    isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.BOLD, noteTextState.selection, formatState),
-                    fontWeight = FontWeight.Bold,
-                    onClick = {
-                        val updated = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.BOLD, formatState)
-                        formatState = updated
-                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
-                    }
-                )
-
-                // Italic
-                FormatToolbarTextItem(
-                    label = "I",
-                    isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.ITALIC, noteTextState.selection, formatState),
-                    fontStyle = FontStyle.Italic,
-                    onClick = {
-                        val updated = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.ITALIC, formatState)
-                        formatState = updated
-                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
-                    }
-                )
-
-                // Underline
-                FormatToolbarTextItem(
-                    label = "U",
-                    isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.UNDERLINE, noteTextState.selection, formatState),
-                    textDecoration = TextDecoration.Underline,
-                    onClick = {
-                        val updated = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.UNDERLINE, formatState)
-                        formatState = updated
-                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
-                    }
-                )
-
-                // Strikethrough
-                FormatToolbarIconItem(
-                    icon = Icons.Outlined.FormatStrikethrough,
-                    contentDescription = "Strikethrough",
-                    isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.STRIKETHROUGH, noteTextState.selection, formatState),
-                    onClick = {
-                        val updated = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.STRIKETHROUGH, formatState)
-                        formatState = updated
-                        undoManager.recordAction(takeSnapshot(newFormatState = updated))
-                    }
-                )
-
-                // Vertical Divider
-                Box(
-                    modifier = Modifier
-                        .padding(horizontal = 4.dp)
-                        .width(1.dp)
-                        .height(18.dp)
-                        .background(colors.borderStroke.copy(alpha = 0.5f))
-                )
-
-                // Close Button [X]
-                Box(
-                    modifier = Modifier
-                        .size(38.dp)
-                        .clip(CircleShape)
-                        .clickable { showFormattingBar = false },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Close,
-                        contentDescription = "Close formatting",
-                        tint = colors.textPrimary,
-                        modifier = Modifier.size(20.dp)
                     )
                 }
             }
@@ -1722,7 +1575,8 @@ fun CreateNoteScreen(
                         contentDescription = "Text style",
                         isEnabled = isFormattingEnabled,
                         onClick = {
-                            showFormattingBar = true
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showFormattingSheet = true
                         }
                     )
                 }
@@ -1883,7 +1737,7 @@ fun CreateNoteScreen(
         ModalBottomSheet(
             onDismissRequest = { showBottomSheet = false },
             sheetState = sheetState,
-            containerColor = colors.cardBackground,
+            containerColor = Color(0xFF202020),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             dragHandle = null
         ) {
@@ -1908,7 +1762,7 @@ fun CreateNoteScreen(
                         Icon(
                             imageVector = option.icon,
                             contentDescription = option.title,
-                            tint = colors.textPrimary,
+                            tint = colors.textPrimaryMuted,
                             modifier = Modifier.size(24.dp)
                         )
 
@@ -1916,7 +1770,7 @@ fun CreateNoteScreen(
 
                         Text(
                             text = option.title,
-                            color = colors.textPrimary,
+                            color = colors.textPrimaryMuted,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Normal
                         )
@@ -1933,7 +1787,7 @@ fun CreateNoteScreen(
         ModalBottomSheet(
             onDismissRequest = { showColorSheet = false },
             sheetState = colorSheetState,
-            containerColor = Color(0xFF1E2225),
+            containerColor = Color(0xFF202020),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             dragHandle = null
         ) {
@@ -1945,7 +1799,7 @@ fun CreateNoteScreen(
             ) {
                 Text(
                     text = "Color",
-                    color = colors.textPrimary,
+                    color = colors.textPrimaryMuted,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 24.dp)
@@ -1998,6 +1852,197 @@ fun CreateNoteScreen(
         }
     }
 
+    // Text Formatting Bottom Sheet matching Color Palette drawer
+    if (showFormattingSheet) {
+        val formattingSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+
+        val currentLine = remember(noteTextState.text, noteTextState.selection.min) {
+            NoteTextFormatter.getLineIndex(noteTextState.text, noteTextState.selection.min)
+        }
+        val currentHeading = remember(formatState, currentLine) {
+            NoteTextFormatter.getHeadingForLine(formatState, currentLine)
+        }
+
+        ModalBottomSheet(
+            onDismissRequest = { showFormattingSheet = false },
+            sheetState = formattingSheetState,
+            containerColor = Color(0xFF202020),
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            dragHandle = null
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 22.dp, bottom = 28.dp)
+                    .navigationBarsPadding()
+            ) {
+                Text(
+                    text = "Text style",
+                    color = colors.textPrimaryMuted,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.padding(horizontal = 24.dp)
+                )
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .horizontalScroll(rememberScrollState())
+                        .padding(horizontal = 20.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(6.dp)
+                ) {
+                    // H1
+                    FormatToolbarTextItem(
+                        label = "H1",
+                        isSelected = currentHeading == HeadingType.H1,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            val updated = NoteTextFormatter.setHeadingForLine(
+                                noteTextState.text,
+                                noteTextState.selection.min,
+                                HeadingType.H1,
+                                formatState
+                            )
+                            formatState = updated
+                            undoManager.recordAction(takeSnapshot(newFormatState = updated))
+                        }
+                    )
+
+                    // H2
+                    FormatToolbarTextItem(
+                        label = "H2",
+                        isSelected = currentHeading == HeadingType.H2,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            val updated = NoteTextFormatter.setHeadingForLine(
+                                noteTextState.text,
+                                noteTextState.selection.min,
+                                HeadingType.H2,
+                                formatState
+                            )
+                            formatState = updated
+                            undoManager.recordAction(takeSnapshot(newFormatState = updated))
+                        }
+                    )
+
+                    // Aa (Body Text)
+                    FormatToolbarTextItem(
+                        label = "Aa",
+                        isSelected = currentHeading == HeadingType.BODY,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            val updated = NoteTextFormatter.setHeadingForLine(
+                                noteTextState.text,
+                                noteTextState.selection.min,
+                                HeadingType.BODY,
+                                formatState
+                            )
+                            formatState = updated
+                            undoManager.recordAction(takeSnapshot(newFormatState = updated))
+                        }
+                    )
+
+                    // Vertical Divider
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .width(1.dp)
+                            .height(20.dp)
+                            .background(Color(0xFF33383F))
+                    )
+
+                    // Bold
+                    FormatToolbarTextItem(
+                        label = "B",
+                        isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.BOLD, noteTextState.selection, formatState),
+                        fontWeight = FontWeight.Bold,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            val updated = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.BOLD, formatState)
+                            formatState = updated
+                            undoManager.recordAction(takeSnapshot(newFormatState = updated))
+                        }
+                    )
+
+                    // Italic
+                    FormatToolbarTextItem(
+                        label = "I",
+                        isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.ITALIC, noteTextState.selection, formatState),
+                        fontStyle = FontStyle.Italic,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            val updated = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.ITALIC, formatState)
+                            formatState = updated
+                            undoManager.recordAction(takeSnapshot(newFormatState = updated))
+                        }
+                    )
+
+                    // Underline
+                    FormatToolbarTextItem(
+                        label = "U",
+                        isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.UNDERLINE, noteTextState.selection, formatState),
+                        textDecoration = TextDecoration.Underline,
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            val updated = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.UNDERLINE, formatState)
+                            formatState = updated
+                            undoManager.recordAction(takeSnapshot(newFormatState = updated))
+                        }
+                    )
+
+                    // Strikethrough
+                    FormatToolbarIconItem(
+                        icon = Icons.Outlined.FormatStrikethrough,
+                        contentDescription = "Strikethrough",
+                        isSelected = NoteTextFormatter.isStyleActiveAt(InlineStyle.STRIKETHROUGH, noteTextState.selection, formatState),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                            val updated = NoteTextFormatter.toggleStyle(noteTextState.selection, InlineStyle.STRIKETHROUGH, formatState)
+                            formatState = updated
+                            undoManager.recordAction(takeSnapshot(newFormatState = updated))
+                        }
+                    )
+
+                    // Vertical Divider
+                    Box(
+                        modifier = Modifier
+                            .padding(horizontal = 4.dp)
+                            .width(1.dp)
+                            .height(20.dp)
+                            .background(Color(0xFF33383F))
+                    )
+
+                    // Close Button [X]
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF181818))
+                            .border(1.dp, Color(0xFF2A2A2A), CircleShape)
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                coroutineScope.launch {
+                                    formattingSheetState.hide()
+                                    showFormattingSheet = false
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Close formatting",
+                            tint = colors.textPrimaryMuted,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    }
+                }
+            }
+        }
+    }
+
     // More Options Bottom Sheet matching reference screenshot
     if (showMoreSheet) {
         val moreSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -2008,7 +2053,7 @@ fun CreateNoteScreen(
                 coroutineScope.launch {
                     moreSheetState.hide()
                     showMoreSheet = false
-                    showFormattingBar = false
+                    showFormattingSheet = false
                     showFindBar = true
                 }
             },
@@ -2055,7 +2100,7 @@ fun CreateNoteScreen(
         ModalBottomSheet(
             onDismissRequest = { showMoreSheet = false },
             sheetState = moreSheetState,
-            containerColor = Color(0xFF1E2225),
+            containerColor = Color(0xFF202020),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             dragHandle = null
         ) {
@@ -2067,7 +2112,7 @@ fun CreateNoteScreen(
             ) {
                 Text(
                     text = NoteLastEditedFormatter.format(lastEditedMillis),
-                    color = colors.textPrimary,
+                    color = colors.textPrimaryMuted,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 24.dp)
@@ -2090,7 +2135,7 @@ fun CreateNoteScreen(
                         Icon(
                             imageVector = option.icon,
                             contentDescription = option.title,
-                            tint = colors.textPrimary,
+                            tint = colors.textPrimaryMuted,
                             modifier = Modifier.size(24.dp)
                         )
 
@@ -2098,7 +2143,7 @@ fun CreateNoteScreen(
 
                         Text(
                             text = option.title,
-                            color = colors.textPrimary,
+                            color = colors.textPrimaryMuted,
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Normal
                         )
@@ -2152,7 +2197,7 @@ fun CreateNoteScreen(
                     .fillMaxWidth()
                     .padding(horizontal = 28.dp)
                     .clip(RoundedCornerShape(24.dp))
-                    .background(Color(0xFF1E2225))
+                    .background(Color(0xFF202020))
                     .border(1.dp, Color(0xFF33383F), RoundedCornerShape(24.dp))
                     .padding(horizontal = 24.dp, vertical = 24.dp)
             ) {
@@ -2262,18 +2307,23 @@ private fun FormatToolbarTextItem(
     val colors = LocalUtilitarianColors.current
     Box(
         modifier = Modifier
-            .height(36.dp)
+            .height(40.dp)
             .wrapContentWidth()
-            .clip(RoundedCornerShape(18.dp))
-            .background(if (isSelected) Color(0xFF2B3035) else Color.Transparent)
+            .clip(RoundedCornerShape(20.dp))
+            .background(if (isSelected) Color(0xFF2E3338) else Color(0xFF181818))
+            .border(
+                1.dp,
+                if (isSelected) Color(0xFF4A525A) else Color(0xFF2A2A2A),
+                RoundedCornerShape(20.dp)
+            )
             .clickable(onClick = onClick)
-            .padding(horizontal = 14.dp),
+            .padding(horizontal = 16.dp),
         contentAlignment = Alignment.Center
     ) {
         Text(
             text = label,
-            color = if (isSelected) Color.White else colors.textPrimary.copy(alpha = 0.85f),
-            fontSize = 16.sp,
+            color = if (isSelected) Color.White else colors.textPrimaryMuted,
+            fontSize = 15.sp,
             fontWeight = fontWeight ?: if (isSelected) FontWeight.SemiBold else FontWeight.Medium,
             fontStyle = fontStyle,
             textDecoration = textDecoration
@@ -2291,16 +2341,21 @@ private fun FormatToolbarIconItem(
     val colors = LocalUtilitarianColors.current
     Box(
         modifier = Modifier
-            .size(36.dp)
-            .clip(RoundedCornerShape(18.dp))
-            .background(if (isSelected) Color(0xFF2B3035) else Color.Transparent)
+            .size(40.dp)
+            .clip(CircleShape)
+            .background(if (isSelected) Color(0xFF2E3338) else Color(0xFF181818))
+            .border(
+                1.dp,
+                if (isSelected) Color(0xFF4A525A) else Color(0xFF2A2A2A),
+                CircleShape
+            )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (isSelected) Color.White else colors.textPrimary.copy(alpha = 0.85f),
+            tint = if (isSelected) Color.White else colors.textPrimaryMuted,
             modifier = Modifier.size(20.dp)
         )
     }
@@ -2318,14 +2373,14 @@ private fun BottomBarIconButton(
         modifier = Modifier
             .size(42.dp)
             .clip(CircleShape)
-            .background(Color(0xFF24282C))
+            .background(Color(0xFF202020))
             .clickable(enabled = isEnabled) { onClick() },
         contentAlignment = Alignment.Center
     ) {
         Icon(
             imageVector = icon,
             contentDescription = contentDescription,
-            tint = if (isEnabled) colors.textPrimary else colors.textPrimary.copy(alpha = 0.35f),
+            tint = if (isEnabled) colors.textPrimaryMuted else colors.textDisabled,
             modifier = Modifier.size(24.dp)
         )
     }
