@@ -779,7 +779,7 @@ fun CreateNoteScreen(
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(start = 10.dp, end = 20.dp, top = 8.dp, bottom = 0.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
@@ -817,7 +817,7 @@ fun CreateNoteScreen(
                         keyboardController?.show()
                     }
                 }
-                .padding(horizontal = 20.dp, vertical = 12.dp)
+                .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp)
         ) {
             // Title Input
             BasicTextField(
@@ -839,7 +839,7 @@ fun CreateNoteScreen(
                     },
                 textStyle = TextStyle(
                     color = colors.textPrimary,
-                    fontSize = 22.sp,
+                    fontSize = 24.sp,
                     fontWeight = FontWeight.SemiBold
                 ),
                 cursorBrush = SolidColor(colors.textPrimary),
@@ -849,7 +849,7 @@ fun CreateNoteScreen(
                             Text(
                                 text = "Title",
                                 color = colors.textSecondary.copy(alpha = 0.6f),
-                                fontSize = 22.sp,
+                                fontSize = 24.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
                         }
@@ -860,7 +860,7 @@ fun CreateNoteScreen(
 
             // Attached Images Row (if any)
             if (attachedImageUris.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(14.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 LazyRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxWidth()
@@ -974,9 +974,9 @@ fun CreateNoteScreen(
                                 },
                             textStyle = TextStyle(
                                 color = colors.textPrimary,
-                                fontSize = 16.sp,
+                                fontSize = 18.sp,
                                 fontWeight = FontWeight.Normal,
-                                lineHeight = 24.sp
+                                lineHeight = 26.sp
                             ),
                             cursorBrush = SolidColor(colors.textPrimary),
                             decorationBox = { innerTextField ->
@@ -985,7 +985,7 @@ fun CreateNoteScreen(
                                         Text(
                                             text = "Note",
                                             color = colors.textSecondary.copy(alpha = 0.6f),
-                                            fontSize = 16.sp,
+                                            fontSize = 18.sp,
                                             fontWeight = FontWeight.Normal
                                         )
                                     }
@@ -1253,7 +1253,7 @@ fun CreateNoteScreen(
                                 ),
                                 textStyle = TextStyle(
                                     color = if (item.isChecked) colors.textDisabled else colors.textPrimary,
-                                    fontSize = 16.sp,
+                                    fontSize = 18.sp,
                                     fontWeight = FontWeight.Normal,
                                     textDecoration = if (item.isChecked) TextDecoration.LineThrough else TextDecoration.None
                                 ),
@@ -1264,7 +1264,7 @@ fun CreateNoteScreen(
                                             Text(
                                                 text = "List item",
                                                 color = colors.textSecondary.copy(alpha = 0.6f),
-                                                fontSize = 16.sp
+                                                fontSize = 18.sp
                                             )
                                         }
                                         inner()
@@ -1334,7 +1334,7 @@ fun CreateNoteScreen(
                         Text(
                             text = "List item",
                             color = colors.textSecondary,
-                            fontSize = 16.sp
+                            fontSize = 18.sp
                         )
                     }
                 }
@@ -1419,7 +1419,7 @@ fun CreateNoteScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                    .padding(horizontal = 11.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(10.dp)
             ) {
@@ -1689,7 +1689,7 @@ fun CreateNoteScreen(
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(horizontal = 14.dp, vertical = 6.dp),
+                    .padding(horizontal = 11.dp, vertical = 6.dp),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Left group: [+] | Palette | Format A
@@ -2409,9 +2409,9 @@ private fun NoteTextSegmentField(
                 .padding(vertical = 4.dp),
             textStyle = TextStyle(
                 color = colors.textPrimary,
-                fontSize = 16.sp,
+                fontSize = 18.sp,
                 fontWeight = FontWeight.Normal,
-                lineHeight = 24.sp
+                lineHeight = 26.sp
             ),
             cursorBrush = SolidColor(colors.textPrimary),
             decorationBox = { innerTextField ->
