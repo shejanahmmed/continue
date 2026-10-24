@@ -569,6 +569,8 @@ class CalendarViewModelTest {
             val state = awaitItem()
             // Only Event and Reminder should be present
             assertEquals(2, state.selectedDayActivities.size)
+            assertEquals(1, state.selectedDayEventCount)
+            assertEquals(1, state.selectedDayReminderCount)
             assertTrue(state.selectedDayActivities.none { it.entryType == EntryType.NOTE })
             assertTrue(state.selectedDayActivities.any { it.title == "Strategy Meeting" })
             assertTrue(state.selectedDayActivities.any { it.title == "Doctor Reminder" })

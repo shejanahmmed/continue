@@ -400,18 +400,19 @@ fun CalendarScreen(
                             color = UtilitarianTextPrimary
                         )
                         Spacer(modifier = Modifier.width(8.dp))
-                        val countBadge = if (uiState.selectedDayReminderCount > 0) {
-                            "(${uiState.selectedDayCompletedReminderCount}/${uiState.selectedDayReminderCount})"
-                        } else if (uiState.selectedDayTotalCount > 0) {
-                            "(${uiState.selectedDayTotalCount})"
-                        } else {
-                            "(0)"
-                        }
+                        val countBadge = String.format(
+                            Locale.ENGLISH,
+                            "(Events : %02d | Reminders : %02d)",
+                            uiState.selectedDayEventCount,
+                            uiState.selectedDayReminderCount
+                        )
                         Text(
                             text = countBadge,
                             fontFamily = FontFamily.Monospace,
-                            fontSize = 13.sp,
-                            color = UtilitarianTextSecondary
+                            fontSize = 12.sp,
+                            color = UtilitarianTextSecondary,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
                         )
                     }
                     Spacer(modifier = Modifier.height(10.dp))
