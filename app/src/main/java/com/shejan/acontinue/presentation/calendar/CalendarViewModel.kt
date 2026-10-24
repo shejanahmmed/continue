@@ -7,17 +7,11 @@ import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.RecurrenceEndType
 import com.shejan.acontinue.domain.model.RecurrenceMode
 import com.shejan.acontinue.domain.repository.ActivityRepository
-import com.shejan.acontinue.domain.model.ActivityWorkspaceAggregate
-import com.shejan.acontinue.domain.usecase.GetActivityWorkspaceUseCase
 import com.shejan.acontinue.domain.util.RecurrenceEvaluator
-import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
@@ -48,8 +42,6 @@ data class CalendarUiState(
     val monthDays: List<CalendarDay> = emptyList(),
     val selectedDayActivities: List<ActivityItem> = emptyList(),
     val selectedActivityForDetail: ActivityItem? = null,
-    val expandedActivityId: Long? = null,
-    val expandedWorkspace: ActivityWorkspaceAggregate? = null,
     val todayDateNumber: Int = Calendar.getInstance().get(Calendar.DAY_OF_MONTH),
     val todayPulseTrigger: Long = 0L,
     val isLoading: Boolean = false
@@ -75,8 +67,7 @@ data class CalendarUiState(
 }
 
 class CalendarViewModel(
-    private val activityRepository: ActivityRepository,
-    private val getActivityWorkspaceUseCase: GetActivityWorkspaceUseCase? = null
+    private val activityRepository: ActivityRepository
 ) : ViewModel() {
 
     private val _currentMonth = MutableStateFlow(System.currentTimeMillis())
@@ -84,30 +75,14 @@ class CalendarViewModel(
     private val _isWeekMode = MutableStateFlow(false)
     private val _todayPulseTrigger = MutableStateFlow(0L)
     private val _selectedActivityForDetail = MutableStateFlow<ActivityItem?>(null)
-    private val _expandedActivityId = MutableStateFlow<Long?>(null)
     private val _uiState = MutableStateFlow(CalendarUiState())
     val uiState: StateFlow<CalendarUiState> = _uiState.asStateFlow()
-
-    @OptIn(ExperimentalCoroutinesApi::class)
-    private val expandedWorkspaceFlow: Flow<ActivityWorkspaceAggregate?> = _expandedActivityId.flatMapLatest { id ->
-        if (id == null || getActivityWorkspaceUseCase == null) {
-            flowOf(null)
-        } else {
-            getActivityWorkspaceUseCase(id)
-        }
-    }
 
     private data class CalendarViewState(
         val monthMillis: Long,
         val selectedMillis: Long,
         val isWeekMode: Boolean,
         val todayPulseTrigger: Long
-    )
-
-    private data class CardFocusState(
-        val detailActivity: ActivityItem?,
-        val expandedId: Long?,
-        val expandedWs: ActivityWorkspaceAggregate?
     )
 
     init {
@@ -120,27 +95,17 @@ class CalendarViewModel(
             CalendarViewState(month, selected, isWeek, pulse)
         }
 
-        val cardFocusFlow = combine(
-            _selectedActivityForDetail,
-            _expandedActivityId,
-            expandedWorkspaceFlow
-        ) { detail, expandedId, ws ->
-            CardFocusState(detail, expandedId, ws)
-        }
-
         combine(
             calendarViewFlow,
-            cardFocusFlow,
+            _selectedActivityForDetail,
             activityRepository.getAllActivities()
-        ) { viewState, focusState, allActivities ->
+        ) { viewState, detailActivity, allActivities ->
             buildUiState(
                 monthMillis = viewState.monthMillis,
                 selectedMillis = viewState.selectedMillis,
                 weekMode = viewState.isWeekMode,
                 todayPulseTrigger = viewState.todayPulseTrigger,
-                detailActivity = focusState.detailActivity,
-                expandedId = focusState.expandedId,
-                expandedWs = focusState.expandedWs,
+                detailActivity = detailActivity,
                 activities = allActivities
             )
         }
@@ -148,14 +113,6 @@ class CalendarViewModel(
                 _uiState.value = newState
             }
             .launchIn(viewModelScope)
-    }
-
-    fun toggleCardExpansion(activityId: Long) {
-        _expandedActivityId.value = if (_expandedActivityId.value == activityId) null else activityId
-    }
-
-    fun collapseCard() {
-        _expandedActivityId.value = null
     }
 
     fun showActivityDetail(activity: ActivityItem) {
@@ -171,9 +128,6 @@ class CalendarViewModel(
             activityRepository.deleteActivity(id)
             if (_selectedActivityForDetail.value?.id == id) {
                 _selectedActivityForDetail.value = null
-            }
-            if (_expandedActivityId.value == id) {
-                _expandedActivityId.value = null
             }
         }
     }
@@ -288,8 +242,6 @@ class CalendarViewModel(
         weekMode: Boolean,
         todayPulseTrigger: Long,
         detailActivity: ActivityItem?,
-        expandedId: Long?,
-        expandedWs: ActivityWorkspaceAggregate?,
         activities: List<ActivityItem>
     ): CalendarUiState {
         val scheduledActivities = activities.filter {
@@ -333,11 +285,6 @@ class CalendarViewModel(
         val resolvedDetail = detailActivity?.let { da ->
             activities.firstOrNull { it.id == da.id }
         }
-        val resolvedWorkspace = expandedWs ?: expandedId?.let { id ->
-            activities.firstOrNull { it.id == id }?.let { item ->
-                ActivityWorkspaceAggregate(activity = item)
-            }
-        }
 
         return CalendarUiState(
             currentMonthMillis = monthMillis,
@@ -346,8 +293,6 @@ class CalendarViewModel(
             monthDays = days,
             selectedDayActivities = selectedActivities,
             selectedActivityForDetail = resolvedDetail,
-            expandedActivityId = expandedId,
-            expandedWorkspace = resolvedWorkspace,
             todayDateNumber = todayDate,
             todayPulseTrigger = todayPulseTrigger,
             isLoading = false
