@@ -579,5 +579,29 @@ class CalendarViewModelTest {
             assertTrue(matchingDay.activities.none { it.entryType == EntryType.NOTE })
         }
     }
+
+    @Test
+    fun `test setWeekMode correctly toggles week and month states`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.setWeekMode(true)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertTrue(state.isWeekMode)
+            assertEquals(7, state.currentWeekDays.size)
+            assertTrue(state.currentWeekDays.any { it.isSelected || it.isToday })
+        }
+
+        viewModel.setWeekMode(false)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertFalse(state.isWeekMode)
+            assertEquals(42, state.monthDays.size)
+        }
+    }
 }
 

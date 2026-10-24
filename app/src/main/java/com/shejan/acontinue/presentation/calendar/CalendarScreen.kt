@@ -59,7 +59,10 @@ import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.RecurrenceMode
 import java.util.Calendar
 import androidx.compose.animation.AnimatedContent
+import androidx.compose.animation.SizeTransform
 import androidx.compose.animation.animateContentSize
+import androidx.compose.ui.unit.IntOffset
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
 import androidx.compose.animation.core.keyframes
@@ -79,10 +82,16 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.graphics.TransformOrigin
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.window.Dialog
@@ -94,6 +103,7 @@ import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.TextUnit
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
@@ -130,271 +140,343 @@ fun CalendarScreen(
     val pillDateFormat = SimpleDateFormat("d MMM", Locale.getDefault())
     val pillDateStr = pillDateFormat.format(Date(uiState.selectedDateMillis))
 
+    val lazyListState = rememberLazyListState()
+
+    var isCollapsingGesture by remember { mutableStateOf(false) }
+    var isExpandingGesture by remember { mutableStateOf(false) }
+
+    val nestedScrollConnection = remember(uiState.isWeekMode) {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (source == NestedScrollSource.UserInput) {
+                    // First scroll: Month mode swipe UP initiates collapse and locks this gesture
+                    if (available.y < -6f && !uiState.isWeekMode && !isCollapsingGesture) {
+                        isCollapsingGesture = true
+                        viewModel.setWeekMode(true)
+                        return Offset(0f, available.y)
+                    }
+
+                    // While this collapse gesture is active, consume all vertical drag deltas
+                    // so the cards NEVER scroll internally during this first gesture
+                    if (isCollapsingGesture) {
+                        return Offset(0f, available.y)
+                    }
+
+                    // Week mode swipe DOWN while at the top of cards list initiates expansion and locks gesture
+                    if (available.y > 6f && uiState.isWeekMode && !isExpandingGesture &&
+                        lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset <= 0
+                    ) {
+                        isExpandingGesture = true
+                        viewModel.setWeekMode(false)
+                        return Offset(0f, available.y)
+                    }
+
+                    // While this expansion gesture is active, consume all vertical drag deltas
+                    if (isExpandingGesture) {
+                        return Offset(0f, available.y)
+                    }
+                }
+                return Offset.Zero
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                // When finger lifts from the collapse gesture, consume fling velocity so cards do not scroll or fling
+                if (isCollapsingGesture) {
+                    isCollapsingGesture = false
+                    return available
+                }
+                // When finger lifts from the expansion gesture, consume fling velocity
+                if (isExpandingGesture) {
+                    isExpandingGesture = false
+                    return available
+                }
+                return Velocity.Zero
+            }
+        }
+    }
+
     Box(modifier = modifier.fillMaxSize()) {
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
+                .padding(horizontal = 16.dp)
         ) {
-            // Top Bar: Centered Month Title & Right Actions
-            item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 4.dp)
-                ) {
-                    // Center Month with Navigation
-                    Row(
-                        modifier = Modifier.align(Alignment.Center),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        IconButton(
-                            onClick = {
-                                if (uiState.isWeekMode) viewModel.previousWeek() else viewModel.previousMonth()
-                            },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.ChevronLeft,
-                                contentDescription = if (uiState.isWeekMode) "Previous Week" else "Previous Month",
-                                tint = UtilitarianTextSecondary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-
-                        Text(
-                            text = monthShortTitle,
-                            fontFamily = FontFamily.SansSerif,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 22.sp,
-                            letterSpacing = 1.sp,
-                            color = UtilitarianTextPrimary,
-                            modifier = Modifier.padding(horizontal = 6.dp)
-                        )
-
-                        IconButton(
-                            onClick = {
-                                if (uiState.isWeekMode) viewModel.nextWeek() else viewModel.nextMonth()
-                            },
-                            modifier = Modifier.size(28.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.ChevronRight,
-                                contentDescription = if (uiState.isWeekMode) "Next Week" else "Next Month",
-                                tint = UtilitarianTextSecondary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    }
-
-                    // Right Action: Persistent Today Badge
-                    Surface(
-                        shape = RoundedCornerShape(7.dp),
-                        color = Color.Transparent,
-                        border = BorderStroke(1.5.dp, UtilitarianTextPrimary),
-                        modifier = Modifier
-                            .align(Alignment.CenterEnd)
-                            .size(28.dp)
-                            .clickable { viewModel.jumpToToday() }
-                    ) {
-                        Box(contentAlignment = Alignment.Center) {
-                            Text(
-                                text = uiState.todayDateNumber.toString(),
-                                fontFamily = FontFamily.SansSerif,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 12.sp,
-                                color = UtilitarianTextPrimary
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // Day of Week Header Row
-            item {
-                DayOfWeekHeaderRow()
-                Spacer(modifier = Modifier.height(6.dp))
-            }
-
-            // Collapsible Month/Week Grid with Drag Gestures
-            item {
-                var dragX by remember { mutableFloatStateOf(0f) }
-                var dragY by remember { mutableFloatStateOf(0f) }
-
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .pointerInput(uiState.isWeekMode) {
-                            detectDragGestures(
-                                onDragStart = {
-                                    dragX = 0f
-                                    dragY = 0f
-                                },
-                                onDragEnd = {
-                                    val absX = kotlin.math.abs(dragX)
-                                    val absY = kotlin.math.abs(dragY)
-                                    if (absY > absX && absY > 25.dp.toPx()) {
-                                        if (dragY < 0) {
-                                            viewModel.setWeekMode(true)
-                                        } else {
-                                            viewModel.setWeekMode(false)
-                                        }
-                                    } else if (absX > absY && absX > 30.dp.toPx()) {
-                                        if (dragX < 0) {
-                                            if (uiState.isWeekMode) viewModel.nextWeek() else viewModel.nextMonth()
-                                        } else {
-                                            if (uiState.isWeekMode) viewModel.previousWeek() else viewModel.previousMonth()
-                                        }
-                                    }
-                                },
-                                onDrag = { change, dragAmount ->
-                                    dragX += dragAmount.x
-                                    dragY += dragAmount.y
-                                    if (kotlin.math.abs(dragX) > 15.dp.toPx() || kotlin.math.abs(dragY) > 15.dp.toPx()) {
-                                        change.consume()
-                                    }
-                                }
-                            )
-                        }
-                ) {
-                    AnimatedContent(
-                        targetState = uiState.isWeekMode,
-                        transitionSpec = {
-                            if (targetState) {
-                                (slideInVertically(animationSpec = tween(250)) { -it / 2 } + fadeIn(animationSpec = tween(200))) togetherWith
-                                        (slideOutVertically(animationSpec = tween(250)) { -it / 2 } + fadeOut(animationSpec = tween(150)))
-                            } else {
-                                (slideInVertically(animationSpec = tween(250)) { -it / 2 } + fadeIn(animationSpec = tween(200))) togetherWith
-                                        (slideOutVertically(animationSpec = tween(250)) { -it / 2 } + fadeOut(animationSpec = tween(150)))
-                            }
-                        },
-                        label = "CalendarCollapsibleTransition"
-                    ) { inWeekMode ->
-                        if (inWeekMode) {
-                            UtilitarianWeekRow(
-                                days = uiState.currentWeekDays,
-                                todayPulseTrigger = uiState.todayPulseTrigger,
-                                onDayClick = { day -> viewModel.selectDate(day.dateMillis) }
-                            )
-                        } else {
-                            UtilitarianMonthGrid(
-                                days = uiState.monthDays,
-                                todayPulseTrigger = uiState.todayPulseTrigger,
-                                onDayClick = { day ->
-                                    viewModel.selectDate(day.dateMillis)
-                                    if (day.activities.isNotEmpty()) {
-                                        viewModel.setWeekMode(true)
-                                    }
-                                }
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(20.dp))
-            }
-
-            // Selected Day Agenda Header
-            item {
+            // Top Bar: Centered Month Title & Right Actions (Persistent Today Badge)
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, bottom = 4.dp)
+            ) {
+                // Center Month with Navigation
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 4.dp, vertical = 6.dp),
+                    modifier = Modifier.align(Alignment.Center),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = dayNumberStr,
-                        fontFamily = FontFamily.SansSerif,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 28.sp,
-                        color = UtilitarianTextPrimary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = dayWeekStr,
-                        fontFamily = FontFamily.SansSerif,
-                        fontWeight = FontWeight.SemiBold,
-                        fontSize = 16.sp,
-                        color = UtilitarianTextPrimary
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    val countBadge = if (uiState.selectedDayReminderCount > 0) {
-                        "(${uiState.selectedDayCompletedReminderCount}/${uiState.selectedDayReminderCount})"
-                    } else if (uiState.selectedDayTotalCount > 0) {
-                        "(${uiState.selectedDayTotalCount})"
-                    } else {
-                        "(0)"
-                    }
-                    Text(
-                        text = countBadge,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 13.sp,
-                        color = UtilitarianTextSecondary
-                    )
-                }
-                Spacer(modifier = Modifier.height(10.dp))
-            }
-
-            // Selected Day Agenda Items or Screenshot-Matched Empty State
-            if (uiState.selectedDayActivities.isEmpty()) {
-                item {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 44.dp),
-                        horizontalAlignment = Alignment.CenterHorizontally,
-                        verticalArrangement = Arrangement.Center
+                    IconButton(
+                        onClick = {
+                            if (uiState.isWeekMode) viewModel.previousWeek() else viewModel.previousMonth()
+                        },
+                        modifier = Modifier.size(28.dp)
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.SentimentSatisfiedAlt,
-                            contentDescription = null,
-                            tint = Color(0xFF6E7681),
-                            modifier = Modifier.size(38.dp)
-                        )
-                        Spacer(modifier = Modifier.height(12.dp))
-                        Text(
-                            text = "Tap to add a sticker to this day.",
-                            color = UtilitarianTextSecondary,
-                            fontSize = 13.sp,
-                            fontWeight = FontWeight.Normal
+                            imageVector = Icons.Outlined.ChevronLeft,
+                            contentDescription = if (uiState.isWeekMode) "Previous Week" else "Previous Month",
+                            tint = UtilitarianTextSecondary,
+                            modifier = Modifier.size(18.dp)
                         )
                     }
-                }
-            } else {
-                // 1. All-Day Cards (at the top)
-                if (uiState.allDayActivities.isNotEmpty()) {
-                    items(uiState.allDayActivities, key = { "allday_${it.id}" }) { activity ->
-                        val isExpanded = uiState.expandedActivityId == activity.id
-                        val workspace = if (isExpanded) uiState.expandedWorkspace else null
-                        AllDayActivityCard(
-                            activity = activity,
-                            isExpanded = isExpanded,
-                            workspace = workspace,
-                            onToggleExpansion = { viewModel.toggleCardExpansion(activity.id) },
-                            onToggleCompletion = { done -> viewModel.toggleActivityCompletion(activity.id, done) },
-                            onDelete = { id -> viewModel.deleteActivity(id) },
-                            onOpenWorkspace = { id -> onActivityClick(id) }
+
+                    Text(
+                        text = monthShortTitle,
+                        fontFamily = FontFamily.SansSerif,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 22.sp,
+                        letterSpacing = 1.sp,
+                        color = UtilitarianTextPrimary,
+                        modifier = Modifier.padding(horizontal = 6.dp)
+                    )
+
+                    IconButton(
+                        onClick = {
+                            if (uiState.isWeekMode) viewModel.nextWeek() else viewModel.nextMonth()
+                        },
+                        modifier = Modifier.size(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.ChevronRight,
+                            contentDescription = if (uiState.isWeekMode) "Next Week" else "Next Month",
+                            tint = UtilitarianTextSecondary,
+                            modifier = Modifier.size(18.dp)
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
                     }
                 }
 
-                // 2. Timed Activities & Reminders Cards
-                if (uiState.timedActivities.isNotEmpty()) {
-                    items(uiState.timedActivities, key = { "timed_${it.id}" }) { activity ->
-                        val isExpanded = uiState.expandedActivityId == activity.id
-                        val workspace = if (isExpanded) uiState.expandedWorkspace else null
-                        TimedAgendaActivityCard(
-                            activity = activity,
-                            isExpanded = isExpanded,
-                            workspace = workspace,
-                            onToggleExpansion = { viewModel.toggleCardExpansion(activity.id) },
-                            onToggleCompletion = { done -> viewModel.toggleActivityCompletion(activity.id, done) },
-                            onDelete = { id -> viewModel.deleteActivity(id) },
-                            onOpenWorkspace = { id -> onActivityClick(id) }
+                // Right Action: Persistent Today Badge
+                Surface(
+                    shape = RoundedCornerShape(7.dp),
+                    color = Color.Transparent,
+                    border = BorderStroke(1.5.dp, UtilitarianTextPrimary),
+                    modifier = Modifier
+                        .align(Alignment.CenterEnd)
+                        .size(28.dp)
+                        .clickable { viewModel.jumpToToday() }
+                ) {
+                    Box(contentAlignment = Alignment.Center) {
+                        Text(
+                            text = uiState.todayDateNumber.toString(),
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 12.sp,
+                            color = UtilitarianTextPrimary
                         )
-                        Spacer(modifier = Modifier.height(8.dp))
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(16.dp))
+
+            // Day of Week Header Row
+            DayOfWeekHeaderRow()
+
+            Spacer(modifier = Modifier.height(6.dp))
+
+            // Collapsible Month/Week Grid with Unified Zero-Delay SizeTransform and Drag Gestures
+            var dragX by remember { mutableFloatStateOf(0f) }
+            var dragY by remember { mutableFloatStateOf(0f) }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clipToBounds()
+                    .pointerInput(uiState.isWeekMode) {
+                        detectDragGestures(
+                            onDragStart = {
+                                dragX = 0f
+                                dragY = 0f
+                            },
+                            onDragEnd = {
+                                val absX = kotlin.math.abs(dragX)
+                                val absY = kotlin.math.abs(dragY)
+                                if (absY > absX && absY > 20.dp.toPx()) {
+                                    if (dragY < 0) {
+                                        viewModel.setWeekMode(true)
+                                    } else {
+                                        viewModel.setWeekMode(false)
+                                    }
+                                } else if (absX > absY && absX > 25.dp.toPx()) {
+                                    if (dragX < 0) {
+                                        if (uiState.isWeekMode) viewModel.nextWeek() else viewModel.nextMonth()
+                                    } else {
+                                        if (uiState.isWeekMode) viewModel.previousWeek() else viewModel.previousMonth()
+                                    }
+                                }
+                            },
+                            onDrag = { change, dragAmount ->
+                                dragX += dragAmount.x
+                                dragY += dragAmount.y
+                                if (kotlin.math.abs(dragX) > 12.dp.toPx() || kotlin.math.abs(dragY) > 12.dp.toPx()) {
+                                    change.consume()
+                                }
+                            }
+                        )
+                    }
+            ) {
+                AnimatedContent(
+                    targetState = uiState.isWeekMode,
+                    transitionSpec = {
+                        val animDuration = 260
+                        val animEasing = FastOutSlowInEasing
+                        val sizeSpec = tween<IntSize>(durationMillis = animDuration, easing = animEasing)
+                        val floatSpec = tween<Float>(durationMillis = animDuration, easing = animEasing)
+                        val offsetSpec = tween<IntOffset>(durationMillis = animDuration, easing = animEasing)
+
+                        (fadeIn(animationSpec = floatSpec) +
+                                slideInVertically(animationSpec = offsetSpec) { height -> -height / 4 }
+                        ).togetherWith(
+                            fadeOut(animationSpec = floatSpec) +
+                                    slideOutVertically(animationSpec = offsetSpec) { height -> -height / 4 }
+                        ).using(
+                            SizeTransform(
+                                clip = true,
+                                sizeAnimationSpec = { _, _ -> sizeSpec }
+                            )
+                        )
+                    },
+                    label = "CalendarCollapsibleTransition"
+                ) { inWeekMode ->
+                    if (inWeekMode) {
+                        UtilitarianWeekRow(
+                            days = uiState.currentWeekDays,
+                            todayPulseTrigger = uiState.todayPulseTrigger,
+                            onDayClick = { day -> viewModel.selectDate(day.dateMillis) }
+                        )
+                    } else {
+                        UtilitarianMonthGrid(
+                            days = uiState.monthDays,
+                            todayPulseTrigger = uiState.todayPulseTrigger,
+                            onDayClick = { day ->
+                                viewModel.selectDate(day.dateMillis)
+                                if (day.activities.isNotEmpty()) {
+                                    viewModel.setWeekMode(true)
+                                }
+                            }
+                        )
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.height(14.dp))
+
+            // Scrollable Agenda Area: Agenda Header + All-Day Cards + Timed Cards / Empty State
+            LazyColumn(
+                state = lazyListState,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .nestedScroll(nestedScrollConnection),
+                contentPadding = PaddingValues(bottom = 100.dp)
+            ) {
+                // Selected Day Agenda Header
+                item {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 4.dp, vertical = 6.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = dayNumberStr,
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 28.sp,
+                            color = UtilitarianTextPrimary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = dayWeekStr,
+                            fontFamily = FontFamily.SansSerif,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 16.sp,
+                            color = UtilitarianTextPrimary
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        val countBadge = if (uiState.selectedDayReminderCount > 0) {
+                            "(${uiState.selectedDayCompletedReminderCount}/${uiState.selectedDayReminderCount})"
+                        } else if (uiState.selectedDayTotalCount > 0) {
+                            "(${uiState.selectedDayTotalCount})"
+                        } else {
+                            "(0)"
+                        }
+                        Text(
+                            text = countBadge,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 13.sp,
+                            color = UtilitarianTextSecondary
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
+                // Selected Day Agenda Items or Screenshot-Matched Empty State
+                if (uiState.selectedDayActivities.isEmpty()) {
+                    item {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 44.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.SentimentSatisfiedAlt,
+                                contentDescription = null,
+                                tint = Color(0xFF6E7681),
+                                modifier = Modifier.size(38.dp)
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text(
+                                text = "Tap to add a sticker to this day.",
+                                color = UtilitarianTextSecondary,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        }
+                    }
+                } else {
+                    // 1. All-Day Cards (at the top)
+                    if (uiState.allDayActivities.isNotEmpty()) {
+                        items(uiState.allDayActivities, key = { "allday_${it.id}" }) { activity ->
+                            val isExpanded = uiState.expandedActivityId == activity.id
+                            val workspace = if (isExpanded) uiState.expandedWorkspace else null
+                            AllDayActivityCard(
+                                activity = activity,
+                                isExpanded = isExpanded,
+                                workspace = workspace,
+                                onToggleExpansion = { viewModel.toggleCardExpansion(activity.id) },
+                                onToggleCompletion = { done -> viewModel.toggleActivityCompletion(activity.id, done) },
+                                onDelete = { id -> viewModel.deleteActivity(id) },
+                                onOpenWorkspace = { id -> onActivityClick(id) }
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
+                    // 2. Timed Activities & Reminders Cards
+                    if (uiState.timedActivities.isNotEmpty()) {
+                        items(uiState.timedActivities, key = { "timed_${it.id}" }) { activity ->
+                            val isExpanded = uiState.expandedActivityId == activity.id
+                            val workspace = if (isExpanded) uiState.expandedWorkspace else null
+                            TimedAgendaActivityCard(
+                                activity = activity,
+                                isExpanded = isExpanded,
+                                workspace = workspace,
+                                onToggleExpansion = { viewModel.toggleCardExpansion(activity.id) },
+                                onToggleCompletion = { done -> viewModel.toggleActivityCompletion(activity.id, done) },
+                                onDelete = { id -> viewModel.deleteActivity(id) },
+                                onOpenWorkspace = { id -> onActivityClick(id) }
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
                     }
                 }
             }
