@@ -442,7 +442,7 @@ object NoteTextFormatter {
                         HeadingType.H2 -> {
                             addStyle(
                                 SpanStyle(
-                                    fontSize = 18.sp,
+                                    fontSize = 20.sp,
                                     fontWeight = FontWeight.SemiBold,
                                     color = baseColor
                                 ),
