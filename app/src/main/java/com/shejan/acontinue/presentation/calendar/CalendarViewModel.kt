@@ -51,6 +51,7 @@ data class CalendarUiState(
     val expandedActivityId: Long? = null,
     val expandedWorkspace: ActivityWorkspaceAggregate? = null,
     val todayDateNumber: Int = Calendar.getInstance().get(Calendar.DAY_OF_MONTH),
+    val todayPulseTrigger: Long = 0L,
     val isLoading: Boolean = false
 ) {
     val activities: List<ActivityItem> get() = selectedDayActivities
@@ -80,6 +81,7 @@ class CalendarViewModel(
     private val _currentMonth = MutableStateFlow(System.currentTimeMillis())
     private val _selectedDate = MutableStateFlow(System.currentTimeMillis())
     private val _isWeekMode = MutableStateFlow(false)
+    private val _todayPulseTrigger = MutableStateFlow(0L)
     private val _selectedActivityForDetail = MutableStateFlow<ActivityItem?>(null)
     private val _expandedActivityId = MutableStateFlow<Long?>(null)
     private val _uiState = MutableStateFlow(CalendarUiState())
@@ -97,7 +99,8 @@ class CalendarViewModel(
     private data class CalendarViewState(
         val monthMillis: Long,
         val selectedMillis: Long,
-        val isWeekMode: Boolean
+        val isWeekMode: Boolean,
+        val todayPulseTrigger: Long
     )
 
     private data class CardFocusState(
@@ -110,9 +113,10 @@ class CalendarViewModel(
         val calendarViewFlow = combine(
             _currentMonth,
             _selectedDate,
-            _isWeekMode
-        ) { month, selected, isWeek ->
-            CalendarViewState(month, selected, isWeek)
+            _isWeekMode,
+            _todayPulseTrigger
+        ) { month, selected, isWeek, pulse ->
+            CalendarViewState(month, selected, isWeek, pulse)
         }
 
         val cardFocusFlow = combine(
@@ -132,6 +136,7 @@ class CalendarViewModel(
                 monthMillis = viewState.monthMillis,
                 selectedMillis = viewState.selectedMillis,
                 weekMode = viewState.isWeekMode,
+                todayPulseTrigger = viewState.todayPulseTrigger,
                 detailActivity = focusState.detailActivity,
                 expandedId = focusState.expandedId,
                 expandedWs = focusState.expandedWs,
@@ -237,6 +242,7 @@ class CalendarViewModel(
         val now = System.currentTimeMillis()
         _currentMonth.value = now
         _selectedDate.value = now
+        _todayPulseTrigger.value = now
     }
 
     fun toggleActivityCompletion(id: Long, isCompleted: Boolean) {
@@ -279,6 +285,7 @@ class CalendarViewModel(
         monthMillis: Long,
         selectedMillis: Long,
         weekMode: Boolean,
+        todayPulseTrigger: Long,
         detailActivity: ActivityItem?,
         expandedId: Long?,
         expandedWs: ActivityWorkspaceAggregate?,
@@ -340,6 +347,7 @@ class CalendarViewModel(
             expandedActivityId = expandedId,
             expandedWorkspace = resolvedWorkspace,
             todayDateNumber = todayDate,
+            todayPulseTrigger = todayPulseTrigger,
             isLoading = false
         )
     }

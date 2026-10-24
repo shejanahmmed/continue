@@ -60,6 +60,9 @@ import com.shejan.acontinue.domain.model.RecurrenceMode
 import java.util.Calendar
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.keyframes
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -68,6 +71,7 @@ import androidx.compose.animation.slideOutVertically
 import androidx.compose.animation.togetherWith
 import androidx.compose.foundation.gestures.detectDragGestures
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
@@ -79,6 +83,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.TransformOrigin
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import androidx.compose.ui.text.font.FontFamily
@@ -269,11 +275,13 @@ fun CalendarScreen(
                         if (inWeekMode) {
                             UtilitarianWeekRow(
                                 days = uiState.currentWeekDays,
+                                todayPulseTrigger = uiState.todayPulseTrigger,
                                 onDayClick = { day -> viewModel.selectDate(day.dateMillis) }
                             )
                         } else {
                             UtilitarianMonthGrid(
                                 days = uiState.monthDays,
+                                todayPulseTrigger = uiState.todayPulseTrigger,
                                 onDayClick = { day ->
                                     viewModel.selectDate(day.dateMillis)
                                     if (day.activities.isNotEmpty()) {
@@ -471,6 +479,7 @@ private fun DayOfWeekHeaderRow() {
 @Composable
 private fun UtilitarianMonthGrid(
     days: List<CalendarDay>,
+    todayPulseTrigger: Long = 0L,
     onDayClick: (CalendarDay) -> Unit
 ) {
     Column(
@@ -486,6 +495,7 @@ private fun UtilitarianMonthGrid(
                 weekDays.forEach { day ->
                     MonthDayCell(
                         day = day,
+                        todayPulseTrigger = todayPulseTrigger,
                         onClick = { onDayClick(day) },
                         modifier = Modifier.weight(1f)
                     )
@@ -498,6 +508,7 @@ private fun UtilitarianMonthGrid(
 @Composable
 private fun UtilitarianWeekRow(
     days: List<CalendarDay>,
+    todayPulseTrigger: Long = 0L,
     onDayClick: (CalendarDay) -> Unit
 ) {
     Row(
@@ -507,6 +518,7 @@ private fun UtilitarianWeekRow(
         days.forEach { day ->
             MonthDayCell(
                 day = day,
+                todayPulseTrigger = todayPulseTrigger,
                 onClick = { onDayClick(day) },
                 modifier = Modifier.weight(1f)
             )
@@ -518,7 +530,8 @@ private fun UtilitarianWeekRow(
 private fun MonthDayCell(
     day: CalendarDay,
     onClick: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    todayPulseTrigger: Long = 0L
 ) {
     val cellBorderColor = when {
         day.isSelected -> Color(0xFF6E7681)
@@ -547,10 +560,34 @@ private fun MonthDayCell(
         ) {
             // Date Number: Current date ALWAYS displayed in a small white rounded box
             if (day.isToday) {
+                val animProgress = remember { Animatable(0f) }
+
+                LaunchedEffect(todayPulseTrigger) {
+                    if (todayPulseTrigger > 0L) {
+                        animProgress.snapTo(0f)
+                        animProgress.animateTo(
+                            targetValue = 0f,
+                            animationSpec = keyframes {
+                                durationMillis = 1000
+                                0f at 0 using FastOutSlowInEasing
+                                1f at 350 using FastOutSlowInEasing
+                                0f at 1000 using FastOutSlowInEasing
+                            }
+                        )
+                    }
+                }
+
                 Surface(
                     shape = RoundedCornerShape(4.dp),
                     color = Color.White,
-                    modifier = Modifier.padding(bottom = 2.dp)
+                    modifier = Modifier
+                        .padding(bottom = 2.dp)
+                        .graphicsLayer {
+                            val p = animProgress.value
+                            transformOrigin = TransformOrigin(0.5f, 0f)
+                            scaleX = 1f + 0.16f * p
+                            scaleY = 1f + 0.22f * p
+                        }
                 ) {
                     Text(
                         text = day.dayOfMonth.toString(),

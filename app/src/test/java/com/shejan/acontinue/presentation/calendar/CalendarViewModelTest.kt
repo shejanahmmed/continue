@@ -507,4 +507,20 @@ class CalendarViewModelTest {
             assertEquals("Design Review", matchingDay.activities.first().title)
         }
     }
+
+    @Test
+    fun `test jumpToToday updates todayPulseTrigger and synchronizes date`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.jumpToToday()
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertTrue(state.todayPulseTrigger > 0L)
+            val todayDay = state.monthDays.firstOrNull { it.isToday }
+            assertNotNull(todayDay)
+            assertTrue(todayDay!!.isSelected)
+        }
+    }
 }
