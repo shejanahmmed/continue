@@ -78,6 +78,7 @@ import com.shejan.acontinue.core.util.AttachmentHelper
 import com.shejan.acontinue.core.util.AudioRecordHelper
 import com.shejan.acontinue.core.util.ImageUtils
 import java.io.File
+import java.util.Locale
 import android.graphics.Bitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
@@ -564,7 +565,7 @@ fun CreateNoteScreen(
         if (isRecordingAudio && !isRecordingPaused) {
             var lastTime = System.currentTimeMillis()
             while (isRecordingAudio && !isRecordingPaused) {
-                kotlinx.coroutines.delay(33)
+                kotlinx.coroutines.delay(100)
                 val now = System.currentTimeMillis()
                 recordingElapsedMillis += (now - lastTime)
                 lastTime = now
@@ -586,10 +587,17 @@ fun CreateNoteScreen(
             val attachmentsDir = File(context.filesDir, "attachments").apply { if (!exists()) mkdirs() }
             val audioFile = File(attachmentsDir, "note_audio_${System.currentTimeMillis()}.m4a")
 
-            // 1. Show island, reset state, pop circle in at top center
+            // 1. Audio recording begins immediately so microphone capture starts without latency
+            if (!audioRecordHelper.startRecording(audioFile)) {
+                Toast.makeText(context, "Could not start recording", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+
+            // 2. Show island, reset state, pop circle in at top center
             isRecordingIslandVisible = true
             isRecordingPaused = false
             recordingElapsedMillis = 0L
+            isRecordingAudio = true
             islandScale.snapTo(0f)
             islandWidthDp.snapTo(44f)
             islandContentAlpha.snapTo(0f)
@@ -603,10 +611,10 @@ fun CreateNoteScreen(
                 )
             )
 
-            // 2. Extend horizontally outward left and right into full dynamic island
+            // 3. Extend horizontally outward into sleek compact dynamic island (reduced width)
             val expandJob = launch {
                 islandWidthDp.animateTo(
-                    targetValue = 296f,
+                    targetValue = 196f,
                     animationSpec = spring(
                         dampingRatio = 0.78f,
                         stiffness = Spring.StiffnessMediumLow
@@ -618,15 +626,6 @@ fun CreateNoteScreen(
                 animationSpec = tween(durationMillis = 180)
             )
             expandJob.join()
-
-            // 3. Audio recording begins after circle has extended into pill
-            if (audioRecordHelper.startRecording(audioFile)) {
-                isRecordingAudio = true
-            } else {
-                Toast.makeText(context, "Could not start recording", Toast.LENGTH_SHORT).show()
-                islandScale.animateTo(0f, tween(100))
-                isRecordingIslandVisible = false
-            }
         }
     }
 
@@ -1821,12 +1820,19 @@ fun CreateNoteScreen(
                     galleryPickerLauncher.launch("image/*")
                 }
             },
-            NoteMenuOption("Recording", Icons.Outlined.Mic) {
+            NoteMenuOption(
+                title = if (isRecordingIslandVisible) "Recording (stop)" else "Recording",
+                icon = if (isRecordingIslandVisible) Icons.Filled.Stop else Icons.Outlined.Mic
+            ) {
                 coroutineScope.launch {
-                    showBottomSheet = false
                     sheetState.hide()
+                    showBottomSheet = false
                 }
-                requestRecording()
+                if (isRecordingIslandVisible) {
+                    stopAndSaveAudioRecording()
+                } else {
+                    requestRecording()
+                }
             },
             if (!isChecklistMode) {
                 NoteMenuOption("Checkboxes", Icons.Outlined.CheckBox) {
@@ -2562,12 +2568,15 @@ private fun DynamicIslandRecordingBar(
     )
 
     fun formatElapsed(millis: Long): String {
-        val totalCentis = millis / 10
-        val centis = totalCentis % 100
-        val totalSec = totalCentis / 100
+        val totalSec = (millis / 1000).coerceAtLeast(0)
         val sec = totalSec % 60
-        val min = totalSec / 60
-        return "%02d:%02d,%02d".format(min, sec, centis)
+        val min = (totalSec / 60) % 60
+        val hours = totalSec / 3600
+        return if (hours > 0) {
+            String.format(Locale.US, "%02d:%02d:%02d", hours, min, sec)
+        } else {
+            String.format(Locale.US, "%02d:%02d", min, sec)
+        }
     }
 
     Box(
@@ -2612,21 +2621,21 @@ private fun DynamicIslandRecordingBar(
                     modifier = Modifier
                         .weight(1f)
                         .alpha(contentAlpha)
-                        .padding(start = 10.dp, end = 2.dp),
+                        .padding(start = 8.dp, end = 2.dp),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.End
                 ) {
-                    // Elapsed timer in warm amber (matching reference image)
+                    // Elapsed timer in warm amber
                     Text(
                         text = formatElapsed(elapsedMillis),
                         color = Color(0xFFFF9F0A),
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         fontWeight = FontWeight.SemiBold,
                         fontFamily = FontFamily.Monospace,
                         letterSpacing = 0.5.sp
                     )
 
-                    Spacer(modifier = Modifier.width(10.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
 
                     // Pause / Resume Toggle Button
                     Box(
