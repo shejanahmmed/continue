@@ -806,9 +806,9 @@ private fun AllDayActivityCard(
     onOpenWorkspace: (Long) -> Unit
 ) {
     val isReminder = activity.entryType == EntryType.REMINDER
-    val accentColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
+    val catColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
     val isCompleted = isReminder && activity.isCompleted
-    val displayAccentColor = if (isCompleted) accentColor.copy(alpha = 0.4f) else accentColor
+    val barColor = if (isCompleted) catColor.copy(alpha = 0.4f) else catColor
     val subTextColor = if (isCompleted) UtilitarianTextDisabled else UtilitarianTextSecondary
 
     MonochromeCard(
@@ -821,31 +821,78 @@ private fun AllDayActivityCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.CalendarToday,
-                    contentDescription = null,
-                    tint = displayAccentColor,
-                    modifier = Modifier.size(18.dp)
+                // Left Time Column
+                Column(
+                    modifier = Modifier.width(54.dp),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Text(
+                        text = "All day",
+                        color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Normal,
+                        maxLines = 1
+                    )
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
+
+                // Category Vertical Accent Stroke
+                Box(
+                    modifier = Modifier
+                        .width(3.dp)
+                        .height(28.dp)
+                        .background(barColor, RoundedCornerShape(1.5.dp))
                 )
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
+                // Activity Info
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = activity.title,
                         color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Normal,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textDecoration = if (isReminder && activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
                     )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "All day",
-                        color = subTextColor,
-                        fontSize = 11.sp
-                    )
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isReminder) {
+                            Icon(
+                                imageVector = Icons.Outlined.Notifications,
+                                contentDescription = null,
+                                tint = subTextColor,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "REMINDER",
+                                color = subTextColor,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.CalendarToday,
+                                contentDescription = null,
+                                tint = UtilitarianTextSecondary,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "EVENT",
+                                color = UtilitarianTextSecondary,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        }
+                    }
                 }
 
                 if (isReminder) {
@@ -887,18 +934,12 @@ private fun TimedAgendaActivityCard(
 ) {
     val isReminder = activity.entryType == EntryType.REMINDER
     val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-    val shortTimeFormat = SimpleDateFormat("h:mm", Locale.getDefault())
-    val startTimeReadout = if (activity.isAllDay) "ALL" else shortTimeFormat.format(Date(activity.startTimeMillis))
-    val timeSpan = if (activity.isAllDay) {
-        "All day"
-    } else if (isReminder) {
-        timeFormat.format(Date(activity.startTimeMillis))
-    } else {
-        "${timeFormat.format(Date(activity.startTimeMillis))} – ${timeFormat.format(Date(activity.endTimeMillis))}"
-    }
-    val accentColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
+    val startStr = timeFormat.format(Date(activity.startTimeMillis))
+    val endStr = timeFormat.format(Date(activity.endTimeMillis))
+
+    val catColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
     val isCompleted = isReminder && activity.isCompleted
-    val displayAccentColor = if (isCompleted) accentColor.copy(alpha = 0.4f) else accentColor
+    val barColor = if (isCompleted) catColor.copy(alpha = 0.4f) else catColor
     val subTextColor = if (isCompleted) UtilitarianTextDisabled else UtilitarianTextSecondary
 
     MonochromeCard(
@@ -911,58 +952,105 @@ private fun TimedAgendaActivityCard(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Start Time column (e.g., 10:00, 2:30)
-                Text(
-                    text = startTimeReadout,
-                    color = if (isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 13.sp,
-                    modifier = Modifier.width(44.dp)
-                )
+                // Left Time Column
+                Column(
+                    modifier = Modifier.width(54.dp),
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    if (activity.isAllDay) {
+                        Text(
+                            text = "All day",
+                            color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Normal,
+                            maxLines = 1
+                        )
+                    } else if (isReminder) {
+                        Text(
+                            text = startStr,
+                            color = if (activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Normal,
+                            maxLines = 1
+                        )
+                    } else {
+                        Text(
+                            text = startStr,
+                            color = UtilitarianTextPrimary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Normal,
+                            maxLines = 1
+                        )
+                        Text(
+                            text = endStr,
+                            color = UtilitarianTextSecondary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 10.sp,
+                            maxLines = 1
+                        )
+                    }
+                }
+
+                Spacer(modifier = Modifier.width(4.dp))
 
                 // Category Vertical Accent Stroke
                 Box(
                     modifier = Modifier
                         .width(3.dp)
-                        .height(30.dp)
-                        .background(
-                            color = displayAccentColor,
-                            shape = RoundedCornerShape(1.5.dp)
-                        )
+                        .height(28.dp)
+                        .background(barColor, RoundedCornerShape(1.5.dp))
                 )
 
-                Spacer(modifier = Modifier.width(10.dp))
+                Spacer(modifier = Modifier.width(8.dp))
 
                 // Activity Info
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = activity.title,
                         color = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Normal,
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                         textDecoration = if (isReminder && activity.isCompleted) TextDecoration.LineThrough else TextDecoration.None
                     )
-                    Spacer(modifier = Modifier.height(1.dp))
-                    val hasLoc = activity.location.isNotBlank() && !activity.location.trim().equals("location", ignoreCase = true)
-                    val subtitle = if (isReminder && hasLoc) {
-                        "${activity.reminderCategory} • $timeSpan  ${activity.location}"
-                    } else if (isReminder) {
-                        "${activity.reminderCategory} • $timeSpan"
-                    } else if (hasLoc) {
-                        "$timeSpan  ${activity.location}"
-                    } else {
-                        timeSpan
+                    Spacer(modifier = Modifier.height(3.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (isReminder) {
+                            Icon(
+                                imageVector = Icons.Outlined.Notifications,
+                                contentDescription = null,
+                                tint = subTextColor,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "REMINDER",
+                                color = subTextColor,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        } else {
+                            Icon(
+                                imageVector = Icons.Outlined.CalendarToday,
+                                contentDescription = null,
+                                tint = UtilitarianTextSecondary,
+                                modifier = Modifier.size(11.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "EVENT",
+                                color = UtilitarianTextSecondary,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Normal
+                            )
+                        }
                     }
-                    Text(
-                        text = subtitle,
-                        color = subTextColor,
-                        fontSize = 11.sp,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
                 }
 
                 if (isReminder) {
