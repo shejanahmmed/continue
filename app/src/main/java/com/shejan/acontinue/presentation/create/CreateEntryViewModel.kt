@@ -696,6 +696,54 @@ class CreateEntryViewModel(
         }
     }
 
+    suspend fun ensureDraftNoteId(
+        title: String = "",
+        content: String = "",
+        colorHex: Long = 0xFF000000L,
+        labels: List<String> = emptyList()
+    ): Long {
+        val currentEditId = _state.value.editingActivityId
+        if (currentEditId != null) return currentEditId
+
+        return withContext(NonCancellable) {
+            val now = System.currentTimeMillis()
+            val trimmedTitle = title.trim()
+            val effectiveTitle = trimmedTitle.ifBlank { "Untitled Note" }
+            val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
+
+            val activity = ActivityItem(
+                title = effectiveTitle,
+                description = content.trim(),
+                entryType = EntryType.NOTE,
+                category = ActivityCategory.OTHER,
+                isAllDay = false,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                location = "",
+                priority = ActivityPriority.MEDIUM,
+                reminderMinutesBefore = -1,
+                reminderMinutesList = emptyList(),
+                recurrenceMode = RecurrenceMode.NONE,
+                isCompleted = false,
+                reminderCategory = categoryString,
+                reminderCategoryColorHex = colorHex,
+                createdAtMillis = now
+            )
+
+            val newId = activityRepository.insertActivity(activity)
+            noteRepository.insertNote(
+                ActivityNote(
+                    activityId = newId,
+                    title = effectiveTitle,
+                    content = content.trim(),
+                    updatedAtMillis = now
+                )
+            )
+            _state.update { it.copy(editingActivityId = newId) }
+            newId
+        }
+    }
+
     fun saveNote(
         title: String,
         content: String,

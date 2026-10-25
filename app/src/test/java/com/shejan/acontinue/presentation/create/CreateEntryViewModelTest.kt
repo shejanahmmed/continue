@@ -1176,6 +1176,25 @@ class CreateEntryViewModelTest {
             assertEquals("Updated content", updated.description)
         }
     }
+
+    @Test
+    fun `test ensureDraftNoteId creates draft in Room and assigns editingActivityId`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        org.junit.Assert.assertNull(viewModel.state.value.editingActivityId)
+        val draftId = viewModel.ensureDraftNoteId(title = "Draft Voice Note", content = "Voice note body")
+        testScheduler.advanceUntilIdle()
+
+        org.junit.Assert.assertTrue(draftId > 0L)
+        assertEquals(draftId, viewModel.state.value.editingActivityId)
+        assertEquals(1, activityRepository.activitiesFlow.value.size)
+        assertEquals("Draft Voice Note", activityRepository.activitiesFlow.value.first().title)
+
+        // Calling again returns the existing ID without creating a duplicate
+        val secondCallId = viewModel.ensureDraftNoteId()
+        assertEquals(draftId, secondCallId)
+        assertEquals(1, activityRepository.activitiesFlow.value.size)
+    }
 }
 
 

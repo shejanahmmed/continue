@@ -1,5 +1,6 @@
 package com.shejan.acontinue.presentation.navigation
 
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
@@ -7,7 +8,11 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.zIndex
+import com.shejan.acontinue.core.designsystem.components.GlobalRecordingDynamicIsland
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -74,6 +79,7 @@ fun ContinueNavHost(
     modifier: Modifier = Modifier
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val recordingState by container.audioRecordingManager.state.collectAsState()
     val startDestination = if (userSettings.isOnboardingCompleted) Screen.Home.route else Screen.Welcome.route
     val currentRoute = navBackStackEntry?.destination?.route ?: startDestination
 
@@ -135,11 +141,12 @@ fun ContinueNavHost(
         },
         showBottomBar = isTopLevelRoute
     ) { innerPadding ->
-        NavHost(
-            navController = navController,
-            startDestination = startDestination,
-            modifier = modifier.fillMaxSize()
-        ) {
+        Box(modifier = Modifier.fillMaxSize()) {
+            NavHost(
+                navController = navController,
+                startDestination = startDestination,
+                modifier = modifier.fillMaxSize()
+            ) {
             // Starter / Welcome Destination
             composable(Screen.Welcome.route) {
                 val scope = rememberCoroutineScope()
@@ -303,6 +310,16 @@ fun ContinueNavHost(
                     initialContent = state.notes,
                     initialColorHex = if (state.reminderCategoryColorHex != 0L && state.reminderCategoryColorHex != 0xFF121212L) state.reminderCategoryColorHex else 0xFF000000L,
                     initialLabels = initialLabels,
+                    editingActivityId = editActivityId,
+                    onEnsureDraftNoteId = {
+                        noteViewModel.ensureDraftNoteId(
+                            title = "",
+                            content = "",
+                            colorHex = if (state.reminderCategoryColorHex != 0L && state.reminderCategoryColorHex != 0xFF121212L) state.reminderCategoryColorHex else 0xFF000000L,
+                            labels = initialLabels
+                        )
+                    },
+                    audioRecordingManager = container.audioRecordingManager,
                     onSaveNote = { title, content, colorHex, labels ->
                         noteViewModel.saveNote(title, content, colorHex, labels)
                         navController.safePopBackStack("note_editor")
@@ -311,6 +328,7 @@ fun ContinueNavHost(
                         navController.safePopBackStack("note_editor")
                     },
                     onDeleteNote = {
+                        container.audioRecordingManager.cancelRecording()
                         noteViewModel.deleteCurrentNote()
                         navController.safePopBackStack("note_editor")
                     },
@@ -347,7 +365,41 @@ fun ContinueNavHost(
                 )
             }
         }
+
+        if (currentRoute != Screen.NoteEditor.route && !currentRoute.startsWith("note_editor")) {
+            GlobalRecordingDynamicIsland(
+            recordingState = recordingState,
+            onTogglePause = {
+                if (recordingState.isPaused) {
+                    container.audioRecordingManager.resumeRecording()
+                } else {
+                    container.audioRecordingManager.pauseRecording()
+                }
+            },
+            onStop = {
+                container.audioRecordingManager.stopRecording()
+            },
+            onIslandClick = {
+                val targetNoteId = recordingState.noteActivityId
+                if (targetNoteId != null) {
+                    val currentDest = navController.currentBackStackEntry?.destination?.route
+                    val targetRoute = Screen.NoteEditor.createRoute(targetNoteId)
+                    if (currentDest != targetRoute) {
+                        navController.navigate(targetRoute) {
+                            launchSingleTop = true
+                        }
+                    }
+                }
+            },
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .statusBarsPadding()
+                .padding(top = 6.dp)
+                .zIndex(999f)
+        )
+        }
     }
+}
 }
 
 private fun NavHostController.safePopBackStack(expectedRoutePrefix: String? = null) {

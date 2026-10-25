@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.shejan.acontinue.core.notification.AlarmScheduler
+import com.shejan.acontinue.core.util.AudioRecordingManager
 import com.shejan.acontinue.data.local.ContinueDatabase
 import com.shejan.acontinue.data.repository.ActivityRepositoryImpl
 import com.shejan.acontinue.data.repository.LinkRepositoryImpl
@@ -36,6 +37,13 @@ class AppContainer(context: Context) {
     val settingsRepository: SettingsRepository = SettingsRepositoryImpl(context)
 
     val alarmScheduler: AlarmScheduler = AlarmScheduler(context)
+    val audioRecordingManager: AudioRecordingManager by lazy {
+        AudioRecordingManager(
+            context = context,
+            activityRepository = activityRepository,
+            noteRepository = noteRepository
+        )
+    }
 
     val getTodayTimelineUseCase = GetTodayTimelineUseCase(activityRepository)
     val getActivityWorkspaceUseCase = GetActivityWorkspaceUseCase(

@@ -79,8 +79,11 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.core.content.FileProvider
 import androidx.core.content.ContextCompat
+import com.shejan.acontinue.core.designsystem.components.DynamicIslandRecordingBar
 import com.shejan.acontinue.core.util.AttachmentHelper
-import com.shejan.acontinue.core.util.AudioRecordHelper
+import com.shejan.acontinue.core.util.AudioRecordingManager
+import com.shejan.acontinue.core.util.RecordingEvent
+import com.shejan.acontinue.core.util.RecordingState
 import com.shejan.acontinue.core.util.ImageUtils
 import java.io.File
 import java.util.Locale
@@ -138,6 +141,7 @@ import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.wrapContentWidth
 import androidx.compose.material.icons.outlined.FormatStrikethrough
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
@@ -229,6 +233,9 @@ fun CreateNoteScreen(
     onCreateLabel: (String) -> Unit = {},
     onEditLabel: (oldName: String, newName: String) -> Unit = { _, _ -> },
     onDeleteLabel: (name: String) -> Unit = {},
+    editingActivityId: Long? = null,
+    onEnsureDraftNoteId: (suspend () -> Long)? = null,
+    audioRecordingManager: AudioRecordingManager? = null,
     modifier: Modifier = Modifier
 ) {
     val colors = LocalUtilitarianColors.current
@@ -322,15 +329,14 @@ fun CreateNoteScreen(
     var selectedPreviewPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var autoFocusAfterCaptureTrigger by remember { mutableIntStateOf(0) }
 
-    val audioRecordHelper = remember { AudioRecordHelper(context) }
-    var isRecordingIslandVisible by remember { mutableStateOf(false) }
-    var isRecordingAudio by remember { mutableStateOf(false) }
-    var isRecordingPaused by remember { mutableStateOf(false) }
-    var recordingElapsedMillis by remember { mutableLongStateOf(0L) }
+    val activeRecordingManager = audioRecordingManager ?: remember { AudioRecordingManager(context) }
+    var currentEditingId by remember { mutableStateOf(editingActivityId) }
+    val recordingState by activeRecordingManager.state.collectAsState()
 
-    val islandScale = remember { Animatable(0f) }
-    val islandWidthDp = remember { Animatable(44f) }
-    val islandContentAlpha = remember { Animatable(0f) }
+    var isRecordingIslandVisible by remember { mutableStateOf(recordingState.isRecording) }
+    val islandScale = remember { Animatable(if (recordingState.isRecording) 1f else 0f) }
+    val islandWidthDp = remember { Animatable(if (recordingState.isRecording) 204f else 48f) }
+    val islandContentAlpha = remember { Animatable(if (recordingState.isRecording) 1f else 0f) }
 
     val searchMatches = remember(noteTextState.text, searchQuery) {
         if (searchQuery.isBlank()) emptyList() else NoteTextFormatter.findMatches(noteTextState.text, searchQuery)
@@ -589,43 +595,50 @@ fun CreateNoteScreen(
         cameraLauncher.launch(uri)
     }
 
-    LaunchedEffect(isRecordingAudio, isRecordingPaused) {
-        if (isRecordingAudio && !isRecordingPaused) {
-            var lastTime = System.currentTimeMillis()
-            while (isRecordingAudio && !isRecordingPaused) {
-                kotlinx.coroutines.delay(100)
-                val now = System.currentTimeMillis()
-                recordingElapsedMillis += (now - lastTime)
-                lastTime = now
+    LaunchedEffect(activeRecordingManager) {
+        activeRecordingManager.events.collect { event ->
+            when (event) {
+                is RecordingEvent.RecordingSaved -> {
+                    if (event.noteId == null || event.noteId == currentEditingId) {
+                        if (!recordedAudioUris.contains(event.audioUri)) {
+                            val updated = recordedAudioUris + event.audioUri
+                            recordedAudioUris = updated
+                            undoManager.recordAction(takeSnapshot(newRecordedAudioUris = updated))
+                        }
+                    }
+                }
+                RecordingEvent.RecordingCancelled -> {}
             }
         }
     }
 
-    DisposableEffect(Unit) {
-        onDispose {
-            if (audioRecordHelper.isRecording) {
-                audioRecordHelper.stopRecording()
-            }
-            audioRecordHelper.release()
+    LaunchedEffect(recordingState.isRecording) {
+        if (recordingState.isRecording && !isRecordingIslandVisible) {
+            isRecordingIslandVisible = true
+            islandScale.snapTo(1f)
+            islandWidthDp.snapTo(204f)
+            islandContentAlpha.snapTo(1f)
+        } else if (!recordingState.isRecording && isRecordingIslandVisible) {
+            islandContentAlpha.animateTo(0f, tween(100))
+            islandWidthDp.animateTo(48f, tween(180, easing = LinearOutSlowInEasing))
+            islandScale.animateTo(0f, tween(120, easing = FastOutSlowInEasing))
+            isRecordingIslandVisible = false
         }
     }
 
-    val startRecordingWithIslandAnimation: () -> Unit = {
+    val startVoiceRecording: () -> Unit = {
         coroutineScope.launch {
-            val attachmentsDir = File(context.filesDir, "attachments").apply { if (!exists()) mkdirs() }
-            val audioFile = File(attachmentsDir, "note_audio_${System.currentTimeMillis()}.m4a")
-
-            // 1. Audio recording begins immediately so microphone capture starts without latency
-            if (!audioRecordHelper.startRecording(audioFile)) {
+            val targetId = currentEditingId ?: onEnsureDraftNoteId?.invoke()
+            if (targetId != null) {
+                currentEditingId = targetId
+            }
+            val started = activeRecordingManager.startRecording(targetId)
+            if (!started) {
                 Toast.makeText(context, "Could not start recording", Toast.LENGTH_SHORT).show()
                 return@launch
             }
 
-            // 2. Show island, reset state, pop circle in at top center
             isRecordingIslandVisible = true
-            isRecordingPaused = false
-            recordingElapsedMillis = 0L
-            isRecordingAudio = true
             islandScale.snapTo(0f)
             islandWidthDp.snapTo(48f)
             islandContentAlpha.snapTo(0f)
@@ -639,7 +652,7 @@ fun CreateNoteScreen(
                 )
             )
 
-            // 3. Extend horizontally outward into sleek compact dynamic island
+            // Extend horizontally outward into sleek compact dynamic island
             val expandJob = launch {
                 islandWidthDp.animateTo(
                     targetValue = 204f,
@@ -659,48 +672,29 @@ fun CreateNoteScreen(
 
     val stopAndSaveAudioRecording: () -> Unit = {
         coroutineScope.launch {
-            val file = audioRecordHelper.stopRecording()
-            isRecordingAudio = false
-            isRecordingPaused = false
-
-            // Collapse animation: fade controls, retract horizontally to circle, shrink scale to 0
             val fadeJob = launch { islandContentAlpha.animateTo(0f, tween(100)) }
             islandWidthDp.animateTo(48f, tween(180, easing = LinearOutSlowInEasing))
             fadeJob.join()
             islandScale.animateTo(0f, tween(120, easing = FastOutSlowInEasing))
             isRecordingIslandVisible = false
 
+            val file = activeRecordingManager.stopRecording()
             if (file != null && file.exists() && file.length() > 0L) {
                 val audioUri = Uri.fromFile(file)
-                val updated = recordedAudioUris + audioUri
-                recordedAudioUris = updated
-                undoManager.recordAction(takeSnapshot(newRecordedAudioUris = updated))
+                if (!recordedAudioUris.contains(audioUri)) {
+                    val updated = recordedAudioUris + audioUri
+                    recordedAudioUris = updated
+                    undoManager.recordAction(takeSnapshot(newRecordedAudioUris = updated))
+                }
             }
         }
     }
 
     val togglePauseResumeRecording: () -> Unit = {
-        if (isRecordingPaused) {
-            if (audioRecordHelper.resumeRecording()) {
-                isRecordingPaused = false
-            }
+        if (recordingState.isPaused) {
+            activeRecordingManager.resumeRecording()
         } else {
-            if (audioRecordHelper.pauseRecording()) {
-                isRecordingPaused = true
-            }
-        }
-    }
-
-    val cancelAudioRecording: () -> Unit = {
-        coroutineScope.launch {
-            audioRecordHelper.cancelRecording()
-            isRecordingAudio = false
-            isRecordingPaused = false
-            val fadeJob = launch { islandContentAlpha.animateTo(0f, tween(100)) }
-            islandWidthDp.animateTo(44f, tween(180, easing = LinearOutSlowInEasing))
-            fadeJob.join()
-            islandScale.animateTo(0f, tween(120, easing = FastOutSlowInEasing))
-            isRecordingIslandVisible = false
+            activeRecordingManager.pauseRecording()
         }
     }
 
@@ -708,7 +702,7 @@ fun CreateNoteScreen(
         contract = ActivityResultContracts.RequestPermission()
     ) { isGranted ->
         if (isGranted) {
-            startRecordingWithIslandAnimation()
+            startVoiceRecording()
         } else {
             Toast.makeText(context, "Microphone permission required for voice recording", Toast.LENGTH_SHORT).show()
         }
@@ -716,7 +710,7 @@ fun CreateNoteScreen(
 
     val requestRecording: () -> Unit = {
         if (ContextCompat.checkSelfPermission(context, Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
-            startRecordingWithIslandAnimation()
+            startVoiceRecording()
         } else {
             recordAudioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
         }
@@ -744,15 +738,6 @@ fun CreateNoteScreen(
     val handleExit = {
         if (!isExiting) {
             isExiting = true
-            if (isRecordingIslandVisible) {
-                val file = audioRecordHelper.stopRecording()
-                isRecordingAudio = false
-                isRecordingIslandVisible = false
-                if (file != null && file.exists() && file.length() > 0L) {
-                    val audioUri = Uri.fromFile(file)
-                    recordedAudioUris = recordedAudioUris + audioUri
-                }
-            }
             val finalContent = buildFinalContent()
             if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || recordedAudioUris.isNotEmpty() || selectedLabels.isNotEmpty()) {
                 onSaveNote(title, finalContent, selectedColorHex, selectedLabels.toList())
@@ -763,9 +748,7 @@ fun CreateNoteScreen(
     }
 
     BackHandler {
-        if (isRecordingIslandVisible) {
-            stopAndSaveAudioRecording()
-        } else if (selectedPreviewPhotoUri != null) {
+        if (selectedPreviewPhotoUri != null) {
             selectedPreviewPhotoUri = null
         } else if (showDeleteNoteConfirmDialog) {
             showDeleteNoteConfirmDialog = false
@@ -1770,13 +1753,13 @@ fun CreateNoteScreen(
         }
     }
 
-    // Dynamic Island Recording Bar at top of page (direct child of root Box)
-    if (isRecordingIslandVisible) {
+    // Dynamic Island Recording Bar at top of note
+    if (isRecordingIslandVisible && islandScale.value > 0.01f) {
         Box(
             modifier = Modifier
                 .fillMaxWidth()
                 .align(Alignment.TopCenter)
-                .zIndex(99f)
+                .zIndex(999f)
                 .statusBarsPadding()
                 .padding(top = 6.dp),
             contentAlignment = Alignment.TopCenter
@@ -1785,8 +1768,8 @@ fun CreateNoteScreen(
                 scale = islandScale.value,
                 widthDp = islandWidthDp.value,
                 contentAlpha = islandContentAlpha.value,
-                elapsedMillis = recordingElapsedMillis,
-                isPaused = isRecordingPaused,
+                elapsedMillis = recordingState.elapsedMillis,
+                isPaused = recordingState.isPaused,
                 onTogglePause = togglePauseResumeRecording,
                 onStop = stopAndSaveAudioRecording
             )
@@ -1826,14 +1809,14 @@ fun CreateNoteScreen(
                 }
             },
             NoteMenuOption(
-                title = if (isRecordingIslandVisible) "Recording (stop)" else "Recording",
-                icon = if (isRecordingIslandVisible) Icons.Filled.Stop else Icons.Outlined.Mic
+                title = if (recordingState.isRecording) "Recording (stop)" else "Recording",
+                icon = if (recordingState.isRecording) Icons.Filled.Stop else Icons.Outlined.Mic
             ) {
                 coroutineScope.launch {
                     sheetState.hide()
                     showBottomSheet = false
                 }
-                if (isRecordingIslandVisible) {
+                if (recordingState.isRecording) {
                     stopAndSaveAudioRecording()
                 } else {
                     requestRecording()
@@ -2765,149 +2748,6 @@ private fun FullPhotoPreviewDialog(
 }
 
 private val AUDIO_TAG_REGEX = Regex("""!\[audio\]\(([^)]+)\)""")
-
-@Composable
-private fun DynamicIslandRecordingBar(
-    scale: Float,
-    widthDp: Float,
-    contentAlpha: Float,
-    elapsedMillis: Long,
-    isPaused: Boolean,
-    onTogglePause: () -> Unit,
-    onStop: () -> Unit,
-    modifier: Modifier = Modifier
-) {
-    val haptic = LocalHapticFeedback.current
-
-    val infiniteTransition = rememberInfiniteTransition(label = "recordingPulse")
-    val pulseAlpha by infiniteTransition.animateFloat(
-        initialValue = 0.45f,
-        targetValue = 1f,
-        animationSpec = infiniteRepeatable(
-            animation = tween(durationMillis = 650, easing = LinearEasing),
-            repeatMode = RepeatMode.Reverse
-        ),
-        label = "pulseAlpha"
-    )
-
-    fun formatElapsed(millis: Long): String {
-        val totalSec = (millis / 1000).coerceAtLeast(0)
-        val sec = totalSec % 60
-        val min = (totalSec / 60) % 60
-        val hours = totalSec / 3600
-        return if (hours > 0) {
-            String.format(Locale.US, "%02d:%02d:%02d", hours, min, sec)
-        } else {
-            String.format(Locale.US, "%02d:%02d", min, sec)
-        }
-    }
-
-    Box(
-        modifier = modifier
-            .scale(scale)
-            .width(widthDp.dp)
-            .height(48.dp)
-            .clip(RoundedCornerShape(percent = 50))
-            .background(Color(0xFF202020))
-            .border(1.dp, Color(0xFF333336), RoundedCornerShape(percent = 50))
-            .padding(horizontal = 9.dp),
-        contentAlignment = Alignment.CenterStart
-    ) {
-        Row(
-            modifier = Modifier.fillMaxSize(),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            // Left: Amber circular recording badge with balanced clearance
-            Box(
-                modifier = Modifier
-                    .size(30.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFF241908))
-                    .border(
-                        width = 1.5.dp,
-                        color = Color(0xFFFF9F0A).copy(alpha = if (isPaused) 0.4f else pulseAlpha),
-                        shape = CircleShape
-                    ),
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Mic,
-                    contentDescription = "Recording",
-                    tint = Color(0xFFFF9F0A).copy(alpha = if (isPaused) 0.5f else 1f),
-                    modifier = Modifier.size(16.dp)
-                )
-            }
-
-            // Right-side controls (revealed as pill expands)
-            if (widthDp > 80f && contentAlpha > 0f) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .alpha(contentAlpha)
-                        .padding(start = 8.dp, end = 2.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    // Elapsed timer in warm amber
-                    Text(
-                        text = formatElapsed(elapsedMillis),
-                        color = Color(0xFFFF9F0A),
-                        fontSize = 13.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        fontFamily = FontFamily.Monospace,
-                        letterSpacing = 0.5.sp
-                    )
-
-                    Spacer(modifier = Modifier.width(8.dp))
-
-                    // Pause / Resume Toggle Button
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF2C2C2E))
-                            .border(1.dp, Color(0xFF3E3E42), CircleShape)
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onTogglePause()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = if (isPaused) Icons.Outlined.PlayArrow else Icons.Outlined.Pause,
-                            contentDescription = if (isPaused) "Resume" else "Pause",
-                            tint = if (isPaused) Color(0xFFFF9F0A) else Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    // Stop / Save Button
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF2C2C2E))
-                            .border(1.dp, Color(0xFF3E3E42), CircleShape)
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onStop()
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Filled.Stop,
-                            contentDescription = "Stop recording",
-                            tint = Color(0xFFD71921),
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun NoteAudioCard(
