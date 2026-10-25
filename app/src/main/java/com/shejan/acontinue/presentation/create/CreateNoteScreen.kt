@@ -3062,7 +3062,7 @@ private fun NoteAudioCard(
                 Icon(
                     imageVector = if (isPlaying) Icons.Outlined.Pause else Icons.Outlined.PlayArrow,
                     contentDescription = if (isPlaying) "Pause" else "Play",
-                    tint = if (isPlaying) Color(0xFFD71921) else colors.textPrimary,
+                    tint = if (isPlaying) Color(0xFFD71921) else colors.textPrimaryMuted,
                     modifier = Modifier.size(24.dp)
                 )
             }
@@ -3080,7 +3080,7 @@ private fun NoteAudioCard(
                 ) {
                     Text(
                         text = "Recording $index",
-                        color = colors.textPrimary,
+                        color = colors.textPrimaryMuted,
                         fontSize = 14.sp,
                         fontWeight = FontWeight.Medium
                     )
@@ -3090,7 +3090,7 @@ private fun NoteAudioCard(
                         } else {
                             NoteAudioPlaybackHelper.formatDuration(totalDurationMs)
                         },
-                        color = if (isScrubbing) Color(0xFFD71921) else colors.textSecondary.copy(alpha = 0.8f),
+                        color = if (isScrubbing) Color(0xFFD71921) else colors.textPrimaryMuted,
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
@@ -3152,7 +3152,7 @@ private fun NoteAudioCard(
                             .height(4.dp)
                             .align(Alignment.CenterStart)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(if (isPlaying || isScrubbing) Color(0xFFD71921) else colors.textPrimary)
+                            .background(if (isPlaying || isScrubbing) Color(0xFFD71921) else colors.textPrimaryMuted)
                     )
 
                     // Scrubber Thumb Indicator
@@ -3169,7 +3169,7 @@ private fun NoteAudioCard(
                             .align(Alignment.CenterStart)
                             .size(thumbSize)
                             .clip(CircleShape)
-                            .background(if (isPlaying || isScrubbing) Color(0xFFD71921) else colors.textPrimary)
+                            .background(if (isPlaying || isScrubbing) Color(0xFFD71921) else colors.textPrimaryMuted)
                             .border(
                                 width = 1.dp,
                                 color = if (isScrubbing) Color.White else Color(0xFF1E2225),
@@ -3201,7 +3201,7 @@ private fun NoteAudioCard(
                 Icon(
                     imageVector = Icons.Outlined.Delete,
                     contentDescription = "Delete recording",
-                    tint = colors.textSecondary.copy(alpha = 0.7f),
+                    tint = colors.textPrimaryMuted.copy(alpha = 0.7f),
                     modifier = Modifier.size(20.dp)
                 )
             }
