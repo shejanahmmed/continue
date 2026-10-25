@@ -734,21 +734,26 @@ fun CreateNoteScreen(
         stringBuilder.toString().trim()
     }
 
+    var isExiting by remember { mutableStateOf(false) }
+
     val handleExit = {
-        if (isRecordingIslandVisible) {
-            val file = audioRecordHelper.stopRecording()
-            isRecordingAudio = false
-            isRecordingIslandVisible = false
-            if (file != null && file.exists() && file.length() > 0L) {
-                val audioUri = Uri.fromFile(file)
-                recordedAudioUris = recordedAudioUris + audioUri
+        if (!isExiting) {
+            isExiting = true
+            if (isRecordingIslandVisible) {
+                val file = audioRecordHelper.stopRecording()
+                isRecordingAudio = false
+                isRecordingIslandVisible = false
+                if (file != null && file.exists() && file.length() > 0L) {
+                    val audioUri = Uri.fromFile(file)
+                    recordedAudioUris = recordedAudioUris + audioUri
+                }
             }
-        }
-        val finalContent = buildFinalContent()
-        if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || recordedAudioUris.isNotEmpty() || selectedLabels.isNotEmpty()) {
-            onSaveNote(title, finalContent, selectedColorHex, selectedLabels.toList())
-        } else {
-            onDiscard()
+            val finalContent = buildFinalContent()
+            if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || recordedAudioUris.isNotEmpty() || selectedLabels.isNotEmpty()) {
+                onSaveNote(title, finalContent, selectedColorHex, selectedLabels.toList())
+            } else {
+                onDiscard()
+            }
         }
     }
 
@@ -2195,7 +2200,8 @@ fun CreateNoteScreen(
                     moreSheetState.hide()
                     showMoreSheet = false
                     val finalContent = buildFinalContent()
-                    if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || recordedAudioUris.isNotEmpty() || selectedLabels.isNotEmpty()) {
+                    if (!isExiting && (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || recordedAudioUris.isNotEmpty() || selectedLabels.isNotEmpty())) {
+                        isExiting = true
                         onMakeCopy?.invoke(title, finalContent, selectedColorHex, selectedLabels.toList())
                         Toast.makeText(context, "Note copied", Toast.LENGTH_SHORT).show()
                     }
@@ -2391,10 +2397,13 @@ fun CreateNoteScreen(
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     showDeleteNoteConfirmDialog = false
-                                    if (onDeleteNote != null) {
-                                        onDeleteNote()
-                                    } else {
-                                        onDiscard()
+                                    if (!isExiting) {
+                                        isExiting = true
+                                        if (onDeleteNote != null) {
+                                            onDeleteNote()
+                                        } else {
+                                            onDiscard()
+                                        }
                                     }
                                 },
                             contentAlignment = Alignment.Center

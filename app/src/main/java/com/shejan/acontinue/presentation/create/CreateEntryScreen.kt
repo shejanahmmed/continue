@@ -211,10 +211,20 @@ fun CreateEntryScreen(
         }
     }
 
+    var isDismissed by remember { mutableStateOf(false) }
+    val dismissOnce: () -> Unit = remember(onDismiss) {
+        {
+            if (!isDismissed) {
+                isDismissed = true
+                onDismiss()
+            }
+        }
+    }
+
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
             when (event) {
-                is CreateEntryEvent.SavedSuccessfully -> onDismiss()
+                is CreateEntryEvent.SavedSuccessfully -> dismissOnce()
                 is CreateEntryEvent.ShowError -> {
                     Toast.makeText(context, event.message, Toast.LENGTH_SHORT).show()
                 }
@@ -348,18 +358,18 @@ fun CreateEntryScreen(
             initialLabels = initialLabels,
             onSaveNote = { title, content, colorHex, labels ->
                 viewModel.saveNote(title, content, colorHex, labels)
-                onDismiss()
+                dismissOnce()
             },
             onDiscard = {
-                onDismiss()
+                dismissOnce()
             },
             onDeleteNote = {
                 viewModel.deleteCurrentNote()
-                onDismiss()
+                dismissOnce()
             },
             onMakeCopy = { title, content, colorHex, labels ->
                 viewModel.makeCopyOfNote(title, content, colorHex, labels)
-                onDismiss()
+                dismissOnce()
             },
             allLabels = state.savedNoteLabels,
             onCreateLabel = { viewModel.addNoteLabel(it) },
@@ -478,7 +488,7 @@ fun CreateEntryScreen(
         } else if (hasModifications) {
             showDiscardSheet = true
         } else {
-            onDismiss()
+            dismissOnce()
         }
     }
 
@@ -516,7 +526,7 @@ fun CreateEntryScreen(
                                 if (hasModifications) {
                                     showDiscardSheet = true
                                 } else {
-                                    onDismiss()
+                                    dismissOnce()
                                 }
                             },
                         contentAlignment = Alignment.Center
@@ -1324,7 +1334,7 @@ fun CreateEntryScreen(
                     if (hasModifications && state.editingActivityId == null) {
                         showDiscardSheet = true
                     } else {
-                        onDismiss()
+                        dismissOnce()
                     }
                 },
                 onSave = { viewModel.saveEntry() },
@@ -1448,7 +1458,7 @@ fun CreateEntryScreen(
                                     indication = null
                                 ) {
                                     showDiscardSheet = false
-                                    onDismiss()
+                                    dismissOnce()
                                 }
                                 .padding(vertical = 10.dp),
                             contentAlignment = Alignment.Center

@@ -5,6 +5,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -82,6 +83,15 @@ fun ContinueNavHost(
         Screen.Calendar.route,
         Screen.Settings.route
     )
+
+    LaunchedEffect(navBackStackEntry) {
+        if (navBackStackEntry == null) {
+            navController.navigate(startDestination) {
+                popUpTo(0) { inclusive = true }
+                launchSingleTop = true
+            }
+        }
+    }
 
     UtilitarianScaffold(
         currentRoute = currentRoute,
@@ -256,7 +266,7 @@ fun ContinueNavHost(
                 CreateEntryScreen(
                     viewModel = createViewModel,
                     allowNotes = initialDate <= 0L,
-                    onDismiss = { navController.popBackStack() }
+                    onDismiss = { navController.safePopBackStack("create") }
                 )
             }
 
@@ -295,18 +305,18 @@ fun ContinueNavHost(
                     initialLabels = initialLabels,
                     onSaveNote = { title, content, colorHex, labels ->
                         noteViewModel.saveNote(title, content, colorHex, labels)
-                        navController.popBackStack()
+                        navController.safePopBackStack("note_editor")
                     },
                     onDiscard = {
-                        navController.popBackStack()
+                        navController.safePopBackStack("note_editor")
                     },
                     onDeleteNote = {
                         noteViewModel.deleteCurrentNote()
-                        navController.popBackStack()
+                        navController.safePopBackStack("note_editor")
                     },
                     onMakeCopy = { title, content, colorHex, labels ->
                         noteViewModel.makeCopyOfNote(title, content, colorHex, labels)
-                        navController.popBackStack()
+                        navController.safePopBackStack("note_editor")
                     },
                     allLabels = state.savedNoteLabels,
                     onCreateLabel = { noteViewModel.addNoteLabel(it) },
@@ -329,7 +339,7 @@ fun ContinueNavHost(
                 )
                 ActivityWorkspaceScreen(
                     viewModel = workspaceViewModel,
-                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateBack = { navController.safePopBackStack("workspace") },
                     onEditActivity = { id ->
                         navController.navigate(Screen.Create.createRoute(editActivityId = id))
                     },
@@ -337,6 +347,14 @@ fun ContinueNavHost(
                 )
             }
         }
+    }
+}
+
+private fun NavHostController.safePopBackStack(expectedRoutePrefix: String? = null) {
+    if (previousBackStackEntry == null) return
+    val currentRoute = currentBackStackEntry?.destination?.route
+    if (expectedRoutePrefix == null || currentRoute?.startsWith(expectedRoutePrefix) == true) {
+        popBackStack()
     }
 }
 
