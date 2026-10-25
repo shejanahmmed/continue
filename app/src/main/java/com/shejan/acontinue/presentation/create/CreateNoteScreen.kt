@@ -27,6 +27,7 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
@@ -40,6 +41,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.navigationBarsPadding
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.safeDrawing
@@ -109,6 +111,8 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Palette
 import androidx.compose.material.icons.outlined.PhotoCamera
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.foundation.gestures.awaitEachGesture
+import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.key.Key
@@ -158,6 +162,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
@@ -2919,6 +2924,9 @@ private fun NoteAudioCard(
     var currentPositionMs by remember { mutableIntStateOf(0) }
     var totalDurationMs by remember { mutableIntStateOf(0) }
     var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
+    var isScrubbing by remember { mutableStateOf(false) }
+    var scrubProgress by remember { mutableFloatStateOf(0f) }
+    var lastSeekTimestamp by remember { mutableLongStateOf(0L) }
 
     LaunchedEffect(audioUri) {
         val duration = withContext(Dispatchers.IO) {
@@ -2935,9 +2943,11 @@ private fun NoteAudioCard(
 
     LaunchedEffect(isPlaying) {
         while (isPlaying) {
-            mediaPlayer?.let { player ->
-                if (runCatching { player.isPlaying }.getOrDefault(false)) {
-                    currentPositionMs = player.currentPosition
+            if (!isScrubbing) {
+                mediaPlayer?.let { player ->
+                    if (runCatching { player.isPlaying }.getOrDefault(false)) {
+                        currentPositionMs = player.currentPosition
+                    }
                 }
             }
             kotlinx.coroutines.delay(200)
@@ -2952,6 +2962,36 @@ private fun NoteAudioCard(
             } catch (_: Exception) {}
             mediaPlayer = null
             isPlaying = false
+        }
+    }
+
+    val seekToFraction: (Float) -> Unit = { fraction ->
+        val safeFraction = fraction.coerceIn(0f, 1f)
+        val targetMs = NoteAudioPlaybackHelper.calculateSeekPosition(safeFraction, totalDurationMs)
+        currentPositionMs = targetMs
+        try {
+            if (mediaPlayer == null) {
+                val player = MediaPlayer.create(context, audioUri)
+                if (player != null) {
+                    player.setOnCompletionListener {
+                        isPlaying = false
+                        currentPositionMs = 0
+                    }
+                    if (totalDurationMs == 0) {
+                        totalDurationMs = player.duration
+                    }
+                    mediaPlayer = player
+                }
+            }
+            mediaPlayer?.seekTo(targetMs)
+        } catch (_: Exception) {}
+    }
+
+    val throttleSeek: (Float) -> Unit = { fraction ->
+        val now = System.currentTimeMillis()
+        if (now - lastSeekTimestamp > 70L) {
+            lastSeekTimestamp = now
+            seekToFraction(fraction)
         }
     }
 
@@ -2985,16 +3025,13 @@ private fun NoteAudioCard(
         }
     }
 
-    fun formatMs(ms: Int): String {
-        val totalSec = (ms / 1000).coerceAtLeast(0)
-        val m = totalSec / 60
-        val s = totalSec % 60
-        return "%02d:%02d".format(m, s)
+    val progress = NoteAudioPlaybackHelper.calculateProgress(currentPositionMs, totalDurationMs)
+    val effectiveProgress = if (isScrubbing) scrubProgress else progress
+    val displayMs = if (isScrubbing) {
+        NoteAudioPlaybackHelper.calculateSeekPosition(scrubProgress, totalDurationMs)
+    } else {
+        currentPositionMs
     }
-
-    val progress = if (totalDurationMs > 0) {
-        (currentPositionMs.toFloat() / totalDurationMs.toFloat()).coerceIn(0f, 1f)
-    } else 0f
 
     Box(
         modifier = modifier
@@ -3048,32 +3085,96 @@ private fun NoteAudioCard(
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = if (isPlaying || currentPositionMs > 0) {
-                            "${formatMs(currentPositionMs)} / ${formatMs(totalDurationMs)}"
+                        text = if (isPlaying || displayMs > 0 || isScrubbing) {
+                            "${NoteAudioPlaybackHelper.formatDuration(displayMs)} / ${NoteAudioPlaybackHelper.formatDuration(totalDurationMs)}"
                         } else {
-                            formatMs(totalDurationMs)
+                            NoteAudioPlaybackHelper.formatDuration(totalDurationMs)
                         },
-                        color = colors.textSecondary.copy(alpha = 0.8f),
+                        color = if (isScrubbing) Color(0xFFD71921) else colors.textSecondary.copy(alpha = 0.8f),
                         fontSize = 12.sp,
                         fontFamily = FontFamily.Monospace
                     )
                 }
 
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(2.dp))
 
-                Box(
+                BoxWithConstraints(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(4.dp)
-                        .clip(RoundedCornerShape(2.dp))
-                        .background(Color(0xFF2C3136))
+                        .height(28.dp)
+                        .pointerInput(totalDurationMs) {
+                            if (totalDurationMs <= 0) return@pointerInput
+                            awaitEachGesture {
+                                val down = awaitFirstDown(requireUnconsumed = false)
+                                down.consume()
+                                isScrubbing = true
+                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                val barWidth = size.width.toFloat()
+                                val currentFraction = if (barWidth > 0f) (down.position.x / barWidth).coerceIn(0f, 1f) else 0f
+                                scrubProgress = currentFraction
+                                seekToFraction(currentFraction)
+
+                                while (true) {
+                                    val event = awaitPointerEvent()
+                                    val change = event.changes.firstOrNull() ?: break
+                                    if (!change.pressed) {
+                                        change.consume()
+                                        break
+                                    }
+                                    change.consume()
+                                    val moveFraction = if (barWidth > 0f) (change.position.x / barWidth).coerceIn(0f, 1f) else 0f
+                                    scrubProgress = moveFraction
+                                    throttleSeek(moveFraction)
+                                }
+                                seekToFraction(scrubProgress)
+                                isScrubbing = false
+                            }
+                        },
+                    contentAlignment = Alignment.CenterStart
                 ) {
+                    val widthPx = constraints.maxWidth.toFloat()
+                    val thumbSize = if (isScrubbing) 12.dp else 8.dp
+
+                    // Background Track
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth(fraction = progress)
+                            .fillMaxWidth()
                             .height(4.dp)
+                            .align(Alignment.Center)
                             .clip(RoundedCornerShape(2.dp))
-                            .background(if (isPlaying) Color(0xFFD71921) else colors.textPrimary)
+                            .background(Color(0xFF2C3136))
+                    )
+
+                    // Active Progress Fill
+                    Box(
+                        modifier = Modifier
+                            .fillMaxWidth(fraction = effectiveProgress)
+                            .height(4.dp)
+                            .align(Alignment.CenterStart)
+                            .clip(RoundedCornerShape(2.dp))
+                            .background(if (isPlaying || isScrubbing) Color(0xFFD71921) else colors.textPrimary)
+                    )
+
+                    // Scrubber Thumb Indicator
+                    val density = LocalDensity.current
+                    val thumbOffsetDp = with(density) {
+                        ((effectiveProgress * widthPx) - (thumbSize.toPx() / 2f))
+                            .coerceIn(0f, (widthPx - thumbSize.toPx()).coerceAtLeast(0f))
+                            .toDp()
+                    }
+
+                    Box(
+                        modifier = Modifier
+                            .offset(x = thumbOffsetDp)
+                            .align(Alignment.CenterStart)
+                            .size(thumbSize)
+                            .clip(CircleShape)
+                            .background(if (isPlaying || isScrubbing) Color(0xFFD71921) else colors.textPrimary)
+                            .border(
+                                width = 1.dp,
+                                color = if (isScrubbing) Color.White else Color(0xFF1E2225),
+                                shape = CircleShape
+                            )
                     )
                 }
             }
