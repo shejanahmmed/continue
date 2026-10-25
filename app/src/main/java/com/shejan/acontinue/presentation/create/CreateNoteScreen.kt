@@ -264,7 +264,7 @@ fun CreateNoteScreen(
         }.toList()
     }
     val initialCleanContent = remember(initialContent) {
-        initialContent.replace(AUDIO_TAG_REGEX, "").trimEnd()
+        initialContent.replace(AUDIO_TAG_REGEX, "").trim()
     }
 
     val initialParsedChecklist = remember(initialCleanContent) {
@@ -720,6 +720,9 @@ fun CreateNoteScreen(
 
     val buildFinalContent: () -> String = {
         val stringBuilder = StringBuilder()
+        recordedAudioUris.forEach { audioUri ->
+            stringBuilder.append("![audio]($audioUri)\n\n")
+        }
         if (isChecklistMode) {
             val validItems = checklistItems.filter { it.text.isNotBlank() }
             validItems.forEach { item ->
@@ -728,9 +731,6 @@ fun CreateNoteScreen(
             }
         } else {
             stringBuilder.append(NoteTextFormatter.serializeToMarkdown(noteTextState.text, formatState))
-        }
-        recordedAudioUris.forEach { audioUri ->
-            stringBuilder.append("\n\n![audio]($audioUri)")
         }
         stringBuilder.toString().trim()
     }
@@ -923,6 +923,27 @@ fun CreateNoteScreen(
                 }
             }
 
+            // Recorded Voice Notes (Top of Note Section - Recording Session Style)
+            if (recordedAudioUris.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(14.dp))
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    recordedAudioUris.forEachIndexed { index, audioUri ->
+                        NoteAudioCard(
+                            audioUri = audioUri,
+                            index = index + 1,
+                            onDelete = {
+                                val updated = recordedAudioUris - audioUri
+                                recordedAudioUris = updated
+                                undoManager.recordAction(takeSnapshot(newRecordedAudioUris = updated))
+                            }
+                        )
+                    }
+                }
+            }
+
             Spacer(modifier = Modifier.height(16.dp))
 
             // Note Content or Checklist Mode
@@ -1000,7 +1021,7 @@ fun CreateNoteScreen(
                             cursorBrush = SolidColor(colors.textPrimaryMuted),
                             decorationBox = { innerTextField ->
                                 Box {
-                                    if (noteTextState.text.isEmpty()) {
+                                    if (noteTextState.text.isEmpty() && recordedAudioUris.isEmpty()) {
                                         Text(
                                             text = "Note",
                                             color = colors.textDisabled,
@@ -1497,26 +1518,6 @@ fun CreateNoteScreen(
                 }
             }
 
-            // Recorded Voice Notes Card-Style View
-            if (recordedAudioUris.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(18.dp))
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(10.dp),
-                    modifier = Modifier.fillMaxWidth()
-                ) {
-                    recordedAudioUris.forEachIndexed { index, audioUri ->
-                        NoteAudioCard(
-                            audioUri = audioUri,
-                            index = index + 1,
-                            onDelete = {
-                                val updated = recordedAudioUris - audioUri
-                                recordedAudioUris = updated
-                                undoManager.recordAction(takeSnapshot(newRecordedAudioUris = updated))
-                            }
-                        )
-                    }
-                }
-            }
 
             // Bottom overscroll buffer & tap-to-focus zone
             Spacer(

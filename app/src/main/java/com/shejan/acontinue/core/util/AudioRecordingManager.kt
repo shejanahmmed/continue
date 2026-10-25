@@ -168,9 +168,9 @@ class AudioRecordingManager(
     private suspend fun saveAudioToNoteSuspending(noteId: Long, audioUri: Uri) {
         try {
             val activity = activityRepository?.getActivityById(noteId)?.firstOrNull() ?: return
-            val audioTag = "\n\n![audio]($audioUri)"
+            val audioTag = "![audio]($audioUri)\n\n"
             if (!activity.description.contains(audioUri.toString())) {
-                val updatedDescription = (activity.description + audioTag).trim()
+                val updatedDescription = (audioTag + activity.description).trim()
                 activityRepository.updateActivity(activity.copy(description = updatedDescription))
             }
             val notes = noteRepository?.getNotesForActivity(noteId)?.firstOrNull() ?: emptyList()
@@ -180,7 +180,7 @@ class AudioRecordingManager(
                 if (!targetNote.content.contains(audioUri.toString())) {
                     noteRepository?.updateNote(
                         targetNote.copy(
-                            content = (targetNote.content + audioTag).trim(),
+                            content = (audioTag + targetNote.content).trim(),
                             updatedAtMillis = now
                         )
                     )
