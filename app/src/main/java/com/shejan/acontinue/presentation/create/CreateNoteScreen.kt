@@ -79,9 +79,11 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
 import androidx.core.content.FileProvider
 import androidx.core.content.ContextCompat
+import com.shejan.acontinue.ContinueApplication
 import com.shejan.acontinue.core.designsystem.components.DynamicIslandRecordingBar
 import com.shejan.acontinue.core.util.AttachmentHelper
 import com.shejan.acontinue.core.util.AudioRecordingManager
+import com.shejan.acontinue.core.util.AudioPlaybackState
 import com.shejan.acontinue.core.util.RecordingEvent
 import com.shejan.acontinue.core.util.RecordingState
 import com.shejan.acontinue.core.util.ImageUtils
@@ -2760,13 +2762,19 @@ private fun NoteAudioCard(
     val haptic = LocalHapticFeedback.current
     val colors = LocalUtilitarianColors.current
 
-    var isPlaying by remember { mutableStateOf(false) }
-    var currentPositionMs by remember { mutableIntStateOf(0) }
+    val playbackManager = remember(context) {
+        (context.applicationContext as? ContinueApplication)?.container?.audioPlaybackManager
+    }
+    val activePlaybackState by playbackManager?.state?.collectAsState() ?: remember { mutableStateOf(AudioPlaybackState()) }
+
+    val isCurrentAudio = activePlaybackState.currentUri == audioUri
+    val isPlaying = isCurrentAudio && activePlaybackState.isPlaying
     var totalDurationMs by remember { mutableIntStateOf(0) }
-    var mediaPlayer by remember { mutableStateOf<MediaPlayer?>(null) }
     var isScrubbing by remember { mutableStateOf(false) }
     var scrubProgress by remember { mutableFloatStateOf(0f) }
     var lastSeekTimestamp by remember { mutableLongStateOf(0L) }
+
+    val currentPositionMs = if (isCurrentAudio) activePlaybackState.currentPositionMs else 0
 
     LaunchedEffect(audioUri) {
         val duration = withContext(Dispatchers.IO) {
@@ -2781,50 +2789,20 @@ private fun NoteAudioCard(
         if (duration > 0) totalDurationMs = duration
     }
 
-    LaunchedEffect(isPlaying) {
-        while (isPlaying) {
-            if (!isScrubbing) {
-                mediaPlayer?.let { player ->
-                    if (runCatching { player.isPlaying }.getOrDefault(false)) {
-                        currentPositionMs = player.currentPosition
-                    }
-                }
-            }
-            kotlinx.coroutines.delay(200)
-        }
-    }
-
-    DisposableEffect(audioUri) {
-        onDispose {
-            try {
-                mediaPlayer?.stop()
-                mediaPlayer?.release()
-            } catch (_: Exception) {}
-            mediaPlayer = null
-            isPlaying = false
+    LaunchedEffect(isCurrentAudio, activePlaybackState.totalDurationMs) {
+        if (isCurrentAudio && activePlaybackState.totalDurationMs > 0) {
+            totalDurationMs = activePlaybackState.totalDurationMs
         }
     }
 
     val seekToFraction: (Float) -> Unit = { fraction ->
         val safeFraction = fraction.coerceIn(0f, 1f)
         val targetMs = NoteAudioPlaybackHelper.calculateSeekPosition(safeFraction, totalDurationMs)
-        currentPositionMs = targetMs
-        try {
-            if (mediaPlayer == null) {
-                val player = MediaPlayer.create(context, audioUri)
-                if (player != null) {
-                    player.setOnCompletionListener {
-                        isPlaying = false
-                        currentPositionMs = 0
-                    }
-                    if (totalDurationMs == 0) {
-                        totalDurationMs = player.duration
-                    }
-                    mediaPlayer = player
-                }
-            }
-            mediaPlayer?.seekTo(targetMs)
-        } catch (_: Exception) {}
+        if (isCurrentAudio) {
+            playbackManager?.seekTo(targetMs)
+        } else {
+            playbackManager?.play(audioUri, "Recording $index", targetMs)
+        }
     }
 
     val throttleSeek: (Float) -> Unit = { fraction ->
@@ -2837,32 +2815,7 @@ private fun NoteAudioCard(
 
     val togglePlayback: () -> Unit = {
         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-        if (isPlaying) {
-            try {
-                mediaPlayer?.pause()
-                isPlaying = false
-            } catch (_: Exception) {}
-        } else {
-            try {
-                if (mediaPlayer == null) {
-                    val player = MediaPlayer.create(context, audioUri)
-                    if (player != null) {
-                        player.setOnCompletionListener {
-                            isPlaying = false
-                            currentPositionMs = 0
-                        }
-                        if (totalDurationMs == 0) {
-                            totalDurationMs = player.duration
-                        }
-                        mediaPlayer = player
-                    }
-                }
-                mediaPlayer?.start()
-                isPlaying = true
-            } catch (_: Exception) {
-                isPlaying = false
-            }
-        }
+        playbackManager?.togglePlayPause(audioUri, "Recording $index")
     }
 
     val progress = NoteAudioPlaybackHelper.calculateProgress(currentPositionMs, totalDurationMs)
@@ -3028,12 +2981,9 @@ private fun NoteAudioCard(
                     .clip(CircleShape)
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        try {
-                            mediaPlayer?.stop()
-                            mediaPlayer?.release()
-                        } catch (_: Exception) {}
-                        mediaPlayer = null
-                        isPlaying = false
+                        if (isCurrentAudio) {
+                            playbackManager?.stop()
+                        }
                         onDelete()
                     },
                 contentAlignment = Alignment.Center

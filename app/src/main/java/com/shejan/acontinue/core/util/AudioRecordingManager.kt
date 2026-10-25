@@ -49,6 +49,7 @@ class AudioRecordingManager(
     private val context: Context,
     private val activityRepository: ActivityRepository? = null,
     private val noteRepository: NoteRepository? = null,
+    private val audioPlaybackManager: AudioPlaybackManager? = null,
     private val scope: CoroutineScope = CoroutineScope(Dispatchers.Main + Job())
 ) {
     private val audioRecordHelper = AudioRecordHelper(context)
@@ -62,6 +63,9 @@ class AudioRecordingManager(
 
     fun startRecording(noteActivityId: Long?): Boolean {
         if (_state.value.isRecording) return false
+
+        // Stop any active audio playback before acquiring microphone
+        audioPlaybackManager?.stop()
 
         val attachmentsDir = File(context.filesDir, "attachments").apply { if (!exists()) mkdirs() }
         val audioFile = File(attachmentsDir, "note_audio_${System.currentTimeMillis()}.m4a")
