@@ -356,6 +356,7 @@ fun CreateEntryScreen(
             initialContent = state.notes,
             initialColorHex = if (state.reminderCategoryColorHex != 0L && state.reminderCategoryColorHex != 0xFF121212L) state.reminderCategoryColorHex else 0xFF000000L,
             initialLabels = initialLabels,
+            editingActivityId = state.editingActivityId,
             onSaveNote = { title, content, colorHex, labels ->
                 viewModel.saveNote(title, content, colorHex, labels)
                 dismissOnce()

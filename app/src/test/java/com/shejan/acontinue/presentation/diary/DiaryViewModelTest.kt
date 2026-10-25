@@ -6,6 +6,7 @@ import com.shejan.acontinue.FakeNoteRepository
 import com.shejan.acontinue.domain.model.ActivityCategory
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityNote
+import com.shejan.acontinue.domain.model.EntryType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -14,6 +15,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -39,72 +41,200 @@ class DiaryViewModelTest {
     }
 
     @Test
-    fun `test diary search filters activities and notes`() = runTest(testDispatcher) {
-        activityRepository.insertActivity(
-            ActivityItem(
-                id = 1L,
-                title = "Software Engineering Project",
-                category = ActivityCategory.PROJECT,
-                startTimeMillis = 1000L,
-                endTimeMillis = 2000L
-            )
-        )
-        activityRepository.insertActivity(
-            ActivityItem(
-                id = 2L,
-                title = "Gym Session",
-                category = ActivityCategory.PERSONAL,
-                startTimeMillis = 3000L,
-                endTimeMillis = 4000L
-            )
-        )
-        noteRepository.insertNote(
-            ActivityNote(
-                id = 10L,
-                activityId = 1L,
-                title = "Architecture Decision",
-                content = "Decided to use Room with clean architecture"
-            )
-        )
-
-        testScheduler.advanceUntilIdle()
-
-        viewModel.onSearchQueryChange("Software")
-        testScheduler.advanceUntilIdle()
-
-        viewModel.uiState.test {
-            val state = awaitItem()
-            assertEquals(1, state.activities.size)
-            assertEquals("Software Engineering Project", state.activities.first().title)
-        }
-    }
-
-    @Test
-    fun `test diary excludes reminders and shows only events`() = runTest(testDispatcher) {
+    fun `test diary excludes activities and reminders and shows only notes`() = runTest(testDispatcher) {
+        // Insert standard activity/event
         activityRepository.insertActivity(
             ActivityItem(
                 id = 1L,
                 title = "Software Engineering Event",
-                entryType = com.shejan.acontinue.domain.model.EntryType.ACTIVITY,
+                entryType = EntryType.ACTIVITY,
                 startTimeMillis = 1000L,
                 endTimeMillis = 2000L
             )
         )
+        // Insert reminder
         activityRepository.insertActivity(
             ActivityItem(
                 id = 2L,
                 title = "Pay Utility Bill Reminder",
-                entryType = com.shejan.acontinue.domain.model.EntryType.REMINDER,
+                entryType = EntryType.REMINDER,
                 startTimeMillis = 3000L,
                 endTimeMillis = 3000L
             )
         )
+        // Insert note activity and note item
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 3L,
+                title = "Architecture Decision Note",
+                description = "Decided to use Clean Architecture",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                reminderCategory = "Architecture",
+                createdAtMillis = 4000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 100L,
+                activityId = 3L,
+                title = "Architecture Decision Note",
+                content = "Decided to use Clean Architecture",
+                updatedAtMillis = 4000L
+            )
+        )
+
         testScheduler.advanceUntilIdle()
 
         viewModel.uiState.test {
             val state = awaitItem()
-            assertEquals(1, state.activities.size)
-            assertEquals("Software Engineering Event", state.activities.first().title)
+            // Events and reminders must not be shown on the Diary page
+            assertEquals(1, state.notes.size)
+            assertEquals("Architecture Decision Note", state.notes.first().title)
+            assertEquals("Decided to use Clean Architecture", state.notes.first().previewText)
+            assertEquals(3L, state.notes.first().activityId)
+        }
+    }
+
+    @Test
+    fun `test diary search filters notes by title, content, and labels`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 10L,
+                title = "Project Roadmap",
+                description = "Sprint planning details for upcoming release",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                reminderCategory = "Sprint,Planning",
+                createdAtMillis = 1000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 101L,
+                activityId = 10L,
+                title = "Project Roadmap",
+                content = "Sprint planning details for upcoming release",
+                updatedAtMillis = 1000L
+            )
+        )
+
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 20L,
+                title = "Groceries",
+                description = "[ ] Oat milk\n[ ] Coffee beans",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                reminderCategory = "Personal",
+                createdAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 102L,
+                activityId = 20L,
+                title = "Groceries",
+                content = "[ ] Oat milk\n[ ] Coffee beans",
+                updatedAtMillis = 2000L
+            )
+        )
+
+        testScheduler.advanceUntilIdle()
+
+        // Filter by title
+        viewModel.onSearchQueryChange("Roadmap")
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(1, state.notes.size)
+            assertEquals("Project Roadmap", state.notes.first().title)
+        }
+
+        // Filter by content
+        viewModel.onSearchQueryChange("Coffee")
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(1, state.notes.size)
+            assertEquals("Groceries", state.notes.first().title)
+            assertTrue(state.notes.first().isChecklist)
+        }
+
+        // Filter by label
+        viewModel.onSearchQueryChange("Planning")
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(1, state.notes.size)
+            assertEquals("Project Roadmap", state.notes.first().title)
+        }
+    }
+
+    @Test
+    fun `test diary note metadata parsing and descending chronological sorting`() = runTest(testDispatcher) {
+        // Older note
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 1L,
+                title = "Older Note",
+                description = "Simple plain text note",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 1000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 11L,
+                activityId = 1L,
+                title = "Older Note",
+                content = "Simple plain text note",
+                updatedAtMillis = 1000L
+            )
+        )
+
+        // Newer note with voice recording and photo
+        val mediaContent = "![audio](content://media/audio/1)\n\n![photo](content://media/photo/1)\n\nMeeting audio notes"
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 2L,
+                title = "Newer Note with Audio",
+                description = mediaContent,
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 5000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 12L,
+                activityId = 2L,
+                title = "Newer Note with Audio",
+                content = mediaContent,
+                updatedAtMillis = 5000L
+            )
+        )
+
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(2, state.notes.size)
+            // Most recent first
+            assertEquals("Newer Note with Audio", state.notes[0].title)
+            assertEquals(1, state.notes[0].audioCount)
+            assertEquals(1, state.notes[0].photoCount)
+            assertEquals("Meeting audio notes", state.notes[0].previewText)
+            assertEquals("Older Note", state.notes[1].title)
         }
     }
 }

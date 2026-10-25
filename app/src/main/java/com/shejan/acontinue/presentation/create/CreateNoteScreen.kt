@@ -119,6 +119,7 @@ import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.foundation.gestures.awaitEachGesture
 import androidx.compose.foundation.gestures.awaitFirstDown
 import androidx.compose.foundation.gestures.detectDragGesturesAfterLongPress
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
@@ -244,6 +245,7 @@ fun CreateNoteScreen(
     editingActivityId: Long? = null,
     onEnsureDraftNoteId: (suspend () -> Long)? = null,
     audioRecordingManager: AudioRecordingManager? = null,
+    startInViewMode: Boolean = (editingActivityId != null && editingActivityId > 0L),
     modifier: Modifier = Modifier
 ) {
     val colors = LocalUtilitarianColors.current
@@ -259,6 +261,8 @@ fun CreateNoteScreen(
     val contentFocusRequester = remember { FocusRequester() }
     var isTitleFocused by remember { mutableStateOf(false) }
     var isContentFocused by remember { mutableStateOf(false) }
+
+    var isEditMode by remember { mutableStateOf(!startInViewMode) }
 
     val openedAtMillis = remember { initialUpdatedAtMillis ?: System.currentTimeMillis() }
     var lastEditedMillis by remember { mutableLongStateOf(openedAtMillis) }
@@ -336,6 +340,29 @@ fun CreateNoteScreen(
     var capturedPhotoFile by remember { mutableStateOf<File?>(null) }
     var selectedPreviewPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var autoFocusAfterCaptureTrigger by remember { mutableIntStateOf(0) }
+
+    val enterEditMode: () -> Unit = {
+        if (!isEditMode) {
+            isEditMode = true
+            val now = System.currentTimeMillis()
+            lastEditedMillis = now
+            hasUserModified = true
+            coroutineScope.launch {
+                kotlinx.coroutines.delay(50)
+                if (isChecklistMode && checklistItems.isNotEmpty()) {
+                    targetFocusChecklistId = checklistItems.last().id
+                } else {
+                    contentFocusRequester.requestFocus()
+                    isContentFocused = true
+                    val endPos = noteTextState.text.length
+                    noteTextState = noteTextState.copy(selection = TextRange(endPos))
+                    targetCursorPosition = endPos
+                }
+                keyboardController?.show()
+            }
+            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
 
     val activeRecordingManager = audioRecordingManager ?: remember { AudioRecordingManager(context) }
     var currentEditingId by remember { mutableStateOf(editingActivityId) }
@@ -747,7 +774,7 @@ fun CreateNoteScreen(
         if (!isExiting) {
             isExiting = true
             val finalContent = buildFinalContent()
-            if (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || recordedAudioUris.isNotEmpty() || selectedLabels.isNotEmpty()) {
+            if (hasUserModified || (editingActivityId == null && (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || recordedAudioUris.isNotEmpty() || selectedLabels.isNotEmpty()))) {
                 onSaveNote(title, finalContent, selectedColorHex, selectedLabels.toList())
             } else {
                 onDiscard()
@@ -782,6 +809,17 @@ fun CreateNoteScreen(
         modifier = modifier
             .fillMaxSize()
             .background(effectiveBackgroundColor)
+            .then(
+                if (!isEditMode) {
+                    Modifier.pointerInput(isEditMode) {
+                        detectTapGestures(
+                            onDoubleTap = {
+                                enterEditMode()
+                            }
+                        )
+                    }
+                } else Modifier
+            )
     ) {
         Column(
             modifier = Modifier
@@ -820,27 +858,43 @@ fun CreateNoteScreen(
                 .fillMaxWidth()
                 .onGloballyPositioned { scrollContainerCoordinates = it }
                 .verticalScroll(scrollState)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null
-                ) {
-                    if (!isChecklistMode) {
-                        contentFocusRequester.requestFocus()
-                        isContentFocused = true
-                        noteTextState = noteTextState.copy(selection = TextRange(noteTextState.text.length))
-                        targetCursorPosition = noteTextState.text.length
-                        keyboardController?.show()
+                .then(
+                    if (!isEditMode) {
+                        Modifier.pointerInput(isEditMode) {
+                            detectTapGestures(
+                                onDoubleTap = {
+                                    enterEditMode()
+                                }
+                            )
+                        }
+                    } else {
+                        Modifier.clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) {
+                            if (!isChecklistMode) {
+                                contentFocusRequester.requestFocus()
+                                isContentFocused = true
+                                noteTextState = noteTextState.copy(selection = TextRange(noteTextState.text.length))
+                                targetCursorPosition = noteTextState.text.length
+                                keyboardController?.show()
+                            }
+                        }
                     }
-                }
+                )
                 .padding(start = 20.dp, end = 20.dp, top = 16.dp, bottom = 12.dp)
         ) {
             // Title Input
             BasicTextField(
                 value = title,
                 onValueChange = { newTitle ->
-                    title = newTitle
-                    undoManager.recordTyping(takeSnapshot(newTitle = newTitle))
+                    if (isEditMode) {
+                        title = newTitle
+                        undoManager.recordTyping(takeSnapshot(newTitle = newTitle))
+                    }
                 },
+                readOnly = !isEditMode,
+                enabled = isEditMode,
                 modifier = Modifier
                     .fillMaxWidth()
                     .focusRequester(titleFocusRequester)
@@ -971,42 +1025,50 @@ fun CreateNoteScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .defaultMinSize(minHeight = 300.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) {
-                                contentFocusRequester.requestFocus()
-                                noteTextState = noteTextState.copy(selection = TextRange(noteTextState.text.length))
-                                targetCursorPosition = noteTextState.text.length
-                                keyboardController?.show()
-                            }
+                            .then(
+                                if (isEditMode) {
+                                    Modifier.clickable(
+                                        interactionSource = remember { MutableInteractionSource() },
+                                        indication = null
+                                    ) {
+                                        contentFocusRequester.requestFocus()
+                                        noteTextState = noteTextState.copy(selection = TextRange(noteTextState.text.length))
+                                        targetCursorPosition = noteTextState.text.length
+                                        keyboardController?.show()
+                                    }
+                                } else Modifier
+                            )
                     ) {
                         BasicTextField(
                             value = noteTextState,
+                            readOnly = !isEditMode,
+                            enabled = isEditMode,
                             onValueChange = { incomingTfv ->
-                                val newTfv = NoteAutoNumbering.handleAutoNumbering(noteTextState, incomingTfv)
-                                if (newTfv.text != noteTextState.text) {
-                                    val newFormatState = NoteTextFormatter.onTextChange(
-                                        oldText = noteTextState.text,
-                                        newText = newTfv.text,
-                                        selection = newTfv.selection,
-                                        state = formatState
-                                    )
-                                    formatState = newFormatState
-                                    noteTextState = newTfv
-                                    targetCursorPosition = newTfv.selection.start
-                                    undoManager.recordTyping(takeSnapshot(newNoteTextState = newTfv, newFormatState = newFormatState))
-                                    singleFieldCoords?.let { coords ->
-                                        singleLayoutResult?.let { layout ->
-                                            smoothScrollCursorIntoView(coords, layout, newTfv.selection.end)
+                                if (isEditMode) {
+                                    val newTfv = NoteAutoNumbering.handleAutoNumbering(noteTextState, incomingTfv)
+                                    if (newTfv.text != noteTextState.text) {
+                                        val newFormatState = NoteTextFormatter.onTextChange(
+                                            oldText = noteTextState.text,
+                                            newText = newTfv.text,
+                                            selection = newTfv.selection,
+                                            state = formatState
+                                        )
+                                        formatState = newFormatState
+                                        noteTextState = newTfv
+                                        targetCursorPosition = newTfv.selection.start
+                                        undoManager.recordTyping(takeSnapshot(newNoteTextState = newTfv, newFormatState = newFormatState))
+                                        singleFieldCoords?.let { coords ->
+                                            singleLayoutResult?.let { layout ->
+                                                smoothScrollCursorIntoView(coords, layout, newTfv.selection.end)
+                                            }
                                         }
+                                    } else if (newTfv.selection != noteTextState.selection) {
+                                        if (formatState.activeTypingStyles != null) {
+                                            formatState = formatState.copy(activeTypingStyles = null)
+                                        }
+                                        noteTextState = newTfv
+                                        targetCursorPosition = newTfv.selection.start
                                     }
-                                } else if (newTfv.selection != noteTextState.selection) {
-                                    if (formatState.activeTypingStyles != null) {
-                                        formatState = formatState.copy(activeTypingStyles = null)
-                                    }
-                                    noteTextState = newTfv
-                                    targetCursorPosition = newTfv.selection.start
                                 }
                             },
                             onTextLayout = { layoutResult ->
@@ -1109,6 +1171,8 @@ fun CreateNoteScreen(
                                         startIndex = element.startIndex,
                                         isLastElement = isLastSegment,
                                         focusRequester = focusRequester,
+                                        readOnly = !isEditMode,
+                                        enabled = isEditMode,
                                         visualTransformation = remember(formatState, colors.textPrimaryMuted, searchQuery, activeMatchRange, element.startIndex, noteTextState.text) {
                                             NoteVisualTransformation(
                                                 formatState = formatState,
@@ -1120,21 +1184,23 @@ fun CreateNoteScreen(
                                             )
                                         },
                                         onTextChange = { newText, localCursor ->
-                                            val start = element.startIndex
-                                            val oldLen = element.text.length
-                                            val newFullText = noteTextState.text.replaceRange(start, start + oldLen, newText)
-                                            val updatedGlobalCursor = (start + localCursor).coerceIn(0, newFullText.length)
-                                            val updated = TextFieldValue(text = newFullText, selection = TextRange(updatedGlobalCursor))
-                                            val newFormatState = NoteTextFormatter.onTextChange(
-                                                oldText = noteTextState.text,
-                                                newText = newFullText,
-                                                selection = updated.selection,
-                                                state = formatState
-                                            )
-                                            formatState = newFormatState
-                                            noteTextState = updated
-                                            targetCursorPosition = updatedGlobalCursor
-                                            undoManager.recordTyping(takeSnapshot(newNoteTextState = updated, newFormatState = newFormatState))
+                                            if (isEditMode) {
+                                                val start = element.startIndex
+                                                val oldLen = element.text.length
+                                                val newFullText = noteTextState.text.replaceRange(start, start + oldLen, newText)
+                                                val updatedGlobalCursor = (start + localCursor).coerceIn(0, newFullText.length)
+                                                val updated = TextFieldValue(text = newFullText, selection = TextRange(updatedGlobalCursor))
+                                                val newFormatState = NoteTextFormatter.onTextChange(
+                                                    oldText = noteTextState.text,
+                                                    newText = newFullText,
+                                                    selection = updated.selection,
+                                                    state = formatState
+                                                )
+                                                formatState = newFormatState
+                                                noteTextState = updated
+                                                targetCursorPosition = updatedGlobalCursor
+                                                undoManager.recordTyping(takeSnapshot(newNoteTextState = updated, newFormatState = newFormatState))
+                                            }
                                         },
                                         onSelectionChange = { localSel ->
                                             val globalMin = (element.startIndex + localSel.min).coerceIn(0, noteTextState.text.length)
@@ -1345,18 +1411,22 @@ fun CreateNoteScreen(
                                 // Item Text Input
                                 BasicTextField(
                                     value = item.text,
+                                    readOnly = !isEditMode,
+                                    enabled = isEditMode,
                                     onValueChange = { newText ->
-                                        val currIdx = checklistItems.indexOfFirst { it.id == item.id }
-                                        if (currIdx != -1) {
-                                            val updated = checklistItems.toMutableList().also {
-                                                it[currIdx] = item.copy(text = newText)
+                                        if (isEditMode) {
+                                            val currIdx = checklistItems.indexOfFirst { it.id == item.id }
+                                            if (currIdx != -1) {
+                                                val updated = checklistItems.toMutableList().also {
+                                                    it[currIdx] = item.copy(text = newText)
+                                                }
+                                                checklistItems = updated
+                                                undoManager.recordTyping(takeSnapshot(newChecklistItems = updated))
                                             }
-                                            checklistItems = updated
-                                            undoManager.recordTyping(takeSnapshot(newChecklistItems = updated))
-                                        }
-                                        itemCoords?.let { coords ->
-                                            itemLayoutResult?.let { layout ->
-                                                smoothScrollCursorIntoView(coords, layout, newText.length)
+                                            itemCoords?.let { coords ->
+                                                itemLayoutResult?.let { layout ->
+                                                    smoothScrollCursorIntoView(coords, layout, newText.length)
+                                                }
                                             }
                                         }
                                     },
@@ -1535,19 +1605,23 @@ fun CreateNoteScreen(
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(140.dp)
-                    .clickable(
-                        interactionSource = remember { MutableInteractionSource() },
-                        indication = null
-                    ) {
-                        if (!isChecklistMode) {
-                            contentFocusRequester.requestFocus()
-                            isContentFocused = true
-                            val endPos = noteTextState.text.length
-                            noteTextState = noteTextState.copy(selection = TextRange(endPos))
-                            targetCursorPosition = endPos
-                            keyboardController?.show()
-                        }
-                    }
+                    .then(
+                        if (isEditMode) {
+                            Modifier.clickable(
+                                interactionSource = remember { MutableInteractionSource() },
+                                indication = null
+                            ) {
+                                if (!isChecklistMode) {
+                                    contentFocusRequester.requestFocus()
+                                    isContentFocused = true
+                                    val endPos = noteTextState.text.length
+                                    noteTextState = noteTextState.copy(selection = TextRange(endPos))
+                                    targetCursorPosition = endPos
+                                    keyboardController?.show()
+                                }
+                            }
+                        } else Modifier
+                    )
             )
         }
 
@@ -2543,6 +2617,8 @@ private fun NoteTextSegmentField(
     startIndex: Int,
     isLastElement: Boolean,
     focusRequester: FocusRequester,
+    readOnly: Boolean = false,
+    enabled: Boolean = true,
     visualTransformation: VisualTransformation = VisualTransformation.None,
     onTextChange: (newText: String, localCursor: Int) -> Unit,
     onSelectionChange: ((localSelection: TextRange) -> Unit)? = null,
@@ -2574,30 +2650,38 @@ private fun NoteTextSegmentField(
                     Modifier.defaultMinSize(minHeight = 40.dp)
                 }
             )
-            .clickable(
-                interactionSource = remember { MutableInteractionSource() },
-                indication = null
-            ) {
-                tfv = tfv.copy(selection = TextRange(tfv.text.length))
-                focusRequester.requestFocus()
-                onFocused()
-                keyboardController?.show()
-            }
+            .then(
+                if (enabled) {
+                    Modifier.clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        tfv = tfv.copy(selection = TextRange(tfv.text.length))
+                        focusRequester.requestFocus()
+                        onFocused()
+                        keyboardController?.show()
+                    }
+                } else Modifier
+            )
     ) {
         BasicTextField(
             value = tfv,
+            readOnly = readOnly,
+            enabled = enabled,
             onValueChange = { incomingTfv ->
-                val newTfv = NoteAutoNumbering.handleAutoNumbering(tfv, incomingTfv)
-                val textChanged = newTfv.text != tfv.text
-                tfv = newTfv
-                if (textChanged) {
-                    onTextChange(newTfv.text, newTfv.selection.start)
-                } else {
-                    onSelectionChange?.invoke(newTfv.selection)
-                }
-                segmentCoords?.let { coords ->
-                    segmentLayoutResult?.let { layout ->
-                        onCursorPositionChanged?.invoke(coords, layout, newTfv.selection.end)
+                if (enabled) {
+                    val newTfv = NoteAutoNumbering.handleAutoNumbering(tfv, incomingTfv)
+                    val textChanged = newTfv.text != tfv.text
+                    tfv = newTfv
+                    if (textChanged) {
+                        onTextChange(newTfv.text, newTfv.selection.start)
+                    } else {
+                        onSelectionChange?.invoke(newTfv.selection)
+                    }
+                    segmentCoords?.let { coords ->
+                        segmentLayoutResult?.let { layout ->
+                            onCursorPositionChanged?.invoke(coords, layout, newTfv.selection.end)
+                        }
                     }
                 }
             },

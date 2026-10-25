@@ -194,9 +194,6 @@ fun ContinueNavHost(
                 )
                 DiaryScreen(
                     viewModel = diaryViewModel,
-                    onActivityClick = { activityId ->
-                        navController.navigate(Screen.Workspace.createRoute(activityId))
-                    },
                     onNoteClick = { activityId ->
                         navController.navigate(Screen.NoteEditor.createRoute(activityId))
                     },
