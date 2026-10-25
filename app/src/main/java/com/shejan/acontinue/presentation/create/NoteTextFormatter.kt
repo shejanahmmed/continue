@@ -454,6 +454,8 @@ object NoteTextFormatter {
                             // Standard styling
                         }
                     }
+
+
                     lineStart = lineEnd + 1
                 }
             }

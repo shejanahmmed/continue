@@ -15,6 +15,7 @@ import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.Spring
 import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
@@ -58,6 +59,7 @@ import androidx.compose.ui.layout.LayoutCoordinates
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.text.TextLayoutResult
 import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.LineBreak
 import androidx.compose.ui.zIndex
 import kotlinx.coroutines.Job
 import kotlin.math.roundToInt
@@ -136,8 +138,10 @@ import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.SideEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableLongStateOf
+import androidx.compose.runtime.mutableStateMapOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -281,6 +285,9 @@ fun CreateNoteScreen(
     var targetFocusChecklistId by remember { mutableStateOf<Long?>(null) }
     var draggingChecklistId by remember { mutableStateOf<Long?>(null) }
     var dragOffsetY by remember { mutableFloatStateOf(0f) }
+    val settleAnim = remember { Animatable(0f) }
+    var isSettling by remember { mutableStateOf(false) }
+    val itemHeights = remember { mutableStateMapOf<Long, Int>() }
 
     LaunchedEffect(targetFocusChecklistId) {
         targetFocusChecklistId?.let { id ->
@@ -845,11 +852,11 @@ fun CreateNoteScreen(
                         }
                     },
                 textStyle = TextStyle(
-                    color = colors.textPrimary,
+                    color = colors.textPrimaryMuted,
                     fontSize = 24.sp,
                     fontWeight = FontWeight.SemiBold
                 ),
-                cursorBrush = SolidColor(colors.textPrimary),
+                cursorBrush = SolidColor(colors.textPrimaryMuted),
                 decorationBox = { innerTextField ->
                     Box {
                         if (title.isEmpty()) {
@@ -949,7 +956,8 @@ fun CreateNoteScreen(
                     ) {
                         BasicTextField(
                             value = noteTextState,
-                            onValueChange = { newTfv ->
+                            onValueChange = { incomingTfv ->
+                                val newTfv = NoteAutoNumbering.handleAutoNumbering(noteTextState, incomingTfv)
                                 if (newTfv.text != noteTextState.text) {
                                     val newFormatState = NoteTextFormatter.onTextChange(
                                         oldText = noteTextState.text,
@@ -977,8 +985,8 @@ fun CreateNoteScreen(
                             onTextLayout = { layoutResult ->
                                 singleLayoutResult = layoutResult
                             },
-                            visualTransformation = remember(formatState, colors.textPrimary, searchQuery, activeMatchRange) {
-                                NoteVisualTransformation(formatState, colors.textPrimary, searchQuery, activeMatchRange)
+                            visualTransformation = remember(formatState, colors.textPrimaryMuted, searchQuery, activeMatchRange) {
+                                NoteVisualTransformation(formatState, colors.textPrimaryMuted, searchQuery, activeMatchRange)
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -988,12 +996,13 @@ fun CreateNoteScreen(
                                     isContentFocused = state.isFocused
                                 },
                             textStyle = TextStyle(
-                                color = colors.textPrimary,
+                                color = colors.textPrimaryMuted,
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Normal,
-                                lineHeight = 26.sp
+                                lineHeight = 26.sp,
+                                lineBreak = LineBreak.Simple
                             ),
-                            cursorBrush = SolidColor(colors.textPrimary),
+                            cursorBrush = SolidColor(colors.textPrimaryMuted),
                             decorationBox = { innerTextField ->
                                 Box {
                                     if (noteTextState.text.isEmpty()) {
@@ -1073,10 +1082,10 @@ fun CreateNoteScreen(
                                         startIndex = element.startIndex,
                                         isLastElement = isLastSegment,
                                         focusRequester = focusRequester,
-                                        visualTransformation = remember(formatState, colors.textPrimary, searchQuery, activeMatchRange, element.startIndex, noteTextState.text) {
+                                        visualTransformation = remember(formatState, colors.textPrimaryMuted, searchQuery, activeMatchRange, element.startIndex, noteTextState.text) {
                                             NoteVisualTransformation(
                                                 formatState = formatState,
-                                                baseColor = colors.textPrimary,
+                                                baseColor = colors.textPrimaryMuted,
                                                 searchQuery = searchQuery,
                                                 activeMatchRange = activeMatchRange,
                                                 baseOffset = element.startIndex,
@@ -1144,206 +1153,283 @@ fun CreateNoteScreen(
                     verticalArrangement = Arrangement.spacedBy(4.dp)
                 ) {
                     checklistItems.forEachIndexed { index, item ->
-                        var itemCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-                        var itemLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-                        val itemFocusRequester = checklistFocusRequesters.getOrPut(item.id) { FocusRequester() }
-                        val isDragging = draggingChecklistId == item.id
+                        key(item.id) {
+                            var itemCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+                            var itemLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
+                            val itemFocusRequester = checklistFocusRequesters.getOrPut(item.id) { FocusRequester() }
+                            val isCurrentDragging = draggingChecklistId == item.id
+                            val animatedScale by animateFloatAsState(
+                                targetValue = if (isCurrentDragging) 1.025f else 1f,
+                                animationSpec = spring(
+                                    dampingRatio = Spring.DampingRatioMediumBouncy,
+                                    stiffness = Spring.StiffnessMedium
+                                ),
+                                label = "checklistDragScale"
+                            )
 
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically,
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .zIndex(if (isDragging) 10f else 1f)
-                                .graphicsLayer {
-                                    if (isDragging) {
-                                        translationY = dragOffsetY
-                                        scaleX = 1.02f
-                                        scaleY = 1.02f
-                                    }
-                                }
-                                .padding(vertical = 2.dp)
-                        ) {
-                            // 6-Dot Drag Indicator Handle
-                            Icon(
-                                imageVector = Icons.Outlined.DragIndicator,
-                                contentDescription = "Drag to reorder",
-                                tint = colors.textSecondary.copy(alpha = 0.5f),
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
                                 modifier = Modifier
-                                    .size(20.dp)
-                                    .pointerInput(item.id) {
-                                        detectDragGesturesAfterLongPress(
-                                            onDragStart = {
-                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                                draggingChecklistId = item.id
-                                                dragOffsetY = 0f
-                                            },
-                                            onDrag = { change, dragAmount ->
-                                                change.consume()
-                                                dragOffsetY += dragAmount.y
-                                                val itemHeightPx = 48.dp.toPx()
-                                                val currIdx = checklistItems.indexOfFirst { it.id == item.id }
-                                                if (currIdx != -1) {
-                                                    if (dragOffsetY > itemHeightPx * 0.7f && currIdx < checklistItems.lastIndex) {
-                                                        val updated = checklistItems.toMutableList()
-                                                        val moved = updated.removeAt(currIdx)
-                                                        updated.add(currIdx + 1, moved)
-                                                        checklistItems = updated
-                                                        dragOffsetY -= itemHeightPx
-                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
-                                                    } else if (dragOffsetY < -itemHeightPx * 0.7f && currIdx > 0) {
-                                                        val updated = checklistItems.toMutableList()
-                                                        val moved = updated.removeAt(currIdx)
-                                                        updated.add(currIdx - 1, moved)
-                                                        checklistItems = updated
-                                                        dragOffsetY += itemHeightPx
-                                                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    .fillMaxWidth()
+                                    .zIndex(if (isCurrentDragging) 100f else 1f)
+                                    .graphicsLayer {
+                                        if (isCurrentDragging) {
+                                            translationY = if (isSettling) settleAnim.value else dragOffsetY
+                                            scaleX = animatedScale
+                                            scaleY = animatedScale
+                                        }
+                                    }
+                                    .onGloballyPositioned { coords ->
+                                        itemHeights[item.id] = coords.size.height
+                                    }
+                                    .background(
+                                        color = if (isCurrentDragging) Color(0xFF202020) else Color.Transparent,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .border(
+                                        width = 1.dp,
+                                        color = if (isCurrentDragging) Color(0xFF383838) else Color.Transparent,
+                                        shape = RoundedCornerShape(12.dp)
+                                    )
+                                    .padding(start = 2.dp, end = 6.dp, top = 4.dp, bottom = 4.dp)
+                            ) {
+                                // 6-Dot Drag Indicator Handle
+                                Box(
+                                    modifier = Modifier
+                                        .size(width = 28.dp, height = 36.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .pointerInput(item.id) {
+                                            detectDragGesturesAfterLongPress(
+                                                onDragStart = {
+                                                    keyboardController?.hide()
+                                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                    draggingChecklistId = item.id
+                                                    dragOffsetY = 0f
+                                                },
+                                                onDrag = { change, dragAmount ->
+                                                    change.consume()
+                                                    dragOffsetY += dragAmount.y
+                                                    val currIdx = checklistItems.indexOfFirst { it.id == item.id }
+                                                    if (currIdx != -1) {
+                                                        val spacingPx = 4.dp.toPx()
+                                                        if (dragOffsetY > 0f && currIdx < checklistItems.lastIndex) {
+                                                            val nextItemId = checklistItems[currIdx + 1].id
+                                                            val nextHeight = itemHeights[nextItemId]?.toFloat() ?: 48.dp.toPx()
+                                                            val swapDelta = nextHeight + spacingPx
+                                                            val threshold = swapDelta * 0.5f
+                                                            if (dragOffsetY > threshold) {
+                                                                val updated = checklistItems.toMutableList()
+                                                                val moved = updated.removeAt(currIdx)
+                                                                updated.add(currIdx + 1, moved)
+                                                                checklistItems = updated
+                                                                dragOffsetY -= swapDelta
+                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                            }
+                                                        } else if (dragOffsetY < 0f && currIdx > 0) {
+                                                            val prevItemId = checklistItems[currIdx - 1].id
+                                                            val prevHeight = itemHeights[prevItemId]?.toFloat() ?: 48.dp.toPx()
+                                                            val swapDelta = prevHeight + spacingPx
+                                                            val threshold = swapDelta * 0.5f
+                                                            if (dragOffsetY < -threshold) {
+                                                                val updated = checklistItems.toMutableList()
+                                                                val moved = updated.removeAt(currIdx)
+                                                                updated.add(currIdx - 1, moved)
+                                                                checklistItems = updated
+                                                                dragOffsetY += swapDelta
+                                                                haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                                            }
+                                                        }
+                                                    }
+                                                },
+                                                onDragEnd = {
+                                                    if (draggingChecklistId == item.id) {
+                                                        val currentOffset = dragOffsetY
+                                                        isSettling = true
+                                                        coroutineScope.launch {
+                                                            settleAnim.snapTo(currentOffset)
+                                                            settleAnim.animateTo(
+                                                                targetValue = 0f,
+                                                                animationSpec = spring(
+                                                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                                                    stiffness = Spring.StiffnessMedium
+                                                                )
+                                                            )
+                                                            isSettling = false
+                                                            draggingChecklistId = null
+                                                            dragOffsetY = 0f
+                                                            undoManager.recordAction(takeSnapshot(newChecklistItems = checklistItems))
+                                                        }
+                                                    }
+                                                },
+                                                onDragCancel = {
+                                                    if (draggingChecklistId == item.id) {
+                                                        val currentOffset = dragOffsetY
+                                                        isSettling = true
+                                                        coroutineScope.launch {
+                                                            settleAnim.snapTo(currentOffset)
+                                                            settleAnim.animateTo(
+                                                                targetValue = 0f,
+                                                                animationSpec = spring(
+                                                                    dampingRatio = Spring.DampingRatioLowBouncy,
+                                                                    stiffness = Spring.StiffnessMedium
+                                                                )
+                                                            )
+                                                            isSettling = false
+                                                            draggingChecklistId = null
+                                                            dragOffsetY = 0f
+                                                        }
                                                     }
                                                 }
-                                            },
-                                            onDragEnd = {
-                                                draggingChecklistId = null
-                                                dragOffsetY = 0f
-                                                undoManager.recordAction(takeSnapshot(newChecklistItems = checklistItems))
-                                            },
-                                            onDragCancel = {
-                                                draggingChecklistId = null
-                                                dragOffsetY = 0f
+                                            )
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.DragIndicator,
+                                        contentDescription = "Drag to reorder",
+                                        tint = colors.textPrimaryMuted,
+                                        modifier = Modifier.size(20.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(4.dp))
+
+                                // Checkbox
+                                Icon(
+                                    imageVector = if (item.isChecked) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+                                    contentDescription = if (item.isChecked) "Checked" else "Unchecked",
+                                    tint = if (item.isChecked) Color(0xFF3897F0) else colors.textPrimaryMuted,
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .clickable {
+                                            val currIdx = checklistItems.indexOfFirst { it.id == item.id }
+                                            if (currIdx != -1) {
+                                                val updated = checklistItems.toMutableList().also {
+                                                    it[currIdx] = item.copy(isChecked = !item.isChecked)
+                                                }
+                                                checklistItems = updated
+                                                undoManager.recordAction(takeSnapshot(newChecklistItems = updated))
                                             }
-                                        )
-                                    }
-                            )
-
-                            Spacer(modifier = Modifier.width(14.dp))
-
-                            // Checkbox
-                            Icon(
-                                imageVector = if (item.isChecked) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
-                                contentDescription = if (item.isChecked) "Checked" else "Unchecked",
-                                tint = if (item.isChecked) Color(0xFF3897F0) else colors.textSecondary,
-                                modifier = Modifier
-                                    .size(22.dp)
-                                    .clickable {
-                                        val updated = checklistItems.toMutableList().also {
-                                            it[index] = item.copy(isChecked = !item.isChecked)
                                         }
-                                        checklistItems = updated
-                                        undoManager.recordAction(takeSnapshot(newChecklistItems = updated))
-                                    }
-                            )
+                                )
 
-                            Spacer(modifier = Modifier.width(14.dp))
+                                Spacer(modifier = Modifier.width(10.dp))
 
-                            // Item Text Input
-                            BasicTextField(
-                                value = item.text,
-                                onValueChange = { newText ->
-                                    val updated = checklistItems.toMutableList().also {
-                                        it[index] = item.copy(text = newText)
-                                    }
-                                    checklistItems = updated
-                                    undoManager.recordTyping(takeSnapshot(newChecklistItems = updated))
-                                    itemCoords?.let { coords ->
-                                        itemLayoutResult?.let { layout ->
-                                            smoothScrollCursorIntoView(coords, layout, newText.length)
+                                // Item Text Input
+                                BasicTextField(
+                                    value = item.text,
+                                    onValueChange = { newText ->
+                                        val currIdx = checklistItems.indexOfFirst { it.id == item.id }
+                                        if (currIdx != -1) {
+                                            val updated = checklistItems.toMutableList().also {
+                                                it[currIdx] = item.copy(text = newText)
+                                            }
+                                            checklistItems = updated
+                                            undoManager.recordTyping(takeSnapshot(newChecklistItems = updated))
                                         }
-                                    }
-                                },
-                                onTextLayout = { layoutResult ->
-                                    itemLayoutResult = layoutResult
-                                },
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .focusRequester(itemFocusRequester)
-                                    .onGloballyPositioned { itemCoords = it }
-                                    .onKeyEvent { keyEvent ->
-                                        if (keyEvent.type == KeyEventType.KeyDown) {
-                                            if (keyEvent.key == Key.Enter) {
+                                        itemCoords?.let { coords ->
+                                            itemLayoutResult?.let { layout ->
+                                                smoothScrollCursorIntoView(coords, layout, newText.length)
+                                            }
+                                        }
+                                    },
+                                    onTextLayout = { layoutResult ->
+                                        itemLayoutResult = layoutResult
+                                    },
+                                    modifier = Modifier
+                                        .weight(1f)
+                                        .focusRequester(itemFocusRequester)
+                                        .onGloballyPositioned { itemCoords = it }
+                                        .onKeyEvent { keyEvent ->
+                                            val currIdx = checklistItems.indexOfFirst { it.id == item.id }
+                                            if (currIdx != -1 && keyEvent.type == KeyEventType.KeyDown) {
+                                                if (keyEvent.key == Key.Enter) {
+                                                    val newItem = ChecklistItem(text = "")
+                                                    val updated = checklistItems.toMutableList()
+                                                    val insertIdx = (currIdx + 1).coerceAtMost(updated.size)
+                                                    updated.add(insertIdx, newItem)
+                                                    checklistItems = updated
+                                                    undoManager.recordAction(takeSnapshot(newChecklistItems = updated))
+                                                    targetFocusChecklistId = newItem.id
+                                                    return@onKeyEvent true
+                                                } else if (keyEvent.key == Key.Backspace && item.text.isEmpty() && checklistItems.size > 1) {
+                                                    val updated = checklistItems.filterIndexed { i, _ -> i != currIdx }
+                                                    checklistItems = updated
+                                                    undoManager.recordAction(takeSnapshot(newChecklistItems = updated))
+                                                    val prevIdx = (currIdx - 1).coerceAtLeast(0)
+                                                    targetFocusChecklistId = updated[prevIdx].id
+                                                    return@onKeyEvent true
+                                                }
+                                            }
+                                            false
+                                        },
+                                    keyboardOptions = KeyboardOptions(
+                                        keyboardType = KeyboardType.Text,
+                                        imeAction = ImeAction.Next
+                                    ),
+                                    keyboardActions = KeyboardActions(
+                                        onNext = {
+                                            val currIdx = checklistItems.indexOfFirst { it.id == item.id }
+                                            if (currIdx != -1) {
                                                 val newItem = ChecklistItem(text = "")
                                                 val updated = checklistItems.toMutableList()
-                                                val insertIdx = (index + 1).coerceAtMost(updated.size)
+                                                val insertIdx = (currIdx + 1).coerceAtMost(updated.size)
                                                 updated.add(insertIdx, newItem)
                                                 checklistItems = updated
                                                 undoManager.recordAction(takeSnapshot(newChecklistItems = updated))
                                                 targetFocusChecklistId = newItem.id
-                                                return@onKeyEvent true
-                                            } else if (keyEvent.key == Key.Backspace && item.text.isEmpty() && checklistItems.size > 1) {
-                                                val updated = checklistItems.filterIndexed { i, _ -> i != index }
-                                                checklistItems = updated
-                                                undoManager.recordAction(takeSnapshot(newChecklistItems = updated))
-                                                val prevIdx = (index - 1).coerceAtLeast(0)
-                                                targetFocusChecklistId = updated[prevIdx].id
-                                                return@onKeyEvent true
                                             }
                                         }
-                                        false
-                                    },
-                                keyboardOptions = KeyboardOptions(
-                                    keyboardType = KeyboardType.Text,
-                                    imeAction = ImeAction.Next
-                                ),
-                                keyboardActions = KeyboardActions(
-                                    onNext = {
-                                        val newItem = ChecklistItem(text = "")
-                                        val updated = checklistItems.toMutableList()
-                                        val insertIdx = (index + 1).coerceAtMost(updated.size)
-                                        updated.add(insertIdx, newItem)
-                                        checklistItems = updated
-                                        undoManager.recordAction(takeSnapshot(newChecklistItems = updated))
-                                        targetFocusChecklistId = newItem.id
-                                    }
-                                ),
-                                textStyle = TextStyle(
-                                    color = if (item.isChecked) colors.textDisabled else colors.textPrimary,
-                                    fontSize = 18.sp,
-                                    fontWeight = FontWeight.Normal,
-                                    textDecoration = if (item.isChecked) TextDecoration.LineThrough else TextDecoration.None
-                                ),
-                                cursorBrush = SolidColor(colors.textPrimary),
-                                decorationBox = { inner ->
-                                    Box {
-                                        if (item.text.isEmpty()) {
-                                            Text(
-                                                text = "List item",
-                                                color = colors.textDisabled,
-                                                fontSize = 18.sp
-                                            )
+                                    ),
+                                    textStyle = TextStyle(
+                                        color = if (item.isChecked) colors.textDisabled else colors.textPrimaryMuted,
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Normal,
+                                        textDecoration = if (item.isChecked) TextDecoration.LineThrough else TextDecoration.None
+                                    ),
+                                    cursorBrush = SolidColor(colors.textPrimaryMuted),
+                                    decorationBox = { inner ->
+                                        Box(modifier = Modifier.fillMaxWidth()) {
+                                            inner()
                                         }
-                                        inner()
                                     }
-                                }
-                            )
-
-                            // "X" (Delete Item) Button
-                            Box(
-                                modifier = Modifier
-                                    .size(28.dp)
-                                    .clip(CircleShape)
-                                    .clickable {
-                                        val updated = checklistItems.filterIndexed { i, _ -> i != index }
-                                        if (updated.isEmpty()) {
-                                            val emptyItem = ChecklistItem(text = "")
-                                            checklistItems = listOf(emptyItem)
-                                            targetFocusChecklistId = emptyItem.id
-                                        } else {
-                                            checklistItems = updated
-                                            val nextFocusIdx = (index - 1).coerceAtLeast(0)
-                                            targetFocusChecklistId = updated[nextFocusIdx].id
-                                        }
-                                        undoManager.recordAction(takeSnapshot(newChecklistItems = checklistItems))
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Close,
-                                    contentDescription = "Remove item",
-                                    tint = colors.textSecondary.copy(alpha = 0.6f),
-                                    modifier = Modifier.size(18.dp)
                                 )
+
+                                // "X" (Delete Item) Button
+                                Box(
+                                    modifier = Modifier
+                                        .size(28.dp)
+                                        .clip(CircleShape)
+                                        .clickable {
+                                            val currIdx = checklistItems.indexOfFirst { it.id == item.id }
+                                            if (currIdx != -1) {
+                                                val updated = checklistItems.filterIndexed { i, _ -> i != currIdx }
+                                                if (updated.isEmpty()) {
+                                                    val emptyItem = ChecklistItem(text = "")
+                                                    checklistItems = listOf(emptyItem)
+                                                    targetFocusChecklistId = emptyItem.id
+                                                } else {
+                                                    checklistItems = updated
+                                                    val nextFocusIdx = (currIdx - 1).coerceAtLeast(0)
+                                                    targetFocusChecklistId = updated[nextFocusIdx].id
+                                                }
+                                                undoManager.recordAction(takeSnapshot(newChecklistItems = checklistItems))
+                                            }
+                                        },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Close,
+                                        contentDescription = "Remove item",
+                                        tint = colors.textPrimaryMuted,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
                             }
                         }
                     }
 
-                    // "+ List item" Row (Indented 34dp to align with checkboxes)
+                    // "+ List item" Row (Aligned precisely with checklist rows)
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         modifier = Modifier
@@ -1362,19 +1448,24 @@ fun CreateNoteScreen(
                                     )
                                 }
                             }
-                            .padding(vertical = 8.dp)
+                            .padding(start = 2.dp, end = 6.dp, top = 6.dp, bottom = 6.dp)
                     ) {
-                        Spacer(modifier = Modifier.width(34.dp))
-                        Icon(
-                            imageVector = Icons.Outlined.Add,
-                            contentDescription = "Add item",
-                            tint = colors.textSecondary,
-                            modifier = Modifier.size(20.dp)
-                        )
-                        Spacer(modifier = Modifier.width(14.dp))
+                        Spacer(modifier = Modifier.width(32.dp))
+                        Box(
+                            modifier = Modifier.size(22.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Add,
+                                contentDescription = "Add item",
+                                tint = colors.textPrimaryMuted,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(10.dp))
                         Text(
                             text = "List item",
-                            color = colors.textDisabled,
+                            color = colors.textPrimaryMuted,
                             fontSize = 18.sp
                         )
                     }
@@ -2484,7 +2575,8 @@ private fun NoteTextSegmentField(
     ) {
         BasicTextField(
             value = tfv,
-            onValueChange = { newTfv ->
+            onValueChange = { incomingTfv ->
+                val newTfv = NoteAutoNumbering.handleAutoNumbering(tfv, incomingTfv)
                 val textChanged = newTfv.text != tfv.text
                 tfv = newTfv
                 if (textChanged) {
@@ -2513,12 +2605,13 @@ private fun NoteTextSegmentField(
                 }
                 .padding(vertical = 4.dp),
             textStyle = TextStyle(
-                color = colors.textPrimary,
+                color = colors.textPrimaryMuted,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.Normal,
-                lineHeight = 26.sp
+                lineHeight = 26.sp,
+                lineBreak = LineBreak.Simple
             ),
-            cursorBrush = SolidColor(colors.textPrimary),
+            cursorBrush = SolidColor(colors.textPrimaryMuted),
             decorationBox = { innerTextField ->
                 Box(modifier = Modifier.fillMaxWidth()) {
                     innerTextField()
