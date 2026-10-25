@@ -806,6 +806,7 @@ class CreateEntryViewModel(
                             updatedAtMillis = now
                         )
                     )
+                    _state.update { it.copy(editingActivityId = newId) }
                 }
 
                 _state.update { it.copy(isSaving = false) }

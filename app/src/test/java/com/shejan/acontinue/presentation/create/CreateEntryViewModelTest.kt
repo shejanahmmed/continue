@@ -1152,6 +1152,30 @@ class CreateEntryViewModelTest {
             assertTrue(activityRepository.activitiesFlow.value.isEmpty())
         }
     }
+
+    @Test
+    fun `test saveNote called multiple times on new note updates same record without duplicate`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.events.test {
+            viewModel.saveNote(title = "Draft", content = "Initial draft")
+            testScheduler.advanceUntilIdle()
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+
+            assertEquals(1, activityRepository.activitiesFlow.value.size)
+            val createdId = viewModel.state.value.editingActivityId
+            org.junit.Assert.assertNotNull(createdId)
+
+            viewModel.saveNote(title = "Draft Final", content = "Updated content")
+            testScheduler.advanceUntilIdle()
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+
+            assertEquals(1, activityRepository.activitiesFlow.value.size)
+            val updated = activityRepository.activitiesFlow.value.first()
+            assertEquals("Draft Final", updated.title)
+            assertEquals("Updated content", updated.description)
+        }
+    }
 }
 
 
