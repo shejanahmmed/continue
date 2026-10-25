@@ -134,10 +134,16 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.ui.platform.LocalClipboardManager
 import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.material.icons.outlined.ContentCut
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import com.shejan.acontinue.core.designsystem.components.AudioTrimDialog
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.wrapContentWidth
@@ -936,6 +942,11 @@ fun CreateNoteScreen(
                             index = index + 1,
                             onDelete = {
                                 val updated = recordedAudioUris - audioUri
+                                recordedAudioUris = updated
+                                undoManager.recordAction(takeSnapshot(newRecordedAudioUris = updated))
+                            },
+                            onAudioUpdated = { oldUri, newUri ->
+                                val updated = recordedAudioUris.map { if (it == oldUri) newUri else it }
                                 recordedAudioUris = updated
                                 undoManager.recordAction(takeSnapshot(newRecordedAudioUris = updated))
                             }
@@ -2757,11 +2768,16 @@ private fun NoteAudioCard(
     audioUri: Uri,
     index: Int,
     onDelete: () -> Unit,
+    onAudioUpdated: (oldUri: Uri, newUri: Uri) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val context = LocalContext.current
     val haptic = LocalHapticFeedback.current
     val colors = LocalUtilitarianColors.current
+
+    var showMenu by remember { mutableStateOf(false) }
+    var showDeleteConfirmDialog by remember { mutableStateOf(false) }
+    var showTrimDialog by remember { mutableStateOf(false) }
 
     val playbackManager = remember(context) {
         (context.applicationContext as? ContinueApplication)?.container?.audioPlaybackManager
@@ -2975,28 +2991,124 @@ private fun NoteAudioCard(
 
             Spacer(modifier = Modifier.width(12.dp))
 
-            // Delete action
+            // 3-Dot Overflow Menu
             Box(
                 modifier = Modifier
                     .size(36.dp)
                     .clip(CircleShape)
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        if (isCurrentAudio) {
-                            playbackManager?.stop()
-                        }
-                        onDelete()
+                        showMenu = true
                     },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Delete,
-                    contentDescription = "Delete recording",
-                    tint = colors.textPrimaryMuted.copy(alpha = 0.7f),
+                    imageVector = Icons.Outlined.MoreVert,
+                    contentDescription = "Recording options",
+                    tint = colors.textPrimaryMuted.copy(alpha = 0.8f),
                     modifier = Modifier.size(20.dp)
                 )
+
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    modifier = Modifier
+                        .background(Color(0xFF1E2225))
+                        .border(1.dp, Color(0xFF33383F), RoundedCornerShape(8.dp))
+                ) {
+                    DropdownMenuItem(
+                        text = {
+                            Text("Edit", color = colors.textPrimary, fontSize = 14.sp)
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.ContentCut,
+                                contentDescription = null,
+                                tint = colors.textPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            showTrimDialog = true
+                        }
+                    )
+                    DropdownMenuItem(
+                        text = {
+                            Text("Delete", color = Color(0xFFD71921), fontSize = 14.sp)
+                        },
+                        leadingIcon = {
+                            Icon(
+                                imageVector = Icons.Outlined.Delete,
+                                contentDescription = null,
+                                tint = Color(0xFFD71921),
+                                modifier = Modifier.size(18.dp)
+                            )
+                        },
+                        onClick = {
+                            showMenu = false
+                            showDeleteConfirmDialog = true
+                        }
+                    )
+                }
             }
         }
+    }
+
+    if (showDeleteConfirmDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmDialog = false },
+            title = {
+                Text(
+                    text = "Delete recording?",
+                    color = Color.White,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.SemiBold
+                )
+            },
+            text = {
+                Text(
+                    text = "Are you sure you want to delete this voice recording? This action cannot be undone.",
+                    color = colors.textSecondary,
+                    fontSize = 14.sp,
+                    lineHeight = 20.sp
+                )
+            },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        if (isCurrentAudio) {
+                            playbackManager?.stop()
+                        }
+                        showDeleteConfirmDialog = false
+                        onDelete()
+                    }
+                ) {
+                    Text("Delete", color = Color(0xFFD71921), fontWeight = FontWeight.SemiBold)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmDialog = false }) {
+                    Text("Cancel", color = Color.White)
+                }
+            },
+            containerColor = Color(0xFF1E2225),
+            shape = RoundedCornerShape(16.dp)
+        )
+    }
+
+    if (showTrimDialog) {
+        AudioTrimDialog(
+            audioUri = audioUri,
+            initialDurationMs = totalDurationMs,
+            onDismiss = { showTrimDialog = false },
+            onTrimSuccess = { newUri ->
+                if (isCurrentAudio) {
+                    playbackManager?.stop()
+                }
+                onAudioUpdated(audioUri, newUri)
+            }
+        )
     }
 }
 
