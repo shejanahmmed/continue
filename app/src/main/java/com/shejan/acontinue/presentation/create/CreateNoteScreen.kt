@@ -622,7 +622,7 @@ fun CreateNoteScreen(
             recordingElapsedMillis = 0L
             isRecordingAudio = true
             islandScale.snapTo(0f)
-            islandWidthDp.snapTo(44f)
+            islandWidthDp.snapTo(48f)
             islandContentAlpha.snapTo(0f)
 
             // Circle pops in with bouncy spring
@@ -634,10 +634,10 @@ fun CreateNoteScreen(
                 )
             )
 
-            // 3. Extend horizontally outward into sleek compact dynamic island (reduced width)
+            // 3. Extend horizontally outward into sleek compact dynamic island
             val expandJob = launch {
                 islandWidthDp.animateTo(
-                    targetValue = 196f,
+                    targetValue = 204f,
                     animationSpec = spring(
                         dampingRatio = 0.78f,
                         stiffness = Spring.StiffnessMediumLow
@@ -660,7 +660,7 @@ fun CreateNoteScreen(
 
             // Collapse animation: fade controls, retract horizontally to circle, shrink scale to 0
             val fadeJob = launch { islandContentAlpha.animateTo(0f, tween(100)) }
-            islandWidthDp.animateTo(44f, tween(180, easing = LinearOutSlowInEasing))
+            islandWidthDp.animateTo(48f, tween(180, easing = LinearOutSlowInEasing))
             fadeJob.join()
             islandScale.animateTo(0f, tween(120, easing = FastOutSlowInEasing))
             isRecordingIslandVisible = false
@@ -2792,18 +2792,18 @@ private fun DynamicIslandRecordingBar(
         modifier = modifier
             .scale(scale)
             .width(widthDp.dp)
-            .height(44.dp)
+            .height(48.dp)
             .clip(RoundedCornerShape(percent = 50))
-            .background(Color.Black)
-            .border(1.dp, Color(0xFF242426), RoundedCornerShape(percent = 50))
-            .padding(horizontal = 7.dp),
+            .background(Color(0xFF202020))
+            .border(1.dp, Color(0xFF333336), RoundedCornerShape(percent = 50))
+            .padding(horizontal = 9.dp),
         contentAlignment = Alignment.CenterStart
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxSize(),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Left: Amber circular recording badge
+            // Left: Amber circular recording badge with balanced clearance
             Box(
                 modifier = Modifier
                     .size(30.dp)
@@ -2851,8 +2851,8 @@ private fun DynamicIslandRecordingBar(
                         modifier = Modifier
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF1C1C1E))
-                            .border(1.dp, Color(0xFF333336), CircleShape)
+                            .background(Color(0xFF2C2C2E))
+                            .border(1.dp, Color(0xFF3E3E42), CircleShape)
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onTogglePause()
@@ -2874,8 +2874,8 @@ private fun DynamicIslandRecordingBar(
                         modifier = Modifier
                             .size(28.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF1C1C1E))
-                            .border(1.dp, Color(0xFF333336), CircleShape)
+                            .background(Color(0xFF2C2C2E))
+                            .border(1.dp, Color(0xFF3E3E42), CircleShape)
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onStop()
