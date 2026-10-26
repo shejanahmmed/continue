@@ -237,4 +237,37 @@ class DiaryViewModelTest {
             assertEquals("Older Note", state.notes[1].title)
         }
     }
+
+    @Test
+    fun `test note with Untitled Note or blank title normalizes to empty string for card display`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 5L,
+                title = "Untitled Note",
+                description = "Just some content without title",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 1000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 50L,
+                activityId = 5L,
+                title = "",
+                content = "Just some content without title",
+                updatedAtMillis = 1000L
+            )
+        )
+
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(1, state.notes.size)
+            assertEquals("", state.notes.first().title)
+            assertEquals("Just some content without title", state.notes.first().previewText)
+        }
+    }
 }

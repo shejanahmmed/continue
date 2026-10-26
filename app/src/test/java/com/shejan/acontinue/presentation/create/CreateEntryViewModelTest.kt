@@ -1022,7 +1022,7 @@ class CreateEntryViewModelTest {
             val notes = noteRepository.notesFlow.value
             assertEquals(1, notes.size)
             val note = notes.first()
-            assertEquals("a", note.title)
+            assertEquals("", note.title)
             assertEquals("a", note.content)
             assertEquals(activity.id, note.activityId)
         }

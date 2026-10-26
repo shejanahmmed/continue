@@ -229,9 +229,8 @@ class CreateEntryViewModel(
             }
 
             val effectiveTitle = matchingNote?.title?.takeIf { it.isNotBlank() && it != "Untitled Note" }
-                ?: activity?.title?.takeIf { it.isNotBlank() }
-                ?: matchingNote?.title
-                ?: "Untitled Note"
+                ?: activity?.title?.takeIf { it.isNotBlank() && it != "Untitled Note" }
+                ?: ""
 
             val effectiveContent = matchingNote?.content?.takeIf { it.isNotBlank() }
                 ?: activity?.description
@@ -813,7 +812,7 @@ class CreateEntryViewModel(
             noteRepository.insertNote(
                 ActivityNote(
                     activityId = newId,
-                    title = effectiveTitle,
+                    title = trimmedTitle,
                     content = content.trim(),
                     updatedAtMillis = now
                 )
@@ -889,7 +888,7 @@ class CreateEntryViewModel(
                     if (targetNote != null) {
                         noteRepository.updateNote(
                             targetNote.copy(
-                                title = effectiveTitle,
+                                title = trimmedTitle,
                                 content = trimmedContent,
                                 updatedAtMillis = now
                             )
@@ -898,7 +897,7 @@ class CreateEntryViewModel(
                         noteRepository.insertNote(
                             ActivityNote(
                                 activityId = currentEditId,
-                                title = effectiveTitle,
+                                title = trimmedTitle,
                                 content = trimmedContent,
                                 updatedAtMillis = now
                             )
@@ -928,7 +927,7 @@ class CreateEntryViewModel(
                     noteRepository.insertNote(
                         ActivityNote(
                             activityId = newId,
-                            title = effectiveTitle,
+                            title = trimmedTitle,
                             content = trimmedContent,
                             updatedAtMillis = now
                         )

@@ -1,7 +1,10 @@
 package com.shejan.acontinue.presentation.diary
 
+import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
@@ -44,9 +47,6 @@ import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
 import com.shejan.acontinue.ui.theme.UtilitarianTextDisabled
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
 import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
 @Composable
 fun DiaryScreen(
@@ -151,8 +151,21 @@ private fun DiaryNoteCard(
     note: DiaryNoteItem,
     onClick: () -> Unit
 ) {
-    val dateFormat = remember { SimpleDateFormat("dd MMM, hh:mm a", Locale.getDefault()) }
-    val dateStr = remember(note.updatedAtMillis) { dateFormat.format(Date(note.updatedAtMillis)) }
+    val hasTitle = note.title.isNotBlank() && !note.title.equals("Untitled Note", ignoreCase = true)
+    val hasContent = note.previewText.isNotBlank()
+    val hasLabels = note.labels.isNotEmpty()
+
+    val displayContent = remember(note.previewText) {
+        val lines = note.previewText.lines()
+        if (lines.size > 10) {
+            val first9 = lines.take(9)
+            val tenth = lines[9].trimEnd()
+            val tenthWithDots = if (tenth.endsWith("...")) tenth else "$tenth..."
+            (first9 + tenthWithDots).joinToString("\n")
+        } else {
+            note.previewText
+        }
+    }
 
     val hasCustomColor = note.colorHex != 0L && note.colorHex != 0xFF000000L && note.colorHex != 0xFF121212L
     val cardBorderColor = if (hasCustomColor) {
@@ -166,78 +179,67 @@ private fun DiaryNoteCard(
         borderColor = cardBorderColor
     ) {
         Column(modifier = Modifier.fillMaxWidth()) {
-            // Header Row: Title & Timestamp
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
+            // Part 1: Full Title
+            if (hasTitle) {
                 Text(
-                    text = note.title.ifBlank { "Untitled Note" },
+                    text = note.title,
                     color = UtilitarianTextPrimary,
                     fontWeight = FontWeight.SemiBold,
-                    fontSize = 15.sp,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.weight(1f)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = dateStr,
-                    color = UtilitarianTextSecondary,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 10.sp
+                    fontSize = 16.sp,
+                    lineHeight = 22.sp,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            // Preview Text Snippet
-            if (note.previewText.isNotBlank()) {
-                Spacer(modifier = Modifier.height(6.dp))
+            // Spacer between Part 1 and Part 2
+            if (hasTitle && hasContent) {
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
+            // Part 2: Note Content (First 10 lines max with ellipsis on 10th line)
+            if (hasContent) {
                 Text(
-                    text = note.previewText,
+                    text = displayContent,
                     color = UtilitarianTextSecondary,
                     fontSize = 13.sp,
-                    lineHeight = 18.sp,
-                    maxLines = 3,
-                    overflow = TextOverflow.Ellipsis
+                    lineHeight = 19.sp,
+                    maxLines = 10,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
 
-            // Metadata Badges (Audio, Photo, Checklist, Labels)
-            if (note.audioCount > 0 || note.photoCount > 0 || note.isChecklist || note.labels.isNotEmpty()) {
+            // Spacer between Content (or Title) and Part 3 Labels
+            if (hasLabels && (hasTitle || hasContent)) {
                 Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            // Part 3: Labels in small boxes
+            if (hasLabels) {
                 FlowRow(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp)
                 ) {
-                    if (note.audioCount > 0) {
-                        UtilitarianBadge(
-                            text = if (note.audioCount == 1) "VOICE" else "${note.audioCount} VOICE",
-                            backgroundColor = UtilitarianBorderStroke,
-                            textColor = UtilitarianTextPrimary
-                        )
-                    }
-                    if (note.photoCount > 0) {
-                        UtilitarianBadge(
-                            text = if (note.photoCount == 1) "PHOTO" else "${note.photoCount} PHOTOS",
-                            backgroundColor = UtilitarianBorderStroke,
-                            textColor = UtilitarianTextPrimary
-                        )
-                    }
-                    if (note.isChecklist) {
-                        UtilitarianBadge(
-                            text = "CHECKLIST",
-                            backgroundColor = UtilitarianBorderStroke,
-                            textColor = UtilitarianTextPrimary
-                        )
-                    }
                     note.labels.forEach { label ->
-                        UtilitarianBadge(
-                            text = "#$label",
-                            backgroundColor = Color(0xFF202528),
-                            textColor = UtilitarianTextSecondary
-                        )
+                        Box(
+                            modifier = Modifier
+                                .border(
+                                    width = 1.dp,
+                                    color = UtilitarianBorderStroke,
+                                    shape = RoundedCornerShape(4.dp)
+                                )
+                                .background(Color(0xFF161616), RoundedCornerShape(4.dp))
+                                .padding(horizontal = 8.dp, vertical = 3.dp)
+                        ) {
+                            Text(
+                                text = "#$label",
+                                color = UtilitarianTextSecondary,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }
