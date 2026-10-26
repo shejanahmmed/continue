@@ -23,14 +23,22 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -66,10 +74,67 @@ fun DiaryScreen(
         contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
     ) {
         item {
+            var sortMenuExpanded by remember { mutableStateOf(false) }
+
             DotMatrixHeader(
                 title = "DIARY",
                 leadingIcon = Icons.AutoMirrored.Outlined.MenuBook,
-                badgeText = badgeText
+                badgeText = badgeText,
+                actions = {
+                    Box {
+                        IconButton(
+                            onClick = { sortMenuExpanded = true },
+                            modifier = Modifier
+                                .size(34.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
+                                .background(Color(0xFF161616))
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.Sort,
+                                contentDescription = "Sort cards",
+                                tint = UtilitarianTextPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+
+                        DropdownMenu(
+                            expanded = sortMenuExpanded,
+                            onDismissRequest = { sortMenuExpanded = false },
+                            modifier = Modifier
+                                .background(Color(0xFF161616))
+                                .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
+                        ) {
+                            DiarySortOption.entries.forEach { option ->
+                                val isSelected = uiState.sortOption == option
+                                DropdownMenuItem(
+                                    text = {
+                                        Text(
+                                            text = option.displayName,
+                                            color = if (isSelected) UtilitarianTextPrimary else UtilitarianTextSecondary,
+                                            fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                            fontSize = 14.sp
+                                        )
+                                    },
+                                    trailingIcon = if (isSelected) {
+                                        {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Check,
+                                                contentDescription = "Selected",
+                                                tint = UtilitarianTextPrimary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    } else null,
+                                    onClick = {
+                                        viewModel.onSortOptionChange(option)
+                                        sortMenuExpanded = false
+                                    }
+                                )
+                            }
+                        }
+                    }
+                }
             )
             Spacer(modifier = Modifier.height(12.dp))
         }

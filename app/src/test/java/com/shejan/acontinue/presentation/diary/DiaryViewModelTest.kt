@@ -270,4 +270,98 @@ class DiaryViewModelTest {
             assertEquals("Just some content without title", state.notes.first().previewText)
         }
     }
+
+    @Test
+    fun `test diary card sorting options Default, Date created, and Date modified`() = runTest(testDispatcher) {
+        // Note 1: Created at 1000L, modified at 1000L
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 1L,
+                title = "Note Alpha (Created First)",
+                description = "Content 1",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 1000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 101L,
+                activityId = 1L,
+                title = "Note Alpha (Created First)",
+                content = "Content 1",
+                updatedAtMillis = 1000L
+            )
+        )
+
+        // Note 2: Created at 2000L, modified at 2000L
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 2L,
+                title = "Note Beta (Created Second)",
+                description = "Content 2",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 102L,
+                activityId = 2L,
+                title = "Note Beta (Created Second)",
+                content = "Content 2",
+                updatedAtMillis = 2000L
+            )
+        )
+
+        // Now edit Note 1 at 3000L (so Note 1 was created first, but modified last)
+        noteRepository.updateNote(
+            ActivityNote(
+                id = 101L,
+                activityId = 1L,
+                title = "Note Alpha (Created First)",
+                content = "Content 1 Modified",
+                updatedAtMillis = 3000L
+            )
+        )
+
+        testScheduler.advanceUntilIdle()
+
+        // 1. DEFAULT: Newest created first (Note Beta at 2000L is before Note Alpha at 1000L).
+        // Note Alpha's position does not change despite being modified at 3000L!
+        viewModel.onSortOptionChange(DiarySortOption.DEFAULT)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(DiarySortOption.DEFAULT, state.sortOption)
+            assertEquals("Note Beta (Created Second)", state.notes[0].title)
+            assertEquals("Note Alpha (Created First)", state.notes[1].title)
+        }
+
+        // 2. DATE_CREATED: Oldest created first (Note Alpha at 1000L is before Note Beta at 2000L)
+        viewModel.onSortOptionChange(DiarySortOption.DATE_CREATED)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(DiarySortOption.DATE_CREATED, state.sortOption)
+            assertEquals("Note Alpha (Created First)", state.notes[0].title)
+            assertEquals("Note Beta (Created Second)", state.notes[1].title)
+        }
+
+        // 3. DATE_MODIFIED: Most recently modified first (Note Alpha at 3000L is before Note Beta at 2000L)
+        viewModel.onSortOptionChange(DiarySortOption.DATE_MODIFIED)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(DiarySortOption.DATE_MODIFIED, state.sortOption)
+            assertEquals("Note Alpha (Created First)", state.notes[0].title)
+            assertEquals("Note Beta (Created Second)", state.notes[1].title)
+        }
+    }
 }

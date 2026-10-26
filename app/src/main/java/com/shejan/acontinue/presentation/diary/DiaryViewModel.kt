@@ -17,6 +17,12 @@ import kotlinx.coroutines.flow.onEach
 private val AUDIO_TAG_REGEX = Regex("""!\[audio\]\(([^)]+)\)""")
 private val PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
 
+enum class DiarySortOption(val displayName: String) {
+    DEFAULT("Default"),
+    DATE_CREATED("Date created"),
+    DATE_MODIFIED("Date modified")
+}
+
 data class DiaryNoteItem(
     val activityId: Long,
     val noteId: Long = 0L,
@@ -25,6 +31,7 @@ data class DiaryNoteItem(
     val previewText: String,
     val colorHex: Long = 0xFF000000L,
     val labels: List<String> = emptyList(),
+    val createdAtMillis: Long = 0L,
     val updatedAtMillis: Long,
     val audioCount: Int = 0,
     val photoCount: Int = 0,
@@ -34,7 +41,8 @@ data class DiaryNoteItem(
 data class DiaryUiState(
     val searchQuery: String = "",
     val notes: List<DiaryNoteItem> = emptyList(),
-    val isLoading: Boolean = false
+    val isLoading: Boolean = false,
+    val sortOption: DiarySortOption = DiarySortOption.DEFAULT
 )
 
 class DiaryViewModel(
@@ -43,15 +51,17 @@ class DiaryViewModel(
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
+    private val _sortOption = MutableStateFlow(DiarySortOption.DEFAULT)
     private val _uiState = MutableStateFlow(DiaryUiState(isLoading = true))
     val uiState: StateFlow<DiaryUiState> = _uiState.asStateFlow()
 
     init {
         combine(
             _searchQuery,
+            _sortOption,
             activityRepository.getAllActivities(),
             noteRepository.searchNotes("")
-        ) { query, activities, notes ->
+        ) { query, sortOption, activities, notes ->
             val allNoteItems = buildDiaryNoteItems(activities, notes)
             val filtered = if (query.isBlank()) {
                 allNoteItems
@@ -62,10 +72,16 @@ class DiaryViewModel(
                     note.labels.any { it.contains(query, ignoreCase = true) }
                 }
             }
+            val sorted = when (sortOption) {
+                DiarySortOption.DEFAULT -> filtered.sortedByDescending { it.createdAtMillis }
+                DiarySortOption.DATE_CREATED -> filtered.sortedBy { it.createdAtMillis }
+                DiarySortOption.DATE_MODIFIED -> filtered.sortedByDescending { it.updatedAtMillis }
+            }
             DiaryUiState(
                 searchQuery = query,
-                notes = filtered,
-                isLoading = false
+                notes = sorted,
+                isLoading = false,
+                sortOption = sortOption
             )
         }
         .onEach { state ->
@@ -76,6 +92,10 @@ class DiaryViewModel(
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
+    }
+
+    fun onSortOptionChange(option: DiarySortOption) {
+        _sortOption.value = option
     }
 
     private fun buildDiaryNoteItems(
@@ -129,6 +149,7 @@ class DiaryViewModel(
                     previewText = cleanPreview,
                     colorHex = color,
                     labels = labels,
+                    createdAtMillis = act.createdAtMillis,
                     updatedAtMillis = updatedAt,
                     audioCount = audioCount,
                     photoCount = photoCount,
@@ -159,6 +180,7 @@ class DiaryViewModel(
                         previewText = cleanPreview,
                         colorHex = 0xFF000000L,
                         labels = emptyList(),
+                        createdAtMillis = note.updatedAtMillis,
                         updatedAtMillis = note.updatedAtMillis,
                         audioCount = audioCount,
                         photoCount = photoCount,
@@ -168,6 +190,6 @@ class DiaryViewModel(
             }
         }
 
-        return result.sortedByDescending { it.updatedAtMillis }
+        return result
     }
 }
