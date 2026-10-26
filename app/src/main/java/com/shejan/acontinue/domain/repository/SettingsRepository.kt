@@ -25,4 +25,7 @@ interface SettingsRepository {
     suspend fun addNoteLabel(name: String)
     suspend fun updateNoteLabel(oldName: String, newName: String)
     suspend fun deleteNoteLabel(name: String)
+    fun getPinnedNoteIds(): Flow<Set<String>>
+    suspend fun setNotesPinned(ids: Set<String>, pinned: Boolean)
+    suspend fun toggleNotesPinned(ids: Set<String>)
 }

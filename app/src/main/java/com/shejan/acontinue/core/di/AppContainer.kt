@@ -85,7 +85,7 @@ class AppContainer(context: Context) {
         object : ViewModelProvider.Factory {
             @Suppress("UNCHECKED_CAST")
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
-                return DiaryViewModel(activityRepository, noteRepository) as T
+                return DiaryViewModel(activityRepository, noteRepository, settingsRepository) as T
             }
         }
 

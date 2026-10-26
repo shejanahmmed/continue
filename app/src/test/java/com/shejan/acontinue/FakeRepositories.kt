@@ -340,5 +340,25 @@ class FakeSettingsRepository : com.shejan.acontinue.domain.repository.SettingsRe
         val updated = settingsFlow.value.noteLabels.filterNot { it.equals(name, ignoreCase = true) }
         settingsFlow.value = settingsFlow.value.copy(noteLabels = updated)
     }
+
+    val pinnedNotesFlow = MutableStateFlow<Set<String>>(emptySet())
+
+    override fun getPinnedNoteIds(): Flow<Set<String>> = pinnedNotesFlow
+
+    override suspend fun setNotesPinned(ids: Set<String>, pinned: Boolean) {
+        val current = pinnedNotesFlow.value.toMutableSet()
+        if (pinned) {
+            current.addAll(ids)
+        } else {
+            current.removeAll(ids)
+        }
+        pinnedNotesFlow.value = current
+    }
+
+    override suspend fun toggleNotesPinned(ids: Set<String>) {
+        val current = pinnedNotesFlow.value
+        val allPinned = ids.isNotEmpty() && ids.all { it in current }
+        setNotesPinned(ids, !allPinned)
+    }
 }
 

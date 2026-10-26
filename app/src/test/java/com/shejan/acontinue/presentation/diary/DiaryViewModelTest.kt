@@ -3,6 +3,7 @@ package com.shejan.acontinue.presentation.diary
 import app.cash.turbine.test
 import com.shejan.acontinue.FakeActivityRepository
 import com.shejan.acontinue.FakeNoteRepository
+import com.shejan.acontinue.FakeSettingsRepository
 import com.shejan.acontinue.domain.model.ActivityCategory
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityNote
@@ -15,6 +16,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
@@ -25,6 +27,7 @@ class DiaryViewModelTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var activityRepository: FakeActivityRepository
     private lateinit var noteRepository: FakeNoteRepository
+    private lateinit var settingsRepository: FakeSettingsRepository
     private lateinit var viewModel: DiaryViewModel
 
     @Before
@@ -32,7 +35,8 @@ class DiaryViewModelTest {
         Dispatchers.setMain(testDispatcher)
         activityRepository = FakeActivityRepository()
         noteRepository = FakeNoteRepository()
-        viewModel = DiaryViewModel(activityRepository, noteRepository)
+        settingsRepository = FakeSettingsRepository()
+        viewModel = DiaryViewModel(activityRepository, noteRepository, settingsRepository)
     }
 
     @After
@@ -364,4 +368,195 @@ class DiaryViewModelTest {
             assertEquals("Note Beta (Created Second)", state.notes[1].title)
         }
     }
+
+    @Test
+    fun `test multi-selection toggle selectAll and clearSelection`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 1L,
+                title = "Note 1",
+                description = "Content 1",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 1000L
+            )
+        )
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 2L,
+                title = "Note 2",
+                description = "Content 2",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 2000L
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        val key1 = "act_1"
+        val key2 = "act_2"
+
+        // Initially no selection
+        assertFalse(viewModel.uiState.value.isSelectionMode)
+        assertTrue(viewModel.uiState.value.selectedKeys.isEmpty())
+
+        // Toggle select key 1
+        viewModel.toggleSelection(key1)
+        testScheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isSelectionMode)
+        assertEquals(setOf(key1), viewModel.uiState.value.selectedKeys)
+
+        // Toggle select key 2
+        viewModel.toggleSelection(key2)
+        testScheduler.advanceUntilIdle()
+        assertEquals(setOf(key1, key2), viewModel.uiState.value.selectedKeys)
+
+        // Toggle unselect key 1
+        viewModel.toggleSelection(key1)
+        testScheduler.advanceUntilIdle()
+        assertEquals(setOf(key2), viewModel.uiState.value.selectedKeys)
+
+        // Select all
+        viewModel.selectAll()
+        testScheduler.advanceUntilIdle()
+        assertEquals(setOf(key1, key2), viewModel.uiState.value.selectedKeys)
+
+        // Clear selection
+        viewModel.clearSelection()
+        testScheduler.advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isSelectionMode)
+        assertTrue(viewModel.uiState.value.selectedKeys.isEmpty())
+    }
+
+    @Test
+    fun `test togglePinSelectedNotes pins note and places it at top across sorting`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 1L,
+                title = "Older Note",
+                description = "Content 1",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 1000L
+            )
+        )
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 2L,
+                title = "Newer Note",
+                description = "Content 2",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 2000L
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        // By default (newest first), Newer Note is first
+        assertEquals("Newer Note", viewModel.uiState.value.notes[0].title)
+        assertEquals("Older Note", viewModel.uiState.value.notes[1].title)
+
+        // Select Older Note and pin it
+        viewModel.toggleSelection("act_1")
+        testScheduler.advanceUntilIdle()
+        viewModel.togglePinSelectedNotes()
+        testScheduler.advanceUntilIdle()
+
+        // Selection should be cleared after pinning
+        assertFalse(viewModel.uiState.value.isSelectionMode)
+
+        // Now Older Note is pinned and MUST appear at index 0 (top of the list)
+        val state = viewModel.uiState.value
+        assertEquals("Older Note", state.notes[0].title)
+        assertTrue(state.notes[0].isPinned)
+        assertEquals("Newer Note", state.notes[1].title)
+        assertFalse(state.notes[1].isPinned)
+    }
+
+    @Test
+    fun `test togglePinSelectedNotes unpins notes when all selected are pinned`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 1L,
+                title = "Note 1",
+                description = "Content 1",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 1000L
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        // Pin Note 1
+        viewModel.toggleSelection("act_1")
+        testScheduler.advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.areAllSelectedPinned)
+        viewModel.togglePinSelectedNotes()
+        testScheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.notes[0].isPinned)
+
+        // Select Note 1 again and toggle pin -> should unpin
+        viewModel.toggleSelection("act_1")
+        testScheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.areAllSelectedPinned)
+        viewModel.togglePinSelectedNotes()
+        testScheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.notes[0].isPinned)
+    }
+
+    @Test
+    fun `test deleteSelectedNotes removes activities notes and clears selection`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 10L,
+                title = "To Delete 1",
+                description = "Desc 1",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 1000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 101L,
+                activityId = 10L,
+                title = "To Delete 1",
+                content = "Desc 1",
+                updatedAtMillis = 1000L
+            )
+        )
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 20L,
+                title = "Keep This Note",
+                description = "Desc 2",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 2000L
+            )
+        )
+        testScheduler.advanceUntilIdle()
+        assertEquals(2, viewModel.uiState.value.notes.size)
+
+        // Select Note 10 and delete
+        viewModel.toggleSelection("act_10")
+        testScheduler.advanceUntilIdle()
+        viewModel.deleteSelectedNotes()
+        testScheduler.advanceUntilIdle()
+
+        // Selection cleared and note deleted
+        assertFalse(viewModel.uiState.value.isSelectionMode)
+        val remainingNotes = viewModel.uiState.value.notes
+        assertEquals(1, remainingNotes.size)
+        assertEquals("Keep This Note", remainingNotes[0].title)
+    }
 }
+
