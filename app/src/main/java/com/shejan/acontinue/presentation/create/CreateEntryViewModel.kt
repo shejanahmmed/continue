@@ -172,6 +172,19 @@ class CreateEntryViewModel(
         }.launchIn(viewModelScope)
     }
 
+    fun resetForm() {
+        _state.update { current ->
+            CreateEntryState(
+                recentEmojis = current.recentEmojis,
+                savedCustomAlerts = current.savedCustomAlerts,
+                savedReminderCategories = current.savedReminderCategories,
+                categoryReminderCounts = current.categoryReminderCounts,
+                savedNoteLabels = current.savedNoteLabels,
+                entryType = EntryType.NOTE
+            )
+        }
+    }
+
     fun updateEntryType(type: EntryType) = _state.update { it.copy(entryType = type) }
     fun updateTitle(title: String) = _state.update { it.copy(title = title) }
     fun updateEmoji(emoji: String) = _state.update { it.copy(emoji = emoji) }
@@ -194,8 +207,73 @@ class CreateEntryViewModel(
 
     fun loadActivityForEditing(activityId: Long) {
         viewModelScope.launch {
-            val activity = activityRepository.getActivityById(activityId).firstOrNull() ?: return@launch
-            val attachments = linkRepository?.getAttachmentsForActivity(activityId)?.firstOrNull() ?: emptyList()
+            _state.update { it.copy(editingActivityId = null) }
+            var activity = activityRepository.getActivityById(activityId).firstOrNull()
+            val existingNotes = noteRepository.getNotesForActivity(activityId).firstOrNull() ?: emptyList()
+            var matchingNote = existingNotes.firstOrNull()
+            var effectiveActivityId = activityId
+
+            if (activity == null && matchingNote == null) {
+                // If neither activity nor note exists under activityId, check if activityId was passed as a noteId
+                val allNotes = noteRepository.searchNotes("").firstOrNull() ?: emptyList()
+                val foundNote = allNotes.find { it.id == activityId }
+                if (foundNote != null) {
+                    matchingNote = foundNote
+                    if (foundNote.activityId > 0L) {
+                        effectiveActivityId = foundNote.activityId
+                        activity = activityRepository.getActivityById(foundNote.activityId).firstOrNull()
+                    }
+                } else {
+                    return@launch
+                }
+            }
+
+            val effectiveTitle = matchingNote?.title?.takeIf { it.isNotBlank() && it != "Untitled Note" }
+                ?: activity?.title?.takeIf { it.isNotBlank() }
+                ?: matchingNote?.title
+                ?: "Untitled Note"
+
+            val effectiveContent = matchingNote?.content?.takeIf { it.isNotBlank() }
+                ?: activity?.description
+                ?: ""
+
+            // Self-heal activity description in Room database if it was previously saved empty
+            if (activity != null && activity.description.isBlank() && effectiveContent.isNotBlank()) {
+                val updatedActivity = activity.copy(description = effectiveContent)
+                activityRepository.updateActivity(updatedActivity)
+                activity = updatedActivity
+            } else if (activity == null && matchingNote != null) {
+                // Auto-create ActivityItem for orphaned or standalone notes
+                val now = matchingNote.updatedAtMillis
+                val newActivity = ActivityItem(
+                    id = if (effectiveActivityId > 0L) effectiveActivityId else 0L,
+                    title = effectiveTitle,
+                    description = effectiveContent,
+                    entryType = EntryType.NOTE,
+                    category = ActivityCategory.OTHER,
+                    isAllDay = false,
+                    startTimeMillis = 0L,
+                    endTimeMillis = 0L,
+                    location = "",
+                    priority = ActivityPriority.MEDIUM,
+                    reminderMinutesBefore = -1,
+                    reminderMinutesList = emptyList(),
+                    recurrenceMode = RecurrenceMode.NONE,
+                    isCompleted = false,
+                    reminderCategory = "Notes",
+                    reminderCategoryColorHex = 0xFF000000L,
+                    createdAtMillis = now
+                )
+                val createdId = activityRepository.insertActivity(newActivity)
+                effectiveActivityId = createdId
+                activity = newActivity.copy(id = createdId)
+                if (matchingNote.activityId != createdId) {
+                    noteRepository.updateNote(matchingNote.copy(activityId = createdId))
+                }
+            }
+
+            val targetId = activity?.id ?: effectiveActivityId
+            val attachments = linkRepository?.getAttachmentsForActivity(targetId)?.firstOrNull() ?: emptyList()
             val processed = attachments.map { att ->
                 ProcessedAttachment(
                     id = att.id.toString(),
@@ -205,33 +283,34 @@ class CreateEntryViewModel(
                     sizeBytes = att.sizeBytes
                 )
             }
+
             _state.update { current ->
                 current.copy(
-                    editingActivityId = activity.id,
-                    entryType = activity.entryType,
-                    title = activity.title,
-                    notes = activity.description,
-                    category = activity.category,
-                    isAllDay = activity.isAllDay,
-                    startMillis = activity.startTimeMillis,
-                    endMillis = activity.endTimeMillis,
-                    location = if (activity.location.trim().equals("location", ignoreCase = true)) "" else activity.location,
-                    priority = activity.priority,
-                    reminderCategory = activity.reminderCategory,
-                    reminderCategoryColorHex = activity.reminderCategoryColorHex,
-                    alertsEnabled = activity.reminderMinutesList.isNotEmpty() || activity.reminderMinutesBefore >= 0,
-                    selectedAlertMinutes = activity.reminderMinutesList.toSet(),
-                    earlyAlertMinutes = activity.reminderMinutesBefore,
-                    recurrenceMode = activity.recurrenceMode,
-                    recurrenceInterval = activity.recurrenceInterval,
-                    recurrenceDaysOfWeek = activity.recurrenceDaysOfWeek.toSet(),
-                    monthlyRepeatType = activity.monthlyRepeatType,
-                    monthlySelectedDays = activity.monthlySelectedDays.toSet(),
-                    yearlyRepeatType = activity.yearlyRepeatType,
-                    yearlySelectedMonths = activity.yearlySelectedMonths.toSet(),
-                    recurrenceEndType = activity.recurrenceEndType,
-                    recurrenceEndCount = activity.recurrenceEndCount,
-                    recurrenceEndDateMillis = if (activity.recurrenceEndDateMillis > 0L) activity.recurrenceEndDateMillis else defaultRecurrenceEndDateMillis(activity.startTimeMillis),
+                    editingActivityId = targetId,
+                    entryType = activity?.entryType ?: EntryType.NOTE,
+                    title = effectiveTitle,
+                    notes = effectiveContent,
+                    category = activity?.category ?: ActivityCategory.OTHER,
+                    isAllDay = activity?.isAllDay ?: false,
+                    startMillis = activity?.startTimeMillis ?: defaultStartMillis(),
+                    endMillis = activity?.endTimeMillis ?: defaultEndMillis(defaultStartMillis()),
+                    location = if (activity?.location?.trim()?.equals("location", ignoreCase = true) == true) "" else (activity?.location ?: ""),
+                    priority = activity?.priority ?: ActivityPriority.MEDIUM,
+                    reminderCategory = activity?.reminderCategory?.takeIf { it.isNotBlank() } ?: "Notes",
+                    reminderCategoryColorHex = activity?.reminderCategoryColorHex ?: 0xFF000000L,
+                    alertsEnabled = activity?.reminderMinutesList?.isNotEmpty() == true || (activity?.reminderMinutesBefore ?: -1) >= 0,
+                    selectedAlertMinutes = activity?.reminderMinutesList?.toSet() ?: emptySet(),
+                    earlyAlertMinutes = activity?.reminderMinutesBefore ?: -1,
+                    recurrenceMode = activity?.recurrenceMode ?: RecurrenceMode.NONE,
+                    recurrenceInterval = activity?.recurrenceInterval ?: 1,
+                    recurrenceDaysOfWeek = activity?.recurrenceDaysOfWeek?.toSet() ?: emptySet(),
+                    monthlyRepeatType = activity?.monthlyRepeatType ?: MonthlyRepeatType.SAME_DAY_OF_MONTH,
+                    monthlySelectedDays = activity?.monthlySelectedDays?.toSet() ?: emptySet(),
+                    yearlyRepeatType = activity?.yearlyRepeatType ?: YearlyRepeatType.SAME_DATE,
+                    yearlySelectedMonths = activity?.yearlySelectedMonths?.toSet() ?: emptySet(),
+                    recurrenceEndType = activity?.recurrenceEndType ?: RecurrenceEndType.FOREVER,
+                    recurrenceEndCount = activity?.recurrenceEndCount ?: 10,
+                    recurrenceEndDateMillis = if ((activity?.recurrenceEndDateMillis ?: 0L) > 0L) activity!!.recurrenceEndDateMillis else defaultRecurrenceEndDateMillis(activity?.startTimeMillis ?: defaultStartMillis()),
                     attachments = processed
                 )
             }
@@ -867,67 +946,81 @@ class CreateEntryViewModel(
         val currentEditId = _state.value.editingActivityId ?: return
         viewModelScope.launch {
             withContext(NonCancellable) {
+                val notes = noteRepository.getNotesForActivity(currentEditId).firstOrNull() ?: emptyList()
+                for (n in notes) {
+                    noteRepository.deleteNote(n.id)
+                }
                 activityRepository.deleteActivity(currentEditId)
                 _events.emit(CreateEntryEvent.SavedSuccessfully)
             }
         }
     }
 
-    fun makeCopyOfNote(
+    suspend fun makeCopyOfNote(
         title: String,
         content: String,
         colorHex: Long = 0xFF000000L,
         labels: List<String> = emptyList()
-    ) {
+    ): Long {
         val trimmedTitle = title.trim()
         val trimmedContent = content.trim()
         if (trimmedTitle.isBlank() && trimmedContent.isBlank()) {
-            return
+            return -1L
         }
 
-        viewModelScope.launch {
-            withContext(NonCancellable) {
-                val now = System.currentTimeMillis()
-                val effectiveTitle = trimmedTitle.ifBlank {
-                    val firstLine = trimmedContent.lineSequence().firstOrNull()?.trim() ?: ""
-                    val cleanLine = firstLine
-                        .removePrefix("[ ] ")
-                        .removePrefix("[x] ")
-                        .removePrefix("[X] ")
-                        .trim()
-                    if (cleanLine.isNotBlank()) cleanLine.take(40) else "Untitled Note"
-                }
-                val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
-
-                val activity = ActivityItem(
-                    title = effectiveTitle,
-                    description = trimmedContent,
-                    entryType = EntryType.NOTE,
-                    category = ActivityCategory.OTHER,
-                    isAllDay = false,
-                    startTimeMillis = 0L,
-                    endTimeMillis = 0L,
-                    location = "",
-                    priority = ActivityPriority.MEDIUM,
-                    reminderMinutesBefore = -1,
-                    reminderMinutesList = emptyList(),
-                    recurrenceMode = RecurrenceMode.NONE,
-                    isCompleted = false,
-                    reminderCategory = categoryString,
-                    reminderCategoryColorHex = colorHex,
-                    createdAtMillis = now
-                )
-
-                val newId = activityRepository.insertActivity(activity)
-                noteRepository.insertNote(
-                    ActivityNote(
-                        activityId = newId,
-                        title = effectiveTitle,
-                        content = trimmedContent,
-                        updatedAtMillis = now
-                    )
-                )
+        return withContext(NonCancellable) {
+            val now = System.currentTimeMillis()
+            val effectiveTitle = trimmedTitle.ifBlank {
+                val firstLine = trimmedContent.lineSequence().firstOrNull()?.trim() ?: ""
+                val cleanLine = firstLine
+                    .removePrefix("[ ] ")
+                    .removePrefix("[x] ")
+                    .removePrefix("[X] ")
+                    .trim()
+                if (cleanLine.isNotBlank()) cleanLine.take(40) else "Untitled Note"
             }
+            val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
+
+            val activity = ActivityItem(
+                title = effectiveTitle,
+                description = trimmedContent,
+                entryType = EntryType.NOTE,
+                category = ActivityCategory.OTHER,
+                isAllDay = false,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                location = "",
+                priority = ActivityPriority.MEDIUM,
+                reminderMinutesBefore = -1,
+                reminderMinutesList = emptyList(),
+                recurrenceMode = RecurrenceMode.NONE,
+                isCompleted = false,
+                reminderCategory = categoryString,
+                reminderCategoryColorHex = colorHex,
+                createdAtMillis = now
+            )
+
+            val newId = activityRepository.insertActivity(activity)
+            noteRepository.insertNote(
+                ActivityNote(
+                    activityId = newId,
+                    title = effectiveTitle,
+                    content = trimmedContent,
+                    updatedAtMillis = now
+                )
+            )
+
+            val currentId = _state.value.editingActivityId
+            if (currentId != null && currentId > 0L && linkRepository != null) {
+                val existingAttachments = linkRepository.getAttachmentsForActivity(currentId).firstOrNull() ?: emptyList()
+                existingAttachments.forEach { att ->
+                    linkRepository.insertAttachment(
+                        att.copy(id = 0L, activityId = newId, createdAtMillis = now)
+                    )
+                }
+            }
+
+            newId
         }
     }
 }

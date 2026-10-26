@@ -137,7 +137,7 @@ fun DiaryScreen(
             items(uiState.notes, key = { "diary_note_${it.activityId}_${it.noteId}" }) { note ->
                 DiaryNoteCard(
                     note = note,
-                    onClick = { onNoteClick(note.activityId) }
+                    onClick = { onNoteClick(if (note.activityId > 0L) note.activityId else note.noteId) }
                 )
                 Spacer(modifier = Modifier.height(10.dp))
             }

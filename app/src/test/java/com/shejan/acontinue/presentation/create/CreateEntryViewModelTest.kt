@@ -1195,6 +1195,195 @@ class CreateEntryViewModelTest {
         assertEquals(draftId, secondCallId)
         assertEquals(1, activityRepository.activitiesFlow.value.size)
     }
+
+    @Test
+    fun `test makeCopyOfNote duplicates note and returns valid newId`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        val copyId = viewModel.makeCopyOfNote(
+            title = "Original Title",
+            content = "Original Content",
+            colorHex = 0xFFFF0000L,
+            labels = listOf("Work", "Urgent")
+        )
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(copyId > 0L)
+        val activities = activityRepository.activitiesFlow.value
+        assertEquals(1, activities.size)
+        val copiedActivity = activities.first()
+        assertEquals(copyId, copiedActivity.id)
+        assertEquals("Original Title", copiedActivity.title)
+        assertEquals("Original Content", copiedActivity.description)
+        assertEquals(EntryType.NOTE, copiedActivity.entryType)
+        assertEquals(0xFFFF0000L, copiedActivity.reminderCategoryColorHex)
+        assertEquals("Work,Urgent", copiedActivity.reminderCategory)
+
+        val notes = noteRepository.notesFlow.value.filter { it.activityId == copyId }
+        assertEquals(1, notes.size)
+        assertEquals("Original Title", notes.first().title)
+        assertEquals("Original Content", notes.first().content)
+    }
+
+    @Test
+    fun `test makeCopyOfNote duplicates attachments of source note`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        // Create an existing note with an attachment
+        val sourceActivity = ActivityItem(
+            id = 100L,
+            title = "Source Note",
+            description = "Source Content",
+            entryType = EntryType.NOTE,
+            startTimeMillis = 0L,
+            endTimeMillis = 0L
+        )
+        activityRepository.insertActivity(sourceActivity)
+        linkRepository.insertAttachment(
+            com.shejan.acontinue.domain.model.ActivityAttachment(
+                id = 1L,
+                activityId = 100L,
+                fileName = "photo.jpg",
+                uriString = "file:///attachments/photo.jpg",
+                mimeType = "image/jpeg"
+            )
+        )
+        viewModel.loadActivityForEditing(100L)
+        testScheduler.advanceUntilIdle()
+
+        val copyId = viewModel.makeCopyOfNote(
+            title = "Copied Note",
+            content = "Copied Content"
+        )
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(copyId > 0L)
+        val copyAttachments = linkRepository.attachmentsFlow.value.filter { it.activityId == copyId }
+        assertEquals(1, copyAttachments.size)
+        assertEquals(copyId, copyAttachments.first().activityId)
+        assertEquals("photo.jpg", copyAttachments.first().fileName)
+        assertEquals("file:///attachments/photo.jpg", copyAttachments.first().uriString)
+    }
+
+    @Test
+    fun `test makeCopyOfNote returns -1 when title and content are blank`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        val copyId = viewModel.makeCopyOfNote(
+            title = "   ",
+            content = "   "
+        )
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(-1L, copyId)
+        assertTrue(activityRepository.activitiesFlow.value.isEmpty())
+    }
+
+    @Test
+    fun `test loadActivityForEditing loads note content from noteRepository when activity description is empty and self-heals`() = runTest(testDispatcher) {
+        val activity = ActivityItem(
+            id = 20L,
+            title = "Existing Note Title",
+            description = "",
+            entryType = EntryType.NOTE,
+            category = ActivityCategory.OTHER,
+            isAllDay = false,
+            startTimeMillis = 0L,
+            endTimeMillis = 0L,
+            location = "",
+            priority = ActivityPriority.MEDIUM,
+            reminderMinutesBefore = -1,
+            reminderMinutesList = emptyList(),
+            recurrenceMode = RecurrenceMode.NONE,
+            isCompleted = false,
+            reminderCategory = "Notes",
+            reminderCategoryColorHex = 0xFF000000L,
+            createdAtMillis = 1000L
+        )
+        activityRepository.insertActivity(activity)
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1L,
+                activityId = 20L,
+                title = "Existing Note Title",
+                content = "Pre-created card content from NoteEntity",
+                updatedAtMillis = 1000L
+            )
+        )
+
+        viewModel.loadActivityForEditing(20L)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(20L, viewModel.state.value.editingActivityId)
+        assertEquals("Existing Note Title", viewModel.state.value.title)
+        assertEquals("Pre-created card content from NoteEntity", viewModel.state.value.notes)
+
+        // Verify Room self-healing: activity.description is updated so future queries are in sync
+        val updatedActivity = activityRepository.activitiesFlow.value.first { it.id == 20L }
+        assertEquals("Pre-created card content from NoteEntity", updatedActivity.description)
+    }
+
+    @Test
+    fun `test loadActivityForEditing resolves note when passed a noteId directly`() = runTest(testDispatcher) {
+        val standaloneNote = ActivityNote(
+            id = 77L,
+            activityId = 0L,
+            title = "Standalone Quick Note",
+            content = "Quick recorded voice or thought",
+            updatedAtMillis = 2000L
+        )
+        noteRepository.insertNote(standaloneNote)
+
+        viewModel.loadActivityForEditing(77L)
+        testScheduler.advanceUntilIdle()
+
+        val editingId = viewModel.state.value.editingActivityId
+        assertTrue(editingId != null && editingId > 0L)
+        assertEquals("Standalone Quick Note", viewModel.state.value.title)
+        assertEquals("Quick recorded voice or thought", viewModel.state.value.notes)
+    }
+
+    @Test
+    fun `test deleteCurrentNote removes both activity and associated notes`() = runTest(testDispatcher) {
+        val activity = ActivityItem(
+            id = 30L,
+            title = "Note to delete",
+            description = "Some content",
+            entryType = EntryType.NOTE,
+            category = ActivityCategory.OTHER,
+            isAllDay = false,
+            startTimeMillis = 0L,
+            endTimeMillis = 0L,
+            location = "",
+            priority = ActivityPriority.MEDIUM,
+            reminderMinutesBefore = -1,
+            reminderMinutesList = emptyList(),
+            recurrenceMode = RecurrenceMode.NONE,
+            isCompleted = false,
+            reminderCategory = "Notes",
+            reminderCategoryColorHex = 0xFF000000L,
+            createdAtMillis = 1000L
+        )
+        activityRepository.insertActivity(activity)
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 5L,
+                activityId = 30L,
+                title = "Note to delete",
+                content = "Some content",
+                updatedAtMillis = 1000L
+            )
+        )
+
+        viewModel.loadActivityForEditing(30L)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.deleteCurrentNote()
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(activityRepository.activitiesFlow.value.none { it.id == 30L })
+        assertTrue(noteRepository.notesFlow.value.none { it.activityId == 30L })
+    }
 }
 
 

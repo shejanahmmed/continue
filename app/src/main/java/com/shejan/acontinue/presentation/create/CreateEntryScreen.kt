@@ -369,8 +369,14 @@ fun CreateEntryScreen(
                 dismissOnce()
             },
             onMakeCopy = { title, content, colorHex, labels ->
-                viewModel.makeCopyOfNote(title, content, colorHex, labels)
-                dismissOnce()
+                coroutineScope.launch {
+                    val newId = viewModel.makeCopyOfNote(title, content, colorHex, labels)
+                    if (newId > 0L) {
+                        viewModel.loadActivityForEditing(newId)
+                    } else {
+                        dismissOnce()
+                    }
+                }
             },
             allLabels = state.savedNoteLabels,
             onCreateLabel = { viewModel.addNoteLabel(it) },

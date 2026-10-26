@@ -341,6 +341,40 @@ fun CreateNoteScreen(
     var selectedPreviewPhotoUri by remember { mutableStateOf<Uri?>(null) }
     var autoFocusAfterCaptureTrigger by remember { mutableIntStateOf(0) }
 
+    LaunchedEffect(initialTitle) {
+        if (!hasUserModified && title != initialTitle) {
+            title = initialTitle
+        }
+    }
+
+    LaunchedEffect(initialCleanPlainText, initialParsedFormatState, initialParsedChecklist) {
+        if (!hasUserModified) {
+            noteTextState = TextFieldValue(initialCleanPlainText)
+            formatState = initialParsedFormatState
+            isChecklistMode = initialParsedChecklist != null
+            checklistItems = initialParsedChecklist ?: emptyList()
+            targetCursorPosition = initialCleanPlainText.length
+        }
+    }
+
+    LaunchedEffect(parsedAudioUris) {
+        if (!hasUserModified) {
+            recordedAudioUris = parsedAudioUris
+        }
+    }
+
+    LaunchedEffect(initialColorHex) {
+        if (!hasUserModified) {
+            selectedColorHex = initialColorHex
+        }
+    }
+
+    LaunchedEffect(initialLabels) {
+        if (!hasUserModified) {
+            selectedLabels = initialLabels.toSet()
+        }
+    }
+
     val enterEditMode: () -> Unit = {
         if (!isEditMode) {
             isEditMode = true
@@ -361,6 +395,24 @@ fun CreateNoteScreen(
                 keyboardController?.show()
             }
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+        }
+    }
+
+    LaunchedEffect(Unit) {
+        if (!startInViewMode && editingActivityId != null && editingActivityId > 0L) {
+            kotlinx.coroutines.delay(150)
+            if (isChecklistMode && checklistItems.isNotEmpty()) {
+                targetFocusChecklistId = checklistItems.last().id
+            } else {
+                runCatching {
+                    contentFocusRequester.requestFocus()
+                    isContentFocused = true
+                    val endPos = noteTextState.text.length
+                    noteTextState = noteTextState.copy(selection = TextRange(endPos))
+                    targetCursorPosition = endPos
+                }
+            }
+            keyboardController?.show()
         }
     }
 

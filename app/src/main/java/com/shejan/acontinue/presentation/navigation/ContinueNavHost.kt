@@ -1,5 +1,6 @@
 package com.shejan.acontinue.presentation.navigation
 
+import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.navigationBarsPadding
@@ -8,11 +9,13 @@ import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.key
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.zIndex
 import com.shejan.acontinue.core.designsystem.components.GlobalRecordingDynamicIsland
+import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.NavType
@@ -61,9 +64,15 @@ sealed class Screen(val route: String) {
             return if (params.isNotEmpty()) "create?${params.joinToString("&")}" else "create"
         }
     }
-    data object NoteEditor : Screen("note_editor?editActivityId={editActivityId}") {
-        fun createRoute(editActivityId: Long? = null): String {
-            return if (editActivityId != null) "note_editor?editActivityId=$editActivityId" else "note_editor"
+    data object NoteEditor : Screen("note_editor?editActivityId={editActivityId}&startInEditMode={startInEditMode}") {
+        fun createRoute(
+            editActivityId: Long? = null,
+            startInEditMode: Boolean = false
+        ): String {
+            val params = mutableListOf<String>()
+            if (editActivityId != null) params.add("editActivityId=$editActivityId")
+            if (startInEditMode) params.add("startInEditMode=$startInEditMode")
+            return if (params.isNotEmpty()) "note_editor?${params.joinToString("&")}" else "note_editor"
         }
     }
     data object Workspace : Screen("workspace/{activityId}") {
@@ -79,6 +88,7 @@ fun ContinueNavHost(
     modifier: Modifier = Modifier
 ) {
     val navBackStackEntry by navController.currentBackStackEntryAsState()
+    val coroutineScope = rememberCoroutineScope()
     val recordingState by container.audioRecordingManager.state.collectAsState()
     val startDestination = if (userSettings.isOnboardingCompleted) Screen.Home.route else Screen.Welcome.route
     val currentRoute = navBackStackEntry?.destination?.route ?: startDestination
@@ -281,20 +291,40 @@ fun ContinueNavHost(
                     navArgument("editActivityId") {
                         type = NavType.LongType
                         defaultValue = -1L
+                    },
+                    navArgument("startInEditMode") {
+                        type = NavType.BoolType
+                        defaultValue = false
                     }
                 )
             ) { backStackEntry ->
                 val editActivityId = backStackEntry.arguments?.getLong("editActivityId") ?: -1L
+                val startInEditMode = backStackEntry.arguments?.getBoolean("startInEditMode") ?: false
                 val noteViewModel: CreateEntryViewModel = viewModel(
                     key = if (editActivityId > 0L) "note_editor_$editActivityId" else "note_editor_new",
                     factory = container.provideCreateEntryViewModelFactory()
                 )
-                if (editActivityId > 0L) {
-                    noteViewModel.loadActivityForEditing(editActivityId)
-                } else {
-                    noteViewModel.updateEntryType(EntryType.NOTE)
+                LaunchedEffect(editActivityId) {
+                    if (editActivityId > 0L) {
+                        noteViewModel.loadActivityForEditing(editActivityId)
+                    } else {
+                        noteViewModel.resetForm()
+                        noteViewModel.updateEntryType(EntryType.NOTE)
+                    }
                 }
                 val state by noteViewModel.state.collectAsState()
+
+                if (editActivityId > 0L && state.editingActivityId == null) {
+                    Box(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(LocalUtilitarianColors.current.background)
+                    )
+                    return@composable
+                }
+
+                val effectiveActivityId = state.editingActivityId ?: editActivityId
+
                 val initialLabels = remember(state.reminderCategory) {
                     if (state.reminderCategory.isBlank() || state.reminderCategory == "Notes") {
                         emptyList()
@@ -302,42 +332,62 @@ fun ContinueNavHost(
                         state.reminderCategory.split(",").map { it.trim() }.filter { it.isNotBlank() }
                     }
                 }
-                CreateNoteScreen(
-                    initialTitle = state.title,
-                    initialContent = state.notes,
-                    initialColorHex = if (state.reminderCategoryColorHex != 0L && state.reminderCategoryColorHex != 0xFF121212L) state.reminderCategoryColorHex else 0xFF000000L,
-                    initialLabels = initialLabels,
-                    editingActivityId = editActivityId,
-                    onEnsureDraftNoteId = {
-                        noteViewModel.ensureDraftNoteId(
-                            title = "",
-                            content = "",
-                            colorHex = if (state.reminderCategoryColorHex != 0L && state.reminderCategoryColorHex != 0xFF121212L) state.reminderCategoryColorHex else 0xFF000000L,
-                            labels = initialLabels
-                        )
-                    },
-                    audioRecordingManager = container.audioRecordingManager,
-                    onSaveNote = { title, content, colorHex, labels ->
-                        noteViewModel.saveNote(title, content, colorHex, labels)
-                        navController.safePopBackStack("note_editor")
-                    },
-                    onDiscard = {
-                        navController.safePopBackStack("note_editor")
-                    },
-                    onDeleteNote = {
-                        container.audioRecordingManager.cancelRecording()
-                        noteViewModel.deleteCurrentNote()
-                        navController.safePopBackStack("note_editor")
-                    },
-                    onMakeCopy = { title, content, colorHex, labels ->
-                        noteViewModel.makeCopyOfNote(title, content, colorHex, labels)
-                        navController.safePopBackStack("note_editor")
-                    },
-                    allLabels = state.savedNoteLabels,
-                    onCreateLabel = { noteViewModel.addNoteLabel(it) },
-                    onEditLabel = { oldName, newName -> noteViewModel.updateNoteLabel(oldName, newName) },
-                    onDeleteLabel = { noteViewModel.deleteNoteLabel(it) }
-                )
+
+                key(effectiveActivityId) {
+                    CreateNoteScreen(
+                        initialTitle = state.title,
+                        initialContent = state.notes,
+                        initialColorHex = if (state.reminderCategoryColorHex != 0L && state.reminderCategoryColorHex != 0xFF121212L) state.reminderCategoryColorHex else 0xFF000000L,
+                        initialLabels = initialLabels,
+                        editingActivityId = effectiveActivityId,
+                        startInViewMode = if (startInEditMode) false else (editActivityId > 0L),
+                        onEnsureDraftNoteId = {
+                            noteViewModel.ensureDraftNoteId(
+                                title = "",
+                                content = "",
+                                colorHex = if (state.reminderCategoryColorHex != 0L && state.reminderCategoryColorHex != 0xFF121212L) state.reminderCategoryColorHex else 0xFF000000L,
+                                labels = initialLabels
+                            )
+                        },
+                        audioRecordingManager = container.audioRecordingManager,
+                        onSaveNote = { title, content, colorHex, labels ->
+                            noteViewModel.saveNote(title, content, colorHex, labels)
+                            navController.safePopBackStack("note_editor")
+                        },
+                        onDiscard = {
+                            navController.safePopBackStack("note_editor")
+                        },
+                        onDeleteNote = {
+                            container.audioRecordingManager.cancelRecording()
+                            noteViewModel.deleteCurrentNote()
+                            navController.safePopBackStack("note_editor")
+                        },
+                        onMakeCopy = { title, content, colorHex, labels ->
+                            coroutineScope.launch {
+                                if (effectiveActivityId > 0L) {
+                                    noteViewModel.saveNote(title, content, colorHex, labels)
+                                }
+                                val newId = noteViewModel.makeCopyOfNote(title, content, colorHex, labels)
+                                if (newId > 0L) {
+                                    navController.navigate(
+                                        Screen.NoteEditor.createRoute(
+                                            editActivityId = newId,
+                                            startInEditMode = true
+                                        )
+                                    ) {
+                                        popUpTo(backStackEntry.destination.id) { inclusive = true }
+                                    }
+                                } else {
+                                    navController.safePopBackStack("note_editor")
+                                }
+                            }
+                        },
+                        allLabels = state.savedNoteLabels,
+                        onCreateLabel = { noteViewModel.addNoteLabel(it) },
+                        onEditLabel = { oldName, newName -> noteViewModel.updateNoteLabel(oldName, newName) },
+                        onDeleteLabel = { noteViewModel.deleteNoteLabel(it) }
+                    )
+                }
             }
 
             // Activity Workspace Destination
