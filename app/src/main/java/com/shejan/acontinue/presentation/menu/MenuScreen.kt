@@ -208,12 +208,9 @@ fun MenuScreen(
 
             MonochromeCard {
                 Column(modifier = Modifier.fillMaxWidth()) {
-                    MenuSpecificationRow(label = "APPLICATION", value = "continue")
                     MenuSpecificationRow(label = "VERSION", value = "1.0.0")
                     MenuSpecificationRow(label = "LICENSE", value = "GNU GPL v3.0")
-                    MenuSpecificationRow(label = "ARCHITECTURE", value = "Clean Architecture + Jetpack Compose")
-                    MenuSpecificationRow(label = "LOCAL PERSISTENCE", value = "Room Database + SQLite")
-                    MenuSpecificationRow(label = "MAINTAINER", value = "Farjan Ahmmed")
+                    MenuSpecificationRow(label = "DEVELOPER", value = "Farjan Ahmmed")
 
                     Spacer(modifier = Modifier.height(14.dp))
 
