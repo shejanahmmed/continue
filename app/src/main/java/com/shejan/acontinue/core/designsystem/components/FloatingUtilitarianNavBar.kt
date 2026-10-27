@@ -28,8 +28,8 @@ import androidx.compose.material.icons.automirrored.outlined.StickyNote2
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Home
+import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.Notifications
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,7 +62,7 @@ enum class NavDestination(val route: String, val label: String) {
     HOME("home", "Home"),
     DIARY("diary", "Diary"),
     CALENDAR("calendar", "Calendar"),
-    SETTINGS("settings", "Settings")
+    MENU("menu", "Menu")
 }
 
 @OptIn(ExperimentalFoundationApi::class)
@@ -157,12 +157,12 @@ fun FloatingUtilitarianNavBar(
                     onClick = { onNavigate(NavDestination.CALENDAR.route) }
                 )
 
-                // Settings
+                // Menu
                 NavBarItem(
-                    icon = Icons.Outlined.Settings,
-                    contentDescription = "Settings",
-                    isSelected = currentRoute == NavDestination.SETTINGS.route,
-                    onClick = { onNavigate(NavDestination.SETTINGS.route) }
+                    icon = Icons.Outlined.Menu,
+                    contentDescription = "Menu",
+                    isSelected = currentRoute == NavDestination.MENU.route,
+                    onClick = { onNavigate(NavDestination.MENU.route) }
                 )
             }
         }

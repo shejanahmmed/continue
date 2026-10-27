@@ -33,6 +33,7 @@ import com.shejan.acontinue.presentation.diary.DiaryScreen
 import com.shejan.acontinue.presentation.diary.DiaryViewModel
 import com.shejan.acontinue.presentation.home.HomeScreen
 import com.shejan.acontinue.presentation.home.HomeViewModel
+import com.shejan.acontinue.presentation.menu.MenuScreen
 import com.shejan.acontinue.presentation.settings.SettingsScreen
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
@@ -50,6 +51,7 @@ sealed class Screen(val route: String) {
     data object Home : Screen("home")
     data object Diary : Screen("diary")
     data object Calendar : Screen("calendar")
+    data object Menu : Screen("menu")
     data object Settings : Screen("settings")
     data object Create : Screen("create?initialDate={initialDate}&editActivityId={editActivityId}&entryType={entryType}") {
         fun createRoute(
@@ -97,7 +99,7 @@ fun ContinueNavHost(
         Screen.Home.route,
         Screen.Diary.route,
         Screen.Calendar.route,
-        Screen.Settings.route
+        Screen.Menu.route
     )
 
     LaunchedEffect(navBackStackEntry) {
@@ -228,6 +230,19 @@ fun ContinueNavHost(
                 )
             }
 
+            // Menu Destination
+            composable(Screen.Menu.route) {
+                MenuScreen(
+                    onNavigateToSettings = {
+                        navController.navigate(Screen.Settings.route)
+                    },
+                    onNavigateToWelcome = {
+                        navController.navigate(Screen.Welcome.route)
+                    },
+                    modifier = Modifier.statusBarsPadding()
+                )
+            }
+
             // Settings Destination
             composable(Screen.Settings.route) {
                 val settingsViewModel: com.shejan.acontinue.presentation.settings.SettingsViewModel = viewModel(
@@ -237,6 +252,9 @@ fun ContinueNavHost(
                     viewModel = settingsViewModel,
                     onNavigateToWelcome = {
                         navController.navigate(Screen.Welcome.route)
+                    },
+                    onNavigateBack = {
+                        navController.popBackStack()
                     },
                     modifier = Modifier.statusBarsPadding()
                 )
