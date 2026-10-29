@@ -228,8 +228,8 @@ class CreateEntryViewModel(
                 }
             }
 
-            val effectiveTitle = matchingNote?.title?.takeIf { it.isNotBlank() && it != "Untitled Note" }
-                ?: activity?.title?.takeIf { it.isNotBlank() && it != "Untitled Note" }
+            val effectiveTitle = matchingNote?.title?.takeIf { !it.equals("Untitled Note", ignoreCase = true) }
+                ?: activity?.title?.takeIf { !it.equals("Untitled Note", ignoreCase = true) }
                 ?: ""
 
             val effectiveContent = matchingNote?.content?.takeIf { it.isNotBlank() }
@@ -786,7 +786,7 @@ class CreateEntryViewModel(
         return withContext(NonCancellable) {
             val now = System.currentTimeMillis()
             val trimmedTitle = title.trim()
-            val effectiveTitle = trimmedTitle.ifBlank { "Untitled Note" }
+            val effectiveTitle = trimmedTitle
             val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
 
             val activity = ActivityItem(
@@ -841,15 +841,7 @@ class CreateEntryViewModel(
             withContext(NonCancellable) {
                 _state.update { it.copy(isSaving = true) }
                 val now = System.currentTimeMillis()
-                val effectiveTitle = trimmedTitle.ifBlank {
-                    val firstLine = trimmedContent.lineSequence().firstOrNull()?.trim() ?: ""
-                    val cleanLine = firstLine
-                        .removePrefix("[ ] ")
-                        .removePrefix("[x] ")
-                        .removePrefix("[X] ")
-                        .trim()
-                    if (cleanLine.isNotBlank()) cleanLine.take(40) else "Untitled Note"
-                }
+                val effectiveTitle = trimmedTitle
                 val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
 
                 if (currentEditId != null) {
@@ -969,15 +961,7 @@ class CreateEntryViewModel(
 
         return withContext(NonCancellable) {
             val now = System.currentTimeMillis()
-            val effectiveTitle = trimmedTitle.ifBlank {
-                val firstLine = trimmedContent.lineSequence().firstOrNull()?.trim() ?: ""
-                val cleanLine = firstLine
-                    .removePrefix("[ ] ")
-                    .removePrefix("[x] ")
-                    .removePrefix("[X] ")
-                    .trim()
-                if (cleanLine.isNotBlank()) cleanLine.take(40) else "Untitled Note"
-            }
+            val effectiveTitle = trimmedTitle
             val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
 
             val activity = ActivityItem(

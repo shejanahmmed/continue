@@ -654,7 +654,7 @@ class CreateEntryViewModelTest {
     }
 
     @Test
-    fun `test saveNote with blank title uses first line of content`() = runTest(testDispatcher) {
+    fun `test saveNote with blank title preserves empty title without auto-generating from content`() = runTest(testDispatcher) {
         testScheduler.advanceUntilIdle()
 
         viewModel.events.test {
@@ -665,7 +665,12 @@ class CreateEntryViewModelTest {
 
         val activities = activityRepository.activitiesFlow.value
         assertEquals(1, activities.size)
-        assertEquals("Important idea", activities.first().title)
+        assertEquals("", activities.first().title)
+
+        val notes = noteRepository.notesFlow.value
+        assertEquals(1, notes.size)
+        assertEquals("", notes.first().title)
+        assertEquals("Important idea\nSecond line details", notes.first().content)
     }
 
     @Test
@@ -1013,7 +1018,7 @@ class CreateEntryViewModelTest {
             val activities = activityRepository.activitiesFlow.value
             assertEquals(1, activities.size)
             val activity = activities.first()
-            assertEquals("a", activity.title)
+            assertEquals("", activity.title)
             assertEquals("a", activity.description)
             assertEquals(EntryType.NOTE, activity.entryType)
             assertEquals(0L, activity.startTimeMillis)
@@ -1041,7 +1046,7 @@ class CreateEntryViewModelTest {
 
             val activities = activityRepository.activitiesFlow.value
             assertEquals(1, activities.size)
-            assertEquals("Buy milk", activities.first().title)
+            assertEquals("", activities.first().title)
             assertEquals("[ ] Buy milk\n[ ] Eggs", activities.first().description)
         }
     }

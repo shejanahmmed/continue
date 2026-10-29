@@ -218,7 +218,7 @@ class DiaryViewModel(
         for (act in noteActivities) {
             seenActivityIds.add(act.id)
             val matchingNote = notesByActivityId[act.id]?.firstOrNull()
-            val rawTitle = matchingNote?.title?.takeIf { it.isNotBlank() } ?: act.title
+            val rawTitle = matchingNote?.title ?: act.title
             val title = if (rawTitle.equals("Untitled Note", ignoreCase = true)) "" else rawTitle
             val rawContent = matchingNote?.content ?: act.description
             val updatedAt = matchingNote?.updatedAtMillis ?: act.createdAtMillis
