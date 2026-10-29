@@ -46,6 +46,8 @@ data class NoteEntity(
     val activityId: Long,
     val title: String,
     val content: String,
+    val colorHex: Long = 0L,
+    val labels: String = "",
     val updatedAtMillis: Long
 )
 

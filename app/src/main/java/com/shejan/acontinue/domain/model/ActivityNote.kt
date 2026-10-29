@@ -5,5 +5,7 @@ data class ActivityNote(
     val activityId: Long,
     val title: String,
     val content: String,
+    val colorHex: Long = 0xFF000000L,
+    val labels: List<String> = emptyList(),
     val updatedAtMillis: Long = System.currentTimeMillis()
 )

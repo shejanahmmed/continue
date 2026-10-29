@@ -66,13 +66,17 @@ sealed class Screen(val route: String) {
             return if (params.isNotEmpty()) "create?${params.joinToString("&")}" else "create"
         }
     }
-    data object NoteEditor : Screen("note_editor?editActivityId={editActivityId}&startInEditMode={startInEditMode}") {
+    data object NoteEditor : Screen("note_editor?editActivityId={editActivityId}&parentActivityId={parentActivityId}&editNoteId={editNoteId}&startInEditMode={startInEditMode}") {
         fun createRoute(
             editActivityId: Long? = null,
+            parentActivityId: Long? = null,
+            editNoteId: Long? = null,
             startInEditMode: Boolean = false
         ): String {
             val params = mutableListOf<String>()
             if (editActivityId != null) params.add("editActivityId=$editActivityId")
+            if (parentActivityId != null) params.add("parentActivityId=$parentActivityId")
+            if (editNoteId != null) params.add("editNoteId=$editNoteId")
             if (startInEditMode) params.add("startInEditMode=$startInEditMode")
             return if (params.isNotEmpty()) "note_editor?${params.joinToString("&")}" else "note_editor"
         }
@@ -310,6 +314,14 @@ fun ContinueNavHost(
                         type = NavType.LongType
                         defaultValue = -1L
                     },
+                    navArgument("parentActivityId") {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    },
+                    navArgument("editNoteId") {
+                        type = NavType.LongType
+                        defaultValue = -1L
+                    },
                     navArgument("startInEditMode") {
                         type = NavType.BoolType
                         defaultValue = false
@@ -317,13 +329,27 @@ fun ContinueNavHost(
                 )
             ) { backStackEntry ->
                 val editActivityId = backStackEntry.arguments?.getLong("editActivityId") ?: -1L
+                val parentActivityId = backStackEntry.arguments?.getLong("parentActivityId") ?: -1L
+                val editNoteId = backStackEntry.arguments?.getLong("editNoteId") ?: -1L
                 val startInEditMode = backStackEntry.arguments?.getBoolean("startInEditMode") ?: false
+                val isWorkspaceMode = parentActivityId > 0L
+
+                val vmKey = when {
+                    isWorkspaceMode -> "note_editor_ws_${parentActivityId}_${editNoteId}"
+                    editActivityId > 0L -> "note_editor_$editActivityId"
+                    else -> "note_editor_new"
+                }
                 val noteViewModel: CreateEntryViewModel = viewModel(
-                    key = if (editActivityId > 0L) "note_editor_$editActivityId" else "note_editor_new",
+                    key = vmKey,
                     factory = container.provideCreateEntryViewModelFactory()
                 )
-                LaunchedEffect(editActivityId) {
-                    if (editActivityId > 0L) {
+                LaunchedEffect(editActivityId, parentActivityId, editNoteId) {
+                    if (isWorkspaceMode) {
+                        noteViewModel.initWorkspaceNote(
+                            parentActivityId = parentActivityId,
+                            noteId = editNoteId
+                        )
+                    } else if (editActivityId > 0L) {
                         noteViewModel.loadActivityForEditing(editActivityId)
                     } else {
                         noteViewModel.resetForm()
@@ -332,7 +358,7 @@ fun ContinueNavHost(
                 }
                 val state by noteViewModel.state.collectAsState()
 
-                if (editActivityId > 0L && state.editingActivityId == null) {
+                if ((isWorkspaceMode && !state.isWorkspaceNoteLoaded) || (!isWorkspaceMode && editActivityId > 0L && state.editingActivityId == null)) {
                     Box(
                         modifier = Modifier
                             .fillMaxSize()
@@ -341,7 +367,11 @@ fun ContinueNavHost(
                     return@composable
                 }
 
-                val effectiveActivityId = state.editingActivityId ?: editActivityId
+                val effectiveEditingId = if (isWorkspaceMode) {
+                    state.editingNoteId ?: editNoteId.takeIf { it > 0L }
+                } else {
+                    state.editingActivityId ?: editActivityId.takeIf { it > 0L }
+                }
 
                 val initialLabels = remember(state.reminderCategory) {
                     if (state.reminderCategory.isBlank() || state.reminderCategory == "Notes") {
@@ -351,14 +381,15 @@ fun ContinueNavHost(
                     }
                 }
 
-                key(effectiveActivityId) {
+                key(effectiveEditingId ?: -1L, parentActivityId) {
                     CreateNoteScreen(
                         initialTitle = state.title,
                         initialContent = state.notes,
                         initialColorHex = if (state.reminderCategoryColorHex != 0L && state.reminderCategoryColorHex != 0xFF121212L) state.reminderCategoryColorHex else 0xFF000000L,
                         initialLabels = initialLabels,
-                        editingActivityId = effectiveActivityId,
-                        startInViewMode = if (startInEditMode) false else (editActivityId > 0L),
+                        editingActivityId = effectiveEditingId,
+                        parentActivityId = parentActivityId.takeIf { it > 0L },
+                        startInViewMode = if (startInEditMode) false else if (isWorkspaceMode) (editNoteId > 0L) else (editActivityId > 0L),
                         onEnsureDraftNoteId = {
                             noteViewModel.ensureDraftNoteId(
                                 title = "",
@@ -382,17 +413,24 @@ fun ContinueNavHost(
                         },
                         onMakeCopy = { title, content, colorHex, labels ->
                             coroutineScope.launch {
-                                if (effectiveActivityId > 0L) {
+                                if (effectiveEditingId != null && effectiveEditingId > 0L) {
                                     noteViewModel.saveNote(title, content, colorHex, labels)
                                 }
                                 val newId = noteViewModel.makeCopyOfNote(title, content, colorHex, labels)
                                 if (newId > 0L) {
-                                    navController.navigate(
+                                    val targetRoute = if (isWorkspaceMode) {
+                                        Screen.NoteEditor.createRoute(
+                                            parentActivityId = parentActivityId,
+                                            editNoteId = newId,
+                                            startInEditMode = true
+                                        )
+                                    } else {
                                         Screen.NoteEditor.createRoute(
                                             editActivityId = newId,
                                             startInEditMode = true
                                         )
-                                    ) {
+                                    }
+                                    navController.navigate(targetRoute) {
                                         popUpTo(backStackEntry.destination.id) { inclusive = true }
                                     }
                                 } else {
@@ -426,6 +464,22 @@ fun ContinueNavHost(
                     onEditActivity = { id ->
                         navController.navigate(Screen.Create.createRoute(editActivityId = id))
                     },
+                    onCreateWorkspaceNote = { eventId ->
+                        navController.navigate(
+                            Screen.NoteEditor.createRoute(
+                                parentActivityId = eventId,
+                                startInEditMode = true
+                            )
+                        )
+                    },
+                    onOpenWorkspaceNote = { eventId, noteId ->
+                        navController.navigate(
+                            Screen.NoteEditor.createRoute(
+                                parentActivityId = eventId,
+                                editNoteId = noteId
+                            )
+                        )
+                    },
                     modifier = Modifier.statusBarsPadding().navigationBarsPadding()
                 )
             }
@@ -446,9 +500,17 @@ fun ContinueNavHost(
             },
             onIslandClick = {
                 val targetNoteId = recordingState.noteActivityId
+                val targetParentId = recordingState.parentActivityId
                 if (targetNoteId != null) {
                     val currentDest = navController.currentBackStackEntry?.destination?.route
-                    val targetRoute = Screen.NoteEditor.createRoute(targetNoteId)
+                    val targetRoute = if (targetParentId != null && targetParentId > 0L) {
+                        Screen.NoteEditor.createRoute(
+                            parentActivityId = targetParentId,
+                            editNoteId = targetNoteId
+                        )
+                    } else {
+                        Screen.NoteEditor.createRoute(editActivityId = targetNoteId)
+                    }
                     if (currentDest != targetRoute) {
                         navController.navigate(targetRoute) {
                             launchSingleTop = true

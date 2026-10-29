@@ -115,14 +115,16 @@ class ActivityWorkspaceViewModel(
         _uiState.value = _uiState.value.copy(selectedTab = tab)
     }
 
-    fun addNote(title: String, content: String) {
+    fun addNote(title: String, content: String, colorHex: Long = 0xFF000000L, labels: List<String> = emptyList()) {
         if (content.isBlank() && title.isBlank()) return
         viewModelScope.launch {
             noteRepository.insertNote(
                 ActivityNote(
                     activityId = activityId,
-                    title = if (title.isBlank()) "Note" else title.trim(),
-                    content = content.trim()
+                    title = title.trim(),
+                    content = content.trim(),
+                    colorHex = colorHex,
+                    labels = labels.map { it.trim() }.filter { it.isNotBlank() }
                 )
             )
         }

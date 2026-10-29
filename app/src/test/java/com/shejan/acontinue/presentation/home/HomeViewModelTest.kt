@@ -62,7 +62,7 @@ class HomeViewModelTest {
     }
 
     @Test
-    fun `test home view model loads activities and pending tasks`() = runTest(testDispatcher) {
+    fun `test home view model loads activities and keeps tasks scoped to workspace`() = runTest(testDispatcher) {
         val now = System.currentTimeMillis()
         testTickerFlow.value = now
         val activity = ActivityItem(
@@ -88,8 +88,7 @@ class HomeViewModelTest {
             val state = awaitItem()
             assertEquals(1, state.timeline.activities.size)
             assertEquals("University Class", state.timeline.activities.first().title)
-            assertEquals(1, state.pendingTasks.size)
-            assertEquals("Review Lecture 1", state.pendingTasks.first().title)
+            assertEquals(0, state.pendingTasks.size)
             assertNotNull(state.timeline.nextActivity)
         }
     }

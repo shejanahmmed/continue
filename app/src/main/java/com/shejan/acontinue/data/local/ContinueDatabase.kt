@@ -25,7 +25,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         LinkEntity::class,
         AttachmentEntity::class
     ],
-    version = 5,
+    version = 6,
     exportSchema = false
 )
 abstract class ContinueDatabase : RoomDatabase() {
@@ -44,6 +44,13 @@ abstract class ContinueDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_5_6 = object : Migration(5, 6) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE notes ADD COLUMN colorHex INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE notes ADD COLUMN labels TEXT NOT NULL DEFAULT ''")
+            }
+        }
+
         private val DATABASE_CALLBACK = object : RoomDatabase.Callback() {
             override fun onOpen(db: SupportSQLiteDatabase) {
                 super.onOpen(db)
@@ -51,6 +58,7 @@ abstract class ContinueDatabase : RoomDatabase() {
                 db.execSQL("""
                     DELETE FROM notes 
                     WHERE activityId IN (SELECT id FROM activities WHERE entryType = 'ACTIVITY') 
+                      AND title = 'Notes'
                       AND (
                           (SELECT description FROM activities WHERE activities.id = notes.activityId) != ''
                           AND content = (SELECT description FROM activities WHERE activities.id = notes.activityId)
@@ -66,7 +74,7 @@ abstract class ContinueDatabase : RoomDatabase() {
                     ContinueDatabase::class.java,
                     "continue_app.db"
                 )
-                    .addMigrations(MIGRATION_4_5)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6)
                     .addCallback(DATABASE_CALLBACK)
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()

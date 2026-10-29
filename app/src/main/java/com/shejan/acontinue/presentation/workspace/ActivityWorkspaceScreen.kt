@@ -8,6 +8,8 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -72,6 +74,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpOffset
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -87,6 +90,7 @@ import com.shejan.acontinue.domain.model.ActivityLink
 import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.ActivityTask
 import com.shejan.acontinue.domain.model.ActivityWorkspaceAggregate
+import com.shejan.acontinue.presentation.create.NoteTextFormatter
 import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
 import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
@@ -105,6 +109,8 @@ fun ActivityWorkspaceScreen(
     viewModel: ActivityWorkspaceViewModel,
     onNavigateBack: () -> Unit,
     onEditActivity: (Long) -> Unit = {},
+    onCreateWorkspaceNote: (Long) -> Unit = {},
+    onOpenWorkspaceNote: (Long, Long) -> Unit = { _, _ -> },
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -319,7 +325,8 @@ fun ActivityWorkspaceScreen(
                 WorkspaceTab.OVERVIEW -> OverviewTabContent(aggregate = aggregate)
                 WorkspaceTab.NOTES -> NotesTabContent(
                     notes = aggregate.notes,
-                    onAddNote = { title, content -> viewModel.addNote(title, content) },
+                    onCreateNoteClick = { onCreateWorkspaceNote(activity.id) },
+                    onNoteClick = { noteId -> onOpenWorkspaceNote(activity.id, noteId) },
                     onDeleteNote = { viewModel.deleteNote(it) }
                 )
                 WorkspaceTab.TASKS -> TasksTabContent(
@@ -846,103 +853,333 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
     }
 }
 
+private val WORKSPACE_AUDIO_TAG_REGEX = Regex("""!\[audio\]\(([^)]+)\)""")
+private val WORKSPACE_PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
+
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun NotesTabContent(
     notes: List<ActivityNote>,
-    onAddNote: (String, String) -> Unit,
+    onCreateNoteClick: () -> Unit,
+    onNoteClick: (Long) -> Unit,
     onDeleteNote: (Long) -> Unit
 ) {
-    var titleInput by remember { mutableStateOf("") }
-    var contentInput by remember { mutableStateOf("") }
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
-        // Quick Add Note Box
-        MonochromeCard {
-            Column {
-                Text(
-                    text = "ADD LECTURE / WORKSPACE NOTE",
-                    color = UtilitarianTextSecondary,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-                TextField(
-                    value = titleInput,
-                    onValueChange = { titleInput = it },
-                    placeholder = { Text("Note title (optional)", color = UtilitarianTextDisabled, fontSize = 13.sp) },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedTextColor = UtilitarianTextPrimary,
-                        unfocusedTextColor = UtilitarianTextPrimary
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                TextField(
-                    value = contentInput,
-                    onValueChange = { contentInput = it },
-                    placeholder = { Text("Write notes, observations, or key takeaways...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedTextColor = UtilitarianTextPrimary,
-                        unfocusedTextColor = UtilitarianTextPrimary
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Spacer(modifier = Modifier.height(8.dp))
+        // Create Event Note Action Card
+        MonochromeCard(
+            onClick = onCreateNoteClick
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "EVENT WORKSPACE NOTES",
+                        color = UtilitarianTextSecondary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Take rich notes, checklists, or voice recordings during this event.",
+                        color = UtilitarianTextSecondary,
+                        fontSize = 12.sp,
+                        lineHeight = 17.sp
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
                 HighContrastButton(
-                    text = "+ Save Note",
-                    onClick = {
-                        if (contentInput.isNotBlank() || titleInput.isNotBlank()) {
-                            onAddNote(titleInput, contentInput)
-                            titleInput = ""
-                            contentInput = ""
-                        }
-                    },
-                    modifier = Modifier.align(Alignment.End)
+                    text = "+ Create Note",
+                    onClick = onCreateNoteClick
                 )
             }
         }
 
         if (notes.isEmpty()) {
-            Text(
-                text = "No notes added yet. Use the box above to capture thoughts during this activity.",
-                color = UtilitarianTextSecondary,
-                fontSize = 13.sp,
-                modifier = Modifier.padding(8.dp)
-            )
+            MonochromeCard {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
+                    Text(
+                        text = "No event notes recorded yet.",
+                        color = UtilitarianTextPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 14.sp
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Tap '+ Create Note' above to capture notes while this event is running.",
+                        color = UtilitarianTextSecondary,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
         } else {
             notes.forEach { note ->
-                MonochromeCard {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Top
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = note.title, color = UtilitarianTextPrimary, fontWeight = FontWeight.Bold, fontSize = 15.sp)
-                            Spacer(modifier = Modifier.height(4.dp))
-                            ClickableLinkText(
-                                text = note.content,
-                                color = UtilitarianTextSecondary,
-                                linkColor = Color(0xFF3897F0),
-                                style = TextStyle(fontSize = 13.sp),
-                                lineHeight = 18.sp
-                            )
-                        }
-                        IconButton(onClick = { /* Reserved for 3-dot menu options */ }) {
+                WorkspaceNoteCard(
+                    note = note,
+                    onClick = { onNoteClick(note.id) },
+                    onDelete = { onDeleteNote(note.id) }
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun WorkspaceNoteCard(
+    note: ActivityNote,
+    onClick: () -> Unit,
+    onDelete: () -> Unit
+) {
+    var showNoteMenu by remember { mutableStateOf(false) }
+
+    val hasTitle = note.title.isNotBlank() && !note.title.equals("Untitled Note", ignoreCase = true)
+    val audioCount = remember(note.content) { WORKSPACE_AUDIO_TAG_REGEX.findAll(note.content).count() }
+    val photoCount = remember(note.content) { WORKSPACE_PHOTO_TAG_REGEX.findAll(note.content).count() }
+
+    val cleanPreview = remember(note.content) {
+        val withoutMedia = note.content
+            .replace(WORKSPACE_AUDIO_TAG_REGEX, "")
+            .replace(WORKSPACE_PHOTO_TAG_REGEX, "")
+            .trim()
+        val lines = withoutMedia.lines().filter { it.isNotBlank() }
+        val isChecklist = lines.isNotEmpty() && lines.all {
+            it.startsWith("[ ] ") || it.startsWith("[x] ") || it.startsWith("[X] ")
+        }
+        val plain = if (isChecklist) {
+            withoutMedia
+        } else {
+            NoteTextFormatter.parseMarkdownToState(withoutMedia).first
+        }
+        val plainLines = plain.lines()
+        if (plainLines.size > 10) {
+            val first9 = plainLines.take(9)
+            val tenth = plainLines[9].trimEnd()
+            val tenthWithDots = if (tenth.endsWith("...")) tenth else "$tenth..."
+            (first9 + tenthWithDots).joinToString("\n")
+        } else {
+            plain
+        }
+    }
+
+    val hasContent = cleanPreview.isNotBlank()
+    val hasBadges = audioCount > 0 || photoCount > 0 || note.labels.isNotEmpty()
+    val hasCustomColor = note.colorHex != 0L && note.colorHex != 0xFF000000L && note.colorHex != 0xFF121212L
+    val borderColor = if (hasCustomColor) {
+        Color(note.colorHex).copy(alpha = 0.6f)
+    } else {
+        UtilitarianBorderStroke
+    }
+
+    Surface(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(RoundedCornerShape(12.dp))
+            .clickable { onClick() },
+        shape = RoundedCornerShape(12.dp),
+        color = UtilitarianCardBackground,
+        border = BorderStroke(1.dp, borderColor)
+    ) {
+        Box(modifier = Modifier.padding(16.dp)) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.Top,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    if (hasTitle) {
+                        Text(
+                            text = note.title,
+                            color = UtilitarianTextPrimary,
+                            fontWeight = FontWeight.SemiBold,
+                            fontSize = 16.sp,
+                            lineHeight = 22.sp,
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else if (hasContent) {
+                        Text(
+                            text = cleanPreview,
+                            color = UtilitarianTextSecondary,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            maxLines = 10,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.weight(1f)
+                        )
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+
+                    Box(modifier = Modifier.padding(start = 8.dp)) {
+                        Box(
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clip(RoundedCornerShape(6.dp))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) { showNoteMenu = true },
+                            contentAlignment = Alignment.Center
+                        ) {
                             Icon(
                                 imageVector = Icons.Outlined.MoreVert,
                                 contentDescription = "Note Options",
                                 tint = UtilitarianTextSecondary,
                                 modifier = Modifier.size(18.dp)
                             )
+                        }
+
+                        DropdownMenu(
+                            expanded = showNoteMenu,
+                            onDismissRequest = { showNoteMenu = false },
+                            shape = RoundedCornerShape(12.dp),
+                            containerColor = Color(0xFF1E2023),
+                            border = BorderStroke(1.dp, Color(0xFF33383F)),
+                            modifier = Modifier
+                                .width(130.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(36.dp)
+                                    .clickable {
+                                        showNoteMenu = false
+                                        onClick()
+                                    }
+                                    .padding(horizontal = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Edit,
+                                    contentDescription = null,
+                                    tint = UtilitarianTextPrimary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Edit",
+                                    color = UtilitarianTextPrimary,
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            HorizontalDivider(
+                                color = Color(0xFF2C3136),
+                                thickness = 0.5.dp,
+                                modifier = Modifier.padding(horizontal = 8.dp)
+                            )
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .height(36.dp)
+                                    .clickable {
+                                        showNoteMenu = false
+                                        onDelete()
+                                    }
+                                    .padding(horizontal = 14.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Delete,
+                                    contentDescription = null,
+                                    tint = Color(0xFFD71921),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Delete",
+                                    color = Color(0xFFD71921),
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+
+                if (hasTitle && hasContent) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = cleanPreview,
+                        color = UtilitarianTextSecondary,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        maxLines = 10,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                if (hasBadges) {
+                    if (hasTitle || hasContent) {
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        if (audioCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(4.dp))
+                                    .background(Color(0xFF161616), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = if (audioCount == 1) "1 AUDIO" else "$audioCount AUDIOS",
+                                    color = UtilitarianTextSecondary,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                        if (photoCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(4.dp))
+                                    .background(Color(0xFF161616), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = if (photoCount == 1) "1 PHOTO" else "$photoCount PHOTOS",
+                                    color = UtilitarianTextSecondary,
+                                    fontSize = 10.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                        note.labels.forEach { label ->
+                            Box(
+                                modifier = Modifier
+                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(4.dp))
+                                    .background(Color(0xFF161616), RoundedCornerShape(4.dp))
+                                    .padding(horizontal = 8.dp, vertical = 3.dp)
+                            ) {
+                                Text(
+                                    text = "#$label",
+                                    color = UtilitarianTextSecondary,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }

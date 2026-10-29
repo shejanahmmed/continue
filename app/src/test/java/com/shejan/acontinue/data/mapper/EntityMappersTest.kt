@@ -217,4 +217,30 @@ class EntityMappersTest {
         assertEquals(EntryType.ACTIVITY, baseEntity.copy(entryType = "ACTIVITY").toDomain().entryType)
         assertEquals(EntryType.ACTIVITY, baseEntity.copy(entryType = "unknown").toDomain().entryType)
     }
+
+    @Test
+    fun `test NoteEntity and ActivityNote round-trip preserves colorHex and labels`() {
+        val domainNote = com.shejan.acontinue.domain.model.ActivityNote(
+            id = 15L,
+            activityId = 42L,
+            title = "Event Running Note",
+            content = "Captured during keynote",
+            colorHex = 0xFF3A2040L,
+            labels = listOf("Keynote", "ActionItem"),
+            updatedAtMillis = 9999L
+        )
+
+        val entity = domainNote.toEntity()
+        assertEquals(0xFF3A2040L, entity.colorHex)
+        assertEquals("Keynote,ActionItem", entity.labels)
+
+        val remapped = entity.toDomain()
+        assertEquals(domainNote.id, remapped.id)
+        assertEquals(domainNote.activityId, remapped.activityId)
+        assertEquals(domainNote.title, remapped.title)
+        assertEquals(domainNote.content, remapped.content)
+        assertEquals(domainNote.colorHex, remapped.colorHex)
+        assertEquals(domainNote.labels, remapped.labels)
+        assertEquals(domainNote.updatedAtMillis, remapped.updatedAtMillis)
+    }
 }

@@ -243,6 +243,7 @@ fun CreateNoteScreen(
     onEditLabel: (oldName: String, newName: String) -> Unit = { _, _ -> },
     onDeleteLabel: (name: String) -> Unit = {},
     editingActivityId: Long? = null,
+    parentActivityId: Long? = null,
     onEnsureDraftNoteId: (suspend () -> Long)? = null,
     audioRecordingManager: AudioRecordingManager? = null,
     startInViewMode: Boolean = (editingActivityId != null && editingActivityId > 0L),
@@ -719,7 +720,7 @@ fun CreateNoteScreen(
             if (targetId != null) {
                 currentEditingId = targetId
             }
-            val started = activeRecordingManager.startRecording(targetId)
+            val started = activeRecordingManager.startRecording(targetId, parentActivityId)
             if (!started) {
                 Toast.makeText(context, "Could not start recording", Toast.LENGTH_SHORT).show()
                 return@launch

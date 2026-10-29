@@ -33,6 +33,7 @@ data class RecordingState(
     val isPaused: Boolean = false,
     val elapsedMillis: Long = 0L,
     val noteActivityId: Long? = null,
+    val parentActivityId: Long? = null,
     val currentFile: File? = null
 )
 
@@ -61,7 +62,7 @@ class AudioRecordingManager(
     private val _events = MutableSharedFlow<RecordingEvent>(extraBufferCapacity = 10)
     val events: SharedFlow<RecordingEvent> = _events.asSharedFlow()
 
-    fun startRecording(noteActivityId: Long?): Boolean {
+    fun startRecording(noteActivityId: Long?, parentActivityId: Long? = null): Boolean {
         if (_state.value.isRecording) return false
 
         // Stop any active audio playback before acquiring microphone
@@ -80,6 +81,7 @@ class AudioRecordingManager(
                 isPaused = false,
                 elapsedMillis = 0L,
                 noteActivityId = noteActivityId,
+                parentActivityId = parentActivityId,
                 currentFile = audioFile
             )
         }
@@ -120,15 +122,16 @@ class AudioRecordingManager(
         stopTicker()
         val file = audioRecordHelper.stopRecording()
         val noteId = _state.value.noteActivityId
+        val parentActivityId = _state.value.parentActivityId
 
         _state.update { RecordingState() }
         notifyServiceAction(AudioRecordingService.ACTION_STOP)
 
         if (file != null && file.exists() && file.length() > 0L) {
             val uri = Uri.fromFile(file)
-            if (noteId != null && activityRepository != null && noteRepository != null) {
+            if (noteId != null && (activityRepository != null || noteRepository != null)) {
                 scope.launch(Dispatchers.IO) {
-                    saveAudioToNoteSuspending(noteId, uri)
+                    saveAudioToNoteSuspending(noteId, uri, parentActivityId)
                 }
             }
             _events.tryEmit(RecordingEvent.RecordingSaved(noteId, uri))
@@ -141,15 +144,16 @@ class AudioRecordingManager(
         stopTicker()
         val file = audioRecordHelper.stopRecording()
         val noteId = _state.value.noteActivityId
+        val parentActivityId = _state.value.parentActivityId
 
         _state.update { RecordingState() }
         notifyServiceAction(AudioRecordingService.ACTION_STOP)
 
         if (file != null && file.exists() && file.length() > 0L) {
             val uri = Uri.fromFile(file)
-            if (noteId != null && activityRepository != null && noteRepository != null) {
+            if (noteId != null && (activityRepository != null || noteRepository != null)) {
                 runBlocking(Dispatchers.IO) {
-                    saveAudioToNoteSuspending(noteId, uri)
+                    saveAudioToNoteSuspending(noteId, uri, parentActivityId)
                 }
             }
             _events.tryEmit(RecordingEvent.RecordingSaved(noteId, uri))
@@ -165,17 +169,43 @@ class AudioRecordingManager(
         _events.tryEmit(RecordingEvent.RecordingCancelled)
     }
 
-    private suspend fun saveAudioToNoteSuspending(noteId: Long, audioUri: Uri) {
+    private suspend fun saveAudioToNoteSuspending(noteId: Long, audioUri: Uri, parentActivityId: Long? = null) {
         try {
-            val activity = activityRepository?.getActivityById(noteId)?.firstOrNull() ?: return
             val audioTag = "![audio]($audioUri)\n\n"
+            val now = System.currentTimeMillis()
+
+            if (parentActivityId != null && parentActivityId > 0L) {
+                val targetNote = noteRepository?.getNoteById(noteId)?.firstOrNull()
+                if (targetNote != null) {
+                    if (!targetNote.content.contains(audioUri.toString())) {
+                        noteRepository.updateNote(
+                            targetNote.copy(
+                                content = (audioTag + targetNote.content).trim(),
+                                updatedAtMillis = now
+                            )
+                        )
+                    }
+                } else {
+                    noteRepository?.insertNote(
+                        ActivityNote(
+                            id = if (noteId > 0L) noteId else 0L,
+                            activityId = parentActivityId,
+                            title = "",
+                            content = audioTag.trim(),
+                            updatedAtMillis = now
+                        )
+                    )
+                }
+                return
+            }
+
+            val activity = activityRepository?.getActivityById(noteId)?.firstOrNull() ?: return
             if (!activity.description.contains(audioUri.toString())) {
                 val updatedDescription = (audioTag + activity.description).trim()
                 activityRepository.updateActivity(activity.copy(description = updatedDescription))
             }
             val notes = noteRepository?.getNotesForActivity(noteId)?.firstOrNull() ?: emptyList()
             val targetNote = notes.firstOrNull()
-            val now = System.currentTimeMillis()
             if (targetNote != null) {
                 if (!targetNote.content.contains(audioUri.toString())) {
                     noteRepository?.updateNote(

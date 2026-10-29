@@ -15,6 +15,9 @@ interface NoteDao {
     @Query("SELECT * FROM notes WHERE activityId = :activityId ORDER BY updatedAtMillis DESC")
     fun getNotesForActivity(activityId: Long): Flow<List<NoteEntity>>
 
+    @Query("SELECT * FROM notes WHERE id = :noteId LIMIT 1")
+    fun getNoteById(noteId: Long): Flow<NoteEntity?>
+
     @Query("SELECT * FROM notes WHERE title LIKE '%' || :query || '%' OR content LIKE '%' || :query || '%' ORDER BY updatedAtMillis DESC")
     fun searchNotes(query: String): Flow<List<NoteEntity>>
 

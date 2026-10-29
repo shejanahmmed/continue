@@ -31,8 +31,8 @@ class GetActivityWorkspaceUseCase(
         ) { activity, tasks, notes, links, attachments ->
             val workspaceNotes = notes.filterNot { note ->
                 activity.description.isNotBlank() &&
-                (note.content.trim() == activity.description.trim() ||
-                 (note.title == "Notes" && note.content.trim() == activity.description.trim()))
+                note.title == "Notes" &&
+                note.content.trim() == activity.description.trim()
             }
             ActivityWorkspaceAggregate(
                 activity = activity,

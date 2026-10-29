@@ -220,4 +220,41 @@ class ActivityWorkspaceViewModelTest {
             assertEquals(WorkspaceEvent.ActivityDeleted, event)
         }
     }
+
+    @Test
+    fun `test multiple event workspace notes with blank titles colors and labels load and delete cleanly`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        // Add untitled workspace note and a labeled workspace note
+        viewModel.addNote(
+            title = "",
+            content = "First observation during the event",
+            colorHex = 0xFF2B4C7EL,
+            labels = listOf("Live", "Key")
+        )
+        viewModel.addNote(
+            title = "Second Note",
+            content = "![audio](file:///audio1.m4a)\n\nFollow up points"
+        )
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val notes = state.aggregate?.notes ?: emptyList()
+            assertEquals(2, notes.size)
+            assertEquals("", notes[0].title)
+            assertEquals("First observation during the event", notes[0].content)
+            assertEquals(0xFF2B4C7EL, notes[0].colorHex)
+            assertEquals(listOf("Live", "Key"), notes[0].labels)
+
+            assertEquals("Second Note", notes[1].title)
+        }
+
+        val firstNoteId = noteRepository.notesFlow.value.first().id
+        viewModel.deleteNote(firstNoteId)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(1, viewModel.uiState.value.aggregate?.notes?.size)
+        assertEquals("Second Note", viewModel.uiState.value.aggregate?.notes?.first()?.title)
+    }
 }

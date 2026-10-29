@@ -558,5 +558,61 @@ class DiaryViewModelTest {
         assertEquals(1, remainingNotes.size)
         assertEquals("Keep This Note", remainingNotes[0].title)
     }
+
+    @Test
+    fun `test event workspace notes do not leak into standalone diary list`() = runTest(testDispatcher) {
+        // Insert an Event (EntryType.ACTIVITY)
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 100L,
+                title = "Backend Architecture Workshop",
+                description = "Event overview description",
+                entryType = EntryType.ACTIVITY,
+                startTimeMillis = 1000L,
+                endTimeMillis = 5000L
+            )
+        )
+        // Insert a note taken during the Event inside its Workspace
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 501L,
+                activityId = 100L,
+                title = "Workshop Note 1",
+                content = "Notes taken during the running event",
+                updatedAtMillis = 2000L
+            )
+        )
+
+        // Insert a standalone Diary note (EntryType.NOTE)
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 200L,
+                title = "Standalone Diary Note",
+                description = "Personal diary reflection",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 3000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 502L,
+                activityId = 200L,
+                title = "Standalone Diary Note",
+                content = "Personal diary reflection",
+                updatedAtMillis = 3000L
+            )
+        )
+
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(1, state.notes.size)
+            assertEquals("Standalone Diary Note", state.notes.first().title)
+            assertEquals(200L, state.notes.first().activityId)
+        }
+    }
 }
 

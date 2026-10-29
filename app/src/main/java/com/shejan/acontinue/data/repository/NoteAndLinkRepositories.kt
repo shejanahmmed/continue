@@ -20,6 +20,10 @@ class NoteRepositoryImpl(
         return noteDao.getNotesForActivity(activityId).map { list -> list.map { it.toDomain() } }
     }
 
+    override fun getNoteById(noteId: Long): Flow<ActivityNote?> {
+        return noteDao.getNoteById(noteId).map { it?.toDomain() }
+    }
+
     override fun searchNotes(query: String): Flow<List<ActivityNote>> {
         return noteDao.searchNotes(query).map { list -> list.map { it.toDomain() } }
     }

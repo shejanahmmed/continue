@@ -51,7 +51,7 @@ data class HomeUiState(
 
 class HomeViewModel(
     private val getTodayTimelineUseCase: GetTodayTimelineUseCase,
-    private val taskRepository: TaskRepository,
+    private val taskRepository: TaskRepository? = null,
     private val activityRepository: ActivityRepository,
     private val tickerFlow: Flow<Long> = defaultForegroundTicker()
 ) : ViewModel() {
@@ -66,9 +66,8 @@ class HomeViewModel(
     private fun loadHomeData() {
         combine(
             getTodayTimelineUseCase(),
-            taskRepository.getPendingTasks(),
             tickerFlow
-        ) { timeline, pendingTasks, now ->
+        ) { timeline, now ->
             val events = timeline.activities.filter { it.entryType == EntryType.ACTIVITY }
             val eventCount = events.size
 
@@ -144,8 +143,6 @@ class HomeViewModel(
                 .filter { isItemPast(it, now) }
                 .sortedBy { it.startTimeMillis }
 
-            val uniquePendingTasks = pendingTasks.distinctBy { it.id }
-
             val updatedTimeline = timeline.copy(
                 currentEvent = currentEvt,
                 nextEvent = nextEvt,
@@ -154,7 +151,7 @@ class HomeViewModel(
 
             HomeUiState(
                 timeline = updatedTimeline,
-                pendingTasks = uniquePendingTasks,
+                pendingTasks = emptyList(),
                 todayActivities = activeActivities,
                 pastActivities = pastActivities,
                 todayEventCount = eventCount,
@@ -178,7 +175,7 @@ class HomeViewModel(
 
     fun toggleTask(taskId: Long, isCompleted: Boolean) {
         viewModelScope.launch {
-            taskRepository.toggleTaskCompletion(taskId, isCompleted)
+            taskRepository?.toggleTaskCompletion(taskId, isCompleted)
         }
     }
 

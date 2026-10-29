@@ -139,11 +139,18 @@ fun ActivityTask.toEntity(): TaskEntity {
 }
 
 fun NoteEntity.toDomain(): ActivityNote {
+    val parsedLabels = if (labels.isNotBlank()) {
+        labels.split(",").map { it.trim() }.filter { it.isNotBlank() }
+    } else {
+        emptyList()
+    }
     return ActivityNote(
         id = id,
         activityId = activityId,
         title = title,
         content = content,
+        colorHex = if (colorHex != 0L && colorHex != 0xFF121212L) colorHex else 0xFF000000L,
+        labels = parsedLabels,
         updatedAtMillis = updatedAtMillis
     )
 }
@@ -154,6 +161,8 @@ fun ActivityNote.toEntity(): NoteEntity {
         activityId = activityId,
         title = title,
         content = content,
+        colorHex = colorHex,
+        labels = labels.map { it.trim() }.filter { it.isNotBlank() }.joinToString(","),
         updatedAtMillis = updatedAtMillis
     )
 }

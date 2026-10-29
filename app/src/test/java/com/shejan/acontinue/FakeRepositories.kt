@@ -136,6 +136,10 @@ class FakeNoteRepository : NoteRepository {
         return notesFlow.map { list -> list.filter { it.activityId == activityId } }
     }
 
+    override fun getNoteById(noteId: Long): Flow<ActivityNote?> {
+        return notesFlow.map { list -> list.firstOrNull { it.id == noteId } }
+    }
+
     override fun searchNotes(query: String): Flow<List<ActivityNote>> {
         return notesFlow.map { list ->
             list.filter { it.title.contains(query, ignoreCase = true) || it.content.contains(query, ignoreCase = true) }

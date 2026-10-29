@@ -103,7 +103,10 @@ data class CreateEntryState(
     val reminderCategoryColorHex: Long = 0xFF000000L,
     val savedNoteLabels: List<String> = emptyList(),
     val isSaving: Boolean = false,
-    val editingActivityId: Long? = null
+    val editingActivityId: Long? = null,
+    val parentActivityId: Long? = null,
+    val editingNoteId: Long? = null,
+    val isWorkspaceNoteLoaded: Boolean = false
 )
 
 sealed interface CreateEntryEvent {
@@ -182,6 +185,60 @@ class CreateEntryViewModel(
                 savedNoteLabels = current.savedNoteLabels,
                 entryType = EntryType.NOTE
             )
+        }
+    }
+
+    fun initWorkspaceNote(parentActivityId: Long, noteId: Long = -1L) {
+        if (noteId <= 0L) {
+            _state.update { current ->
+                CreateEntryState(
+                    recentEmojis = current.recentEmojis,
+                    savedCustomAlerts = current.savedCustomAlerts,
+                    savedReminderCategories = current.savedReminderCategories,
+                    categoryReminderCounts = current.categoryReminderCounts,
+                    savedNoteLabels = current.savedNoteLabels,
+                    entryType = EntryType.NOTE,
+                    parentActivityId = parentActivityId,
+                    editingNoteId = null,
+                    editingActivityId = null,
+                    isWorkspaceNoteLoaded = true
+                )
+            }
+            return
+        }
+
+        viewModelScope.launch {
+            _state.update { it.copy(isWorkspaceNoteLoaded = false) }
+            val note = noteRepository.getNoteById(noteId).firstOrNull()
+                ?: noteRepository.getNotesForActivity(parentActivityId).firstOrNull()?.find { it.id == noteId }
+            if (note == null) {
+                _state.update {
+                    it.copy(
+                        parentActivityId = parentActivityId,
+                        editingNoteId = null,
+                        isWorkspaceNoteLoaded = true
+                    )
+                }
+                return@launch
+            }
+
+            val effectiveTitle = if (note.title.equals("Untitled Note", ignoreCase = true)) "" else note.title
+            val categoryString = if (note.labels.isNotEmpty()) note.labels.joinToString(",") else "Notes"
+            val effectiveColor = if (note.colorHex != 0L && note.colorHex != 0xFF121212L) note.colorHex else 0xFF000000L
+
+            _state.update { current ->
+                current.copy(
+                    entryType = EntryType.NOTE,
+                    parentActivityId = if (parentActivityId > 0L) parentActivityId else note.activityId,
+                    editingNoteId = note.id,
+                    editingActivityId = null,
+                    title = effectiveTitle,
+                    notes = note.content,
+                    reminderCategory = categoryString,
+                    reminderCategoryColorHex = effectiveColor,
+                    isWorkspaceNoteLoaded = true
+                )
+            }
         }
     }
 
@@ -780,6 +837,30 @@ class CreateEntryViewModel(
         colorHex: Long = 0xFF000000L,
         labels: List<String> = emptyList()
     ): Long {
+        val currentParentId = _state.value.parentActivityId
+        if (currentParentId != null && currentParentId > 0L) {
+            val existingNoteId = _state.value.editingNoteId
+            if (existingNoteId != null && existingNoteId > 0L) return existingNoteId
+
+            return withContext(NonCancellable) {
+                val now = System.currentTimeMillis()
+                val trimmedTitle = title.trim()
+                val cleanLabels = labels.map { it.trim() }.filter { it.isNotBlank() }
+                val newNoteId = noteRepository.insertNote(
+                    ActivityNote(
+                        activityId = currentParentId,
+                        title = trimmedTitle,
+                        content = content.trim(),
+                        colorHex = colorHex,
+                        labels = cleanLabels,
+                        updatedAtMillis = now
+                    )
+                )
+                _state.update { it.copy(editingNoteId = newNoteId) }
+                newNoteId
+            }
+        }
+
         val currentEditId = _state.value.editingActivityId
         if (currentEditId != null) return currentEditId
 
@@ -787,7 +868,8 @@ class CreateEntryViewModel(
             val now = System.currentTimeMillis()
             val trimmedTitle = title.trim()
             val effectiveTitle = trimmedTitle
-            val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
+            val cleanLabels = labels.map { it.trim() }.filter { it.isNotBlank() }
+            val categoryString = if (cleanLabels.isNotEmpty()) cleanLabels.joinToString(",") else "Notes"
 
             val activity = ActivityItem(
                 title = effectiveTitle,
@@ -814,6 +896,8 @@ class CreateEntryViewModel(
                     activityId = newId,
                     title = trimmedTitle,
                     content = content.trim(),
+                    colorHex = colorHex,
+                    labels = cleanLabels,
                     updatedAtMillis = now
                 )
             )
@@ -830,6 +914,8 @@ class CreateEntryViewModel(
     ) {
         val trimmedTitle = title.trim()
         val trimmedContent = content.trim()
+        val currentParentId = _state.value.parentActivityId
+        val currentNoteId = _state.value.editingNoteId
         val currentEditId = _state.value.editingActivityId
 
         if (trimmedTitle.isBlank() && trimmedContent.isBlank()) {
@@ -842,9 +928,49 @@ class CreateEntryViewModel(
                 _state.update { it.copy(isSaving = true) }
                 val now = System.currentTimeMillis()
                 val effectiveTitle = trimmedTitle
-                val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
+                val cleanLabels = labels.map { it.trim() }.filter { it.isNotBlank() }
+                val categoryString = if (cleanLabels.isNotEmpty()) cleanLabels.joinToString(",") else "Notes"
 
-                if (currentEditId != null) {
+                if (currentParentId != null && currentParentId > 0L) {
+                    if (currentNoteId != null && currentNoteId > 0L) {
+                        val existingNote = noteRepository.getNoteById(currentNoteId).firstOrNull()
+                        if (existingNote != null) {
+                            noteRepository.updateNote(
+                                existingNote.copy(
+                                    title = effectiveTitle,
+                                    content = trimmedContent,
+                                    colorHex = colorHex,
+                                    labels = cleanLabels,
+                                    updatedAtMillis = now
+                                )
+                            )
+                        } else {
+                            noteRepository.insertNote(
+                                ActivityNote(
+                                    id = currentNoteId,
+                                    activityId = currentParentId,
+                                    title = effectiveTitle,
+                                    content = trimmedContent,
+                                    colorHex = colorHex,
+                                    labels = cleanLabels,
+                                    updatedAtMillis = now
+                                )
+                            )
+                        }
+                    } else {
+                        val newNoteId = noteRepository.insertNote(
+                            ActivityNote(
+                                activityId = currentParentId,
+                                title = effectiveTitle,
+                                content = trimmedContent,
+                                colorHex = colorHex,
+                                labels = cleanLabels,
+                                updatedAtMillis = now
+                            )
+                        )
+                        _state.update { it.copy(editingNoteId = newNoteId) }
+                    }
+                } else if (currentEditId != null) {
                     val existing = activityRepository.getActivityById(currentEditId).firstOrNull()
                     val updatedActivity = (existing ?: ActivityItem(
                         id = currentEditId,
@@ -882,6 +1008,8 @@ class CreateEntryViewModel(
                             targetNote.copy(
                                 title = trimmedTitle,
                                 content = trimmedContent,
+                                colorHex = colorHex,
+                                labels = cleanLabels,
                                 updatedAtMillis = now
                             )
                         )
@@ -891,6 +1019,8 @@ class CreateEntryViewModel(
                                 activityId = currentEditId,
                                 title = trimmedTitle,
                                 content = trimmedContent,
+                                colorHex = colorHex,
+                                labels = cleanLabels,
                                 updatedAtMillis = now
                             )
                         )
@@ -921,6 +1051,8 @@ class CreateEntryViewModel(
                             activityId = newId,
                             title = trimmedTitle,
                             content = trimmedContent,
+                            colorHex = colorHex,
+                            labels = cleanLabels,
                             updatedAtMillis = now
                         )
                     )
@@ -934,6 +1066,20 @@ class CreateEntryViewModel(
     }
 
     fun deleteCurrentNote() {
+        val currentParentId = _state.value.parentActivityId
+        val currentNoteId = _state.value.editingNoteId
+        if (currentParentId != null && currentParentId > 0L) {
+            if (currentNoteId != null && currentNoteId > 0L) {
+                viewModelScope.launch {
+                    withContext(NonCancellable) {
+                        noteRepository.deleteNote(currentNoteId)
+                        _events.emit(CreateEntryEvent.SavedSuccessfully)
+                    }
+                }
+            }
+            return
+        }
+
         val currentEditId = _state.value.editingActivityId ?: return
         viewModelScope.launch {
             withContext(NonCancellable) {
@@ -962,7 +1108,22 @@ class CreateEntryViewModel(
         return withContext(NonCancellable) {
             val now = System.currentTimeMillis()
             val effectiveTitle = trimmedTitle
-            val categoryString = if (labels.isNotEmpty()) labels.joinToString(",") else "Notes"
+            val cleanLabels = labels.map { it.trim() }.filter { it.isNotBlank() }
+            val categoryString = if (cleanLabels.isNotEmpty()) cleanLabels.joinToString(",") else "Notes"
+            val currentParentId = _state.value.parentActivityId
+
+            if (currentParentId != null && currentParentId > 0L) {
+                return@withContext noteRepository.insertNote(
+                    ActivityNote(
+                        activityId = currentParentId,
+                        title = effectiveTitle,
+                        content = trimmedContent,
+                        colorHex = colorHex,
+                        labels = cleanLabels,
+                        updatedAtMillis = now
+                    )
+                )
+            }
 
             val activity = ActivityItem(
                 title = effectiveTitle,
@@ -989,6 +1150,8 @@ class CreateEntryViewModel(
                     activityId = newId,
                     title = effectiveTitle,
                     content = trimmedContent,
+                    colorHex = colorHex,
+                    labels = cleanLabels,
                     updatedAtMillis = now
                 )
             )

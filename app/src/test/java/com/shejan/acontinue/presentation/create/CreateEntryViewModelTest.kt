@@ -1389,6 +1389,106 @@ class CreateEntryViewModelTest {
         assertTrue(activityRepository.activitiesFlow.value.none { it.id == 30L })
         assertTrue(noteRepository.notesFlow.value.none { it.activityId == 30L })
     }
+
+    @Test
+    fun `test workspace note creation editing copying and deletion preserves parent event intact`() = runTest(testDispatcher) {
+        val parentEvent = ActivityItem(
+            id = 500L,
+            title = "System Design Lecture",
+            description = "Bring textbook",
+            entryType = EntryType.ACTIVITY,
+            category = ActivityCategory.CLASS,
+            startTimeMillis = 10000L,
+            endTimeMillis = 20000L,
+            location = "Auditorium A"
+        )
+        activityRepository.insertActivity(parentEvent)
+        testScheduler.advanceUntilIdle()
+
+        // 1. Create first workspace note for Event 500L
+        viewModel.initWorkspaceNote(parentActivityId = 500L, noteId = -1L)
+        viewModel.saveNote(
+            title = "Key Takeaways",
+            content = "CAP theorem and consensus protocols",
+            colorHex = 0xFF1E3A5FL,
+            labels = listOf("Distributed", "Exam")
+        )
+        testScheduler.advanceUntilIdle()
+
+        // Verify parent event was NOT modified or converted to EntryType.NOTE
+        val eventAfterNote1 = activityRepository.activitiesFlow.value.first { it.id == 500L }
+        assertEquals(EntryType.ACTIVITY, eventAfterNote1.entryType)
+        assertEquals("System Design Lecture", eventAfterNote1.title)
+        assertEquals("Bring textbook", eventAfterNote1.description)
+        assertEquals(10000L, eventAfterNote1.startTimeMillis)
+        assertEquals(1, activityRepository.activitiesFlow.value.size)
+
+        // Verify note 1 saved under activityId = 500L
+        val notesAfter1 = noteRepository.notesFlow.value.filter { it.activityId == 500L }
+        assertEquals(1, notesAfter1.size)
+        val note1 = notesAfter1.first()
+        assertEquals("Key Takeaways", note1.title)
+        assertEquals("CAP theorem and consensus protocols", note1.content)
+        assertEquals(0xFF1E3A5FL, note1.colorHex)
+        assertEquals(listOf("Distributed", "Exam"), note1.labels)
+
+        // 2. Create second workspace note (untitled) for the same Event 500L
+        viewModel.initWorkspaceNote(parentActivityId = 500L, noteId = -1L)
+        viewModel.saveNote(
+            title = "",
+            content = "[ ] Review Raft paper\n[ ] Implement leader election"
+        )
+        testScheduler.advanceUntilIdle()
+
+        val notesAfter2 = noteRepository.notesFlow.value.filter { it.activityId == 500L }
+        assertEquals(2, notesAfter2.size)
+        val note2 = notesAfter2.first { it.id != note1.id }
+        assertEquals("", note2.title)
+        assertEquals("[ ] Review Raft paper\n[ ] Implement leader election", note2.content)
+
+        // 3. Load and edit first workspace note
+        viewModel.initWorkspaceNote(parentActivityId = 500L, noteId = note1.id)
+        testScheduler.advanceUntilIdle()
+        assertEquals("Key Takeaways", viewModel.state.value.title)
+        assertEquals("CAP theorem and consensus protocols", viewModel.state.value.notes)
+        assertEquals(0xFF1E3A5FL, viewModel.state.value.reminderCategoryColorHex)
+
+        viewModel.saveNote(
+            title = "Updated Takeaways",
+            content = "CAP theorem, Paxos, and Raft",
+            colorHex = 0xFF1E3A5FL,
+            labels = listOf("Distributed")
+        )
+        testScheduler.advanceUntilIdle()
+
+        val updatedNote1 = noteRepository.notesFlow.value.first { it.id == note1.id }
+        assertEquals("Updated Takeaways", updatedNote1.title)
+        assertEquals("CAP theorem, Paxos, and Raft", updatedNote1.content)
+        assertEquals(listOf("Distributed"), updatedNote1.labels)
+
+        // 4. Make a copy of workspace note within the same Event
+        val copiedNoteId = viewModel.makeCopyOfNote(
+            title = updatedNote1.title,
+            content = updatedNote1.content,
+            colorHex = updatedNote1.colorHex,
+            labels = updatedNote1.labels
+        )
+        testScheduler.advanceUntilIdle()
+        assertTrue(copiedNoteId > 0L && copiedNoteId != note1.id)
+        assertEquals(3, noteRepository.notesFlow.value.filter { it.activityId == 500L }.size)
+        assertEquals(1, activityRepository.activitiesFlow.value.size)
+
+        // 5. Delete note 2 and verify Event 500L and other notes remain intact
+        viewModel.initWorkspaceNote(parentActivityId = 500L, noteId = note2.id)
+        testScheduler.advanceUntilIdle()
+        viewModel.deleteCurrentNote()
+        testScheduler.advanceUntilIdle()
+
+        val remainingNotes = noteRepository.notesFlow.value.filter { it.activityId == 500L }
+        assertEquals(2, remainingNotes.size)
+        assertTrue(remainingNotes.none { it.id == note2.id })
+        assertTrue(activityRepository.activitiesFlow.value.any { it.id == 500L && it.entryType == EntryType.ACTIVITY })
+    }
 }
 
 

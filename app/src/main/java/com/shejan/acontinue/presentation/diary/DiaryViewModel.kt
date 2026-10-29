@@ -211,6 +211,7 @@ class DiaryViewModel(
         pinnedKeys: Set<String>
     ): List<DiaryNoteItem> {
         val noteActivities = activities.filter { it.entryType == EntryType.NOTE }
+        val nonNoteActivityIds = activities.filter { it.entryType != EntryType.NOTE }.map { it.id }.toSet()
         val notesByActivityId = notes.groupBy { it.activityId }
         val result = mutableListOf<DiaryNoteItem>()
         val seenActivityIds = mutableSetOf<Long>()
@@ -236,13 +237,17 @@ class DiaryViewModel(
                 it.startsWith("[ ] ") || it.startsWith("[x] ") || it.startsWith("[X] ")
             }
 
-            val color = if (act.reminderCategoryColorHex != 0L && act.reminderCategoryColorHex != 0xFF121212L) {
+            val color = if (matchingNote != null && matchingNote.colorHex != 0L && matchingNote.colorHex != 0xFF121212L) {
+                matchingNote.colorHex
+            } else if (act.reminderCategoryColorHex != 0L && act.reminderCategoryColorHex != 0xFF121212L) {
                 act.reminderCategoryColorHex
             } else {
                 0xFF000000L
             }
 
-            val labels = if (act.reminderCategory.isBlank() || act.reminderCategory.equals("Notes", ignoreCase = true)) {
+            val labels = if (matchingNote != null && matchingNote.labels.isNotEmpty()) {
+                matchingNote.labels
+            } else if (act.reminderCategory.isBlank() || act.reminderCategory.equals("Notes", ignoreCase = true)) {
                 emptyList()
             } else {
                 act.reminderCategory.split(",").map { it.trim() }.filter { it.isNotBlank() }
@@ -271,7 +276,7 @@ class DiaryViewModel(
         }
 
         for (note in notes) {
-            if (!seenActivityIds.contains(note.activityId)) {
+            if (!seenActivityIds.contains(note.activityId) && !nonNoteActivityIds.contains(note.activityId)) {
                 val audioCount = AUDIO_TAG_REGEX.findAll(note.content).count()
                 val photoCount = PHOTO_TAG_REGEX.findAll(note.content).count()
                 val cleanPreview = note.content
@@ -293,8 +298,8 @@ class DiaryViewModel(
                         title = if (note.title.equals("Untitled Note", ignoreCase = true)) "" else note.title,
                         content = note.content,
                         previewText = cleanPreview,
-                        colorHex = 0xFF000000L,
-                        labels = emptyList(),
+                        colorHex = if (note.colorHex != 0L && note.colorHex != 0xFF121212L) note.colorHex else 0xFF000000L,
+                        labels = note.labels,
                         createdAtMillis = note.updatedAtMillis,
                         updatedAtMillis = note.updatedAtMillis,
                         audioCount = audioCount,

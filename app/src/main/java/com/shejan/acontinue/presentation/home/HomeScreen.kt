@@ -70,7 +70,6 @@ import com.shejan.acontinue.core.designsystem.components.UtilitarianBadge
 import com.shejan.acontinue.core.designsystem.components.UtilitarianDailyMetricCard
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityPriority
-import com.shejan.acontinue.domain.model.ActivityTask
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.presentation.calendar.UtilitarianEventDetailSheet
 import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
@@ -643,31 +642,6 @@ fun HomeScreen(
                 Spacer(modifier = Modifier.height(8.dp))
             }
         }
-
-        // Section 3: Pending Responsibilities
-        if (uiState.pendingTasks.isNotEmpty()) {
-            item {
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(
-                    text = "PENDING ACTION ITEMS (${uiState.pendingTasks.size})",
-                    color = UtilitarianTextSecondary,
-                    fontFamily = FontFamily.Monospace,
-                    fontSize = 11.sp,
-                    fontWeight = FontWeight.SemiBold,
-                    letterSpacing = 1.sp,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-            }
-
-            items(uiState.pendingTasks, key = { "task_${it.id}" }) { task ->
-                PendingTaskRow(
-                    task = task,
-                    onToggle = { isChecked -> viewModel.toggleTask(task.id, isChecked) },
-                    onClick = { task.activityId?.let(onActivityClick) }
-                )
-                Spacer(modifier = Modifier.height(6.dp))
-            }
-        }
     }
 
     if (selectedReminderForDetail != null) {
@@ -820,53 +794,6 @@ private fun TimelineActivityItem(
                         uncheckedColor = UtilitarianBorderStroke,
                         checkmarkColor = UtilitarianTextPrimary
                     )
-                )
-            }
-        }
-    }
-}
-
-@Composable
-private fun PendingTaskRow(
-    task: ActivityTask,
-    onToggle: (Boolean) -> Unit,
-    onClick: () -> Unit
-) {
-    Surface(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick),
-        shape = RoundedCornerShape(8.dp),
-        color = UtilitarianCardBackground,
-        border = BorderStroke(1.dp, UtilitarianBorderStroke)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Checkbox(
-                checked = task.isCompleted,
-                onCheckedChange = onToggle,
-                colors = CheckboxDefaults.colors(
-                    checkedColor = UtilitarianAccentRed,
-                    uncheckedColor = UtilitarianBorderStroke,
-                    checkmarkColor = UtilitarianTextPrimary
-                )
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = task.title,
-                color = if (task.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
-                fontSize = 13.sp,
-                textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
-                modifier = Modifier.weight(1f)
-            )
-            if (task.activityId != null) {
-                UtilitarianBadge(
-                    text = "WORKSPACE",
-                    backgroundColor = UtilitarianBorderStroke
                 )
             }
         }
