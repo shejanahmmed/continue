@@ -18,8 +18,13 @@ interface ActivityScheduler {
 class AlarmScheduler(private val context: Context) : ActivityScheduler {
 
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+    private val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
 
     override fun schedule(activity: ActivityItem) {
+        if (activity.id > 0L) {
+            cancel(activity.id)
+        }
+
         val now = System.currentTimeMillis()
         val effectiveActivity = if (activity.recurrenceMode != RecurrenceMode.NONE) {
             val nextOccurrenceStart = RecurrenceEvaluator.getNextOccurrenceStart(activity, now - 60_000L)
@@ -53,6 +58,8 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
 
         if (offsets.isEmpty()) return
 
+        val scheduledRequestCodes = mutableSetOf<String>()
+
         for (minutes in offsets) {
             if (minutes < 0) continue
             val triggerTimeMillis = effectiveActivity.startTimeMillis - (minutes * 60 * 1000L)
@@ -72,13 +79,15 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
                 putExtra(EXTRA_REMINDER_CATEGORY_ICON, effectiveActivity.reminderCategoryIcon)
             }
 
-            val requestCode = getRequestCode(activity.id, minutes)
+            val requestCode = getRequestCode(effectiveActivity.id, minutes)
             val pendingIntent = PendingIntent.getBroadcast(
                 context,
                 requestCode,
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE
             )
+
+            scheduledRequestCodes.add(requestCode.toString())
 
             alarmManager?.let { manager ->
                 if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
@@ -104,11 +113,33 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
                 }
             }
         }
+
+        if (effectiveActivity.id > 0L && scheduledRequestCodes.isNotEmpty()) {
+            saveScheduledRequestCodes(effectiveActivity.id, scheduledRequestCodes)
+        }
     }
 
     override fun cancel(activityId: Long) {
-        // Cancel base request code as well as potential offset slots
         val baseIntent = Intent(context, AlarmReceiver::class.java)
+
+        // 1. Cancel exact tracked request codes (including custom alert offsets)
+        val trackedCodes = getTrackedRequestCodes(activityId)
+        for (codeStr in trackedCodes) {
+            val reqCode = codeStr.toIntOrNull() ?: continue
+            val pi = PendingIntent.getBroadcast(
+                context,
+                reqCode,
+                baseIntent,
+                PendingIntent.FLAG_NO_CREATE or PendingIntent.FLAG_IMMUTABLE
+            )
+            if (pi != null) {
+                alarmManager?.cancel(pi)
+                pi.cancel()
+            }
+        }
+        clearTrackedRequestCodes(activityId)
+
+        // 2. Cancel base request code as well as potential legacy offset slots
         val basePending = PendingIntent.getBroadcast(
             context,
             activityId.toInt(),
@@ -120,7 +151,7 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
             basePending.cancel()
         }
 
-        // Cancel common preset offset slots
+        // 3. Cancel common preset offset slots (safety net for legacy alarms)
         val commonOffsets = listOf(0, 5, 10, 15, 30, 60, 1440, 10080)
         for (m in commonOffsets) {
             val reqCode = getRequestCode(activityId, m)
@@ -137,11 +168,29 @@ class AlarmScheduler(private val context: Context) : ActivityScheduler {
         }
     }
 
-    private fun getRequestCode(activityId: Long, minutes: Int): Int {
-        return ((activityId % 100000L) * 1000L + (minutes % 1000L)).toInt()
+    private fun getTrackedRequestCodes(activityId: Long): Set<String> {
+        return prefs.getStringSet(getKey(activityId), emptySet()) ?: emptySet()
     }
 
+    private fun saveScheduledRequestCodes(activityId: Long, codes: Set<String>) {
+        prefs.edit().putStringSet(getKey(activityId), codes).apply()
+    }
+
+    private fun clearTrackedRequestCodes(activityId: Long) {
+        prefs.edit().remove(getKey(activityId)).apply()
+    }
+
+    private fun getKey(activityId: Long): String = "tracked_alarm_reqs_$activityId"
+
     companion object {
+        private const val PREFS_NAME = "continue_alarm_scheduler_prefs"
+
+        fun getRequestCode(activityId: Long, minutes: Int): Int {
+            val safeActivitySlot = (activityId % 2000L).coerceAtLeast(0L)
+            val safeMinutes = (minutes.toLong() % 1000000L).coerceAtLeast(0L)
+            return (safeActivitySlot * 1000000L + safeMinutes).toInt()
+        }
+
         const val EXTRA_ACTIVITY_ID = "extra_activity_id"
         const val EXTRA_ACTIVITY_TITLE = "extra_activity_title"
         const val EXTRA_ACTIVITY_LOCATION = "extra_activity_location"

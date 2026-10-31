@@ -31,13 +31,13 @@ class AppContainer(context: Context) {
 
     private val database: ContinueDatabase = ContinueDatabase.getInstance(context)
 
-    val activityRepository: ActivityRepository = ActivityRepositoryImpl(database.activityDao())
+    val alarmScheduler: AlarmScheduler = AlarmScheduler(context)
+    val activityRepository: ActivityRepository = ActivityRepositoryImpl(database.activityDao(), alarmScheduler)
     val taskRepository: TaskRepository = TaskRepositoryImpl(database.taskDao())
     val noteRepository: NoteRepository = NoteRepositoryImpl(database.noteDao())
     val linkRepository: LinkRepository = LinkRepositoryImpl(database.linkDao())
     val settingsRepository: SettingsRepository = SettingsRepositoryImpl(context)
 
-    val alarmScheduler: AlarmScheduler = AlarmScheduler(context)
     val audioPlaybackManager: AudioPlaybackManager by lazy {
         AudioPlaybackManager(context = context)
     }

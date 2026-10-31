@@ -7,11 +7,13 @@ import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.util.RecurrenceEvaluator
+import com.shejan.acontinue.core.notification.ActivityScheduler
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 
 class ActivityRepositoryImpl(
-    private val activityDao: ActivityDao
+    private val activityDao: ActivityDao,
+    private val activityScheduler: ActivityScheduler? = null
 ) : ActivityRepository {
 
     override fun getActivitiesForDateRange(startMillis: Long, endMillis: Long): Flow<List<ActivityItem>> {
@@ -42,6 +44,7 @@ class ActivityRepositoryImpl(
     }
 
     override suspend fun deleteActivity(id: Long) {
+        activityScheduler?.cancel(id)
         activityDao.deleteActivity(id)
     }
 
