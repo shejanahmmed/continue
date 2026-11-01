@@ -210,7 +210,7 @@ class DiaryViewModel(
         notes: List<ActivityNote>,
         pinnedKeys: Set<String>
     ): List<DiaryNoteItem> {
-        val noteActivities = activities.filter { it.entryType == EntryType.NOTE }
+        val noteActivities = activities.filter { it.entryType == EntryType.NOTE && !it.isDeleted && !it.isArchived }
         val nonNoteActivityIds = activities.filter { it.entryType != EntryType.NOTE }.map { it.id }.toSet()
         val notesByActivityId = notes.groupBy { it.activityId }
         val result = mutableListOf<DiaryNoteItem>()
@@ -219,6 +219,9 @@ class DiaryViewModel(
         for (act in noteActivities) {
             seenActivityIds.add(act.id)
             val matchingNote = notesByActivityId[act.id]?.firstOrNull()
+            if (matchingNote != null && (matchingNote.isDeleted || matchingNote.isArchived)) {
+                continue
+            }
             val rawTitle = matchingNote?.title ?: act.title
             val title = if (rawTitle.equals("Untitled Note", ignoreCase = true)) "" else rawTitle
             val rawContent = matchingNote?.content ?: act.description
@@ -276,7 +279,7 @@ class DiaryViewModel(
         }
 
         for (note in notes) {
-            if (!seenActivityIds.contains(note.activityId) && !nonNoteActivityIds.contains(note.activityId)) {
+            if (!seenActivityIds.contains(note.activityId) && !nonNoteActivityIds.contains(note.activityId) && !note.isDeleted && !note.isArchived) {
                 val audioCount = AUDIO_TAG_REGEX.findAll(note.content).count()
                 val photoCount = PHOTO_TAG_REGEX.findAll(note.content).count()
                 val cleanPreview = note.content

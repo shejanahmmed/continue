@@ -92,6 +92,7 @@ import java.util.Locale
 import android.graphics.Bitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.PushPin
@@ -238,6 +239,8 @@ fun CreateNoteScreen(
     initialLabels: List<String> = emptyList(),
     initialIsPinned: Boolean = false,
     onTogglePin: ((Boolean) -> Unit)? = null,
+    initialIsArchived: Boolean = false,
+    onToggleArchive: ((Boolean) -> Unit)? = null,
     onSaveNote: (title: String, content: String, colorHex: Long, labels: List<String>) -> Unit,
     onDiscard: () -> Unit,
     initialUpdatedAtMillis: Long? = null,
@@ -335,6 +338,12 @@ fun CreateNoteScreen(
 
     LaunchedEffect(initialIsPinned) {
         isPinned = initialIsPinned
+    }
+
+    var isArchived by remember { mutableStateOf(initialIsArchived) }
+
+    LaunchedEffect(initialIsArchived) {
+        isArchived = initialIsArchived
     }
     var showLabelScreen by remember { mutableStateOf(false) }
     var showBottomSheet by remember { mutableStateOf(false) }
@@ -955,13 +964,16 @@ fun CreateNoteScreen(
                     )
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        val newArchived = !isArchived
+                        isArchived = newArchived
+                        onToggleArchive?.invoke(newArchived)
                     },
                 contentAlignment = Alignment.Center
             ) {
                 Icon(
-                    imageVector = Icons.Outlined.Archive,
-                    contentDescription = "Archive note",
-                    tint = colors.textPrimaryMuted,
+                    imageVector = if (isArchived) Icons.Filled.Archive else Icons.Outlined.Archive,
+                    contentDescription = if (isArchived) "Unarchive note" else "Archive note",
+                    tint = if (isArchived) colors.textPrimary else colors.textPrimaryMuted,
                     modifier = Modifier.size(22.dp)
                 )
             }

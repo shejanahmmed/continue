@@ -48,7 +48,11 @@ data class NoteEntity(
     val content: String,
     val colorHex: Long = 0L,
     val labels: String = "",
-    val updatedAtMillis: Long
+    val updatedAtMillis: Long,
+    val isDeleted: Boolean = false,
+    val deletedAtMillis: Long = 0L,
+    val isArchived: Boolean = false,
+    val archivedAtMillis: Long = 0L
 )
 
 @Entity(

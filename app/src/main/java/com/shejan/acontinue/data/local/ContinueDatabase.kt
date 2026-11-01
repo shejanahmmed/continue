@@ -25,7 +25,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
         LinkEntity::class,
         AttachmentEntity::class
     ],
-    version = 7,
+    version = 8,
     exportSchema = false
 )
 abstract class ContinueDatabase : RoomDatabase() {
@@ -57,6 +57,19 @@ abstract class ContinueDatabase : RoomDatabase() {
             }
         }
 
+        val MIGRATION_7_8 = object : Migration(7, 8) {
+            override fun migrate(db: SupportSQLiteDatabase) {
+                db.execSQL("ALTER TABLE activities ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE activities ADD COLUMN deletedAtMillis INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE activities ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE activities ADD COLUMN archivedAtMillis INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE notes ADD COLUMN isDeleted INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE notes ADD COLUMN deletedAtMillis INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE notes ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+                db.execSQL("ALTER TABLE notes ADD COLUMN archivedAtMillis INTEGER NOT NULL DEFAULT 0")
+            }
+        }
+
         private val DATABASE_CALLBACK = object : RoomDatabase.Callback() {
             override fun onOpen(db: SupportSQLiteDatabase) {
                 super.onOpen(db)
@@ -80,7 +93,7 @@ abstract class ContinueDatabase : RoomDatabase() {
                     ContinueDatabase::class.java,
                     "continue_app.db"
                 )
-                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7)
+                    .addMigrations(MIGRATION_4_5, MIGRATION_5_6, MIGRATION_6_7, MIGRATION_7_8)
                     .addCallback(DATABASE_CALLBACK)
                     .fallbackToDestructiveMigration(dropAllTables = true)
                     .build()

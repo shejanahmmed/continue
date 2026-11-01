@@ -1185,7 +1185,7 @@ class CreateEntryViewModelTest {
             val event = awaitItem()
             assertEquals(CreateEntryEvent.SavedSuccessfully, event)
 
-            assertTrue(activityRepository.activitiesFlow.value.isEmpty())
+            assertTrue(activityRepository.activitiesFlow.value.all { it.isDeleted })
         }
     }
 
@@ -1417,8 +1417,8 @@ class CreateEntryViewModelTest {
         viewModel.deleteCurrentNote()
         testScheduler.advanceUntilIdle()
 
-        assertTrue(activityRepository.activitiesFlow.value.none { it.id == 30L })
-        assertTrue(noteRepository.notesFlow.value.none { it.activityId == 30L })
+        assertTrue(activityRepository.activitiesFlow.value.all { it.isDeleted })
+        assertTrue(noteRepository.notesFlow.value.all { it.isDeleted })
     }
 
     @Test
@@ -1515,10 +1515,32 @@ class CreateEntryViewModelTest {
         viewModel.deleteCurrentNote()
         testScheduler.advanceUntilIdle()
 
-        val remainingNotes = noteRepository.notesFlow.value.filter { it.activityId == 500L }
+        val remainingNotes = noteRepository.notesFlow.value.filter { it.activityId == 500L && !it.isDeleted }
         assertEquals(2, remainingNotes.size)
         assertTrue(remainingNotes.none { it.id == note2.id })
         assertTrue(activityRepository.activitiesFlow.value.any { it.id == 500L && it.entryType == EntryType.ACTIVITY })
+    }
+
+    @Test
+    fun `test setNoteArchived updates state and persists when saving note`() = runTest(testDispatcher) {
+        viewModel.setNoteArchived(true)
+        assertTrue(viewModel.state.value.isArchived)
+
+        viewModel.saveNote(
+            title = "Archived Note Title",
+            content = "Archived Note Content",
+            colorHex = 0xFF000000L,
+            labels = listOf("ArchiveTest")
+        )
+        testScheduler.advanceUntilIdle()
+
+        val savedActivity = activityRepository.activitiesFlow.value.first { it.title == "Archived Note Title" }
+        assertTrue(savedActivity.isArchived)
+        assertTrue(savedActivity.archivedAtMillis > 0L)
+
+        val savedNote = noteRepository.notesFlow.value.first { it.activityId == savedActivity.id }
+        assertTrue(savedNote.isArchived)
+        assertTrue(savedNote.archivedAtMillis > 0L)
     }
 }
 

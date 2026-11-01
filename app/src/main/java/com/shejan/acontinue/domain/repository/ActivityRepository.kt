@@ -10,6 +10,12 @@ interface ActivityRepository {
     suspend fun insertActivity(activity: ActivityItem): Long
     suspend fun updateActivity(activity: ActivityItem)
     suspend fun deleteActivity(id: Long)
+    suspend fun restoreActivity(id: Long)
+    suspend fun permanentlyDeleteActivity(id: Long)
+    suspend fun emptyTrash()
+    fun getDeletedActivities(): Flow<List<ActivityItem>>
+    fun getArchivedActivities(): Flow<List<ActivityItem>>
+    suspend fun setActivityArchived(id: Long, archived: Boolean)
     suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean, occurrenceDateMillis: Long = System.currentTimeMillis())
     suspend fun toggleActivitySkipped(id: Long, isSkipped: Boolean)
     fun searchActivities(query: String): Flow<List<ActivityItem>>

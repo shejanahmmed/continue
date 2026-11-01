@@ -23,6 +23,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
+import androidx.compose.material.icons.outlined.Archive
+import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Settings
@@ -53,7 +56,9 @@ import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
 fun MenuScreen(
     onNavigateToSettings: () -> Unit,
     modifier: Modifier = Modifier,
-    onNavigateToWelcome: (() -> Unit)? = null
+    onNavigateToWelcome: (() -> Unit)? = null,
+    onNavigateToArchive: (() -> Unit)? = null,
+    onNavigateToBin: (() -> Unit)? = null
 ) {
     val colors = LocalUtilitarianColors.current
 
@@ -132,6 +137,126 @@ fun MenuScreen(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
+        }
+
+        // Section 2: Storage & Repository
+        if (onNavigateToArchive != null || onNavigateToBin != null) {
+            item {
+                MenuSectionHeader(
+                    title = "STORAGE & REPOSITORY",
+                    icon = Icons.Outlined.Folder
+                )
+
+                if (onNavigateToArchive != null) {
+                    MonochromeCard(onClick = onNavigateToArchive) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF161616))
+                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Archive,
+                                    contentDescription = "Archive",
+                                    tint = colors.textPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "ARCHIVE",
+                                    color = colors.textPrimary,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Archived notes and records",
+                                    color = colors.textSecondary,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
+                                contentDescription = "Open Archive",
+                                tint = colors.textSecondary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(10.dp))
+                }
+
+                if (onNavigateToBin != null) {
+                    MonochromeCard(onClick = onNavigateToBin) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF161616))
+                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Delete,
+                                    contentDescription = "Bin",
+                                    tint = colors.textPrimary,
+                                    modifier = Modifier.size(20.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "BIN / TRASH",
+                                    color = colors.textPrimary,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text(
+                                    text = "Deleted events, reminders, and notes",
+                                    color = colors.textSecondary,
+                                    fontSize = 12.sp,
+                                    lineHeight = 16.sp
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(8.dp))
+
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
+                                contentDescription = "Open Bin",
+                                tint = colors.textSecondary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
+            }
         }
 
         // Section 2: Quick Actions

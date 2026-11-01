@@ -20,7 +20,7 @@ class FakeActivityRepository : ActivityRepository {
 
     override fun getActivitiesForDateRange(startMillis: Long, endMillis: Long): Flow<List<ActivityItem>> {
         return activitiesFlow.map { list ->
-            list.flatMap { item ->
+            list.filterNot { it.isDeleted }.flatMap { item ->
                 com.shejan.acontinue.domain.util.RecurrenceEvaluator.expandOccurrencesForRange(item, startMillis, endMillis)
             }.sortedBy { it.startTimeMillis }
         }
@@ -30,7 +30,8 @@ class FakeActivityRepository : ActivityRepository {
         return activitiesFlow.map { list -> list.firstOrNull { it.id == id } }
     }
 
-    override fun getAllActivities(): Flow<List<ActivityItem>> = activitiesFlow
+    override fun getAllActivities(): Flow<List<ActivityItem>> =
+        activitiesFlow.map { list -> list.filterNot { it.isDeleted } }
 
     override suspend fun insertActivity(activity: ActivityItem): Long {
         val id = if (activity.id > 0) activity.id else nextId++
@@ -44,7 +45,35 @@ class FakeActivityRepository : ActivityRepository {
     }
 
     override suspend fun deleteActivity(id: Long) {
+        activitiesFlow.value = activitiesFlow.value.map {
+            if (it.id == id) it.copy(isDeleted = true, deletedAtMillis = System.currentTimeMillis()) else it
+        }
+    }
+
+    override suspend fun restoreActivity(id: Long) {
+        activitiesFlow.value = activitiesFlow.value.map {
+            if (it.id == id) it.copy(isDeleted = false, deletedAtMillis = 0L) else it
+        }
+    }
+
+    override suspend fun permanentlyDeleteActivity(id: Long) {
         activitiesFlow.value = activitiesFlow.value.filterNot { it.id == id }
+    }
+
+    override suspend fun emptyTrash() {
+        activitiesFlow.value = activitiesFlow.value.filterNot { it.isDeleted }
+    }
+
+    override fun getDeletedActivities(): Flow<List<ActivityItem>> =
+        activitiesFlow.map { list -> list.filter { it.isDeleted } }
+
+    override fun getArchivedActivities(): Flow<List<ActivityItem>> =
+        activitiesFlow.map { list -> list.filter { it.isArchived && !it.isDeleted } }
+
+    override suspend fun setActivityArchived(id: Long, archived: Boolean) {
+        activitiesFlow.value = activitiesFlow.value.map {
+            if (it.id == id) it.copy(isArchived = archived, archivedAtMillis = if (archived) System.currentTimeMillis() else 0L) else it
+        }
     }
 
     override suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean, occurrenceDateMillis: Long) {
@@ -143,7 +172,7 @@ class FakeNoteRepository : NoteRepository {
     private var nextId = 1L
 
     override fun getNotesForActivity(activityId: Long): Flow<List<ActivityNote>> {
-        return notesFlow.map { list -> list.filter { it.activityId == activityId } }
+        return notesFlow.map { list -> list.filter { it.activityId == activityId && !it.isDeleted } }
     }
 
     override fun getNoteById(noteId: Long): Flow<ActivityNote?> {
@@ -152,7 +181,7 @@ class FakeNoteRepository : NoteRepository {
 
     override fun searchNotes(query: String): Flow<List<ActivityNote>> {
         return notesFlow.map { list ->
-            list.filter { it.title.contains(query, ignoreCase = true) || it.content.contains(query, ignoreCase = true) }
+            list.filter { !it.isDeleted && !it.isArchived && (it.title.contains(query, ignoreCase = true) || it.content.contains(query, ignoreCase = true)) }
         }
     }
 
@@ -168,7 +197,35 @@ class FakeNoteRepository : NoteRepository {
     }
 
     override suspend fun deleteNote(noteId: Long) {
+        notesFlow.value = notesFlow.value.map {
+            if (it.id == noteId) it.copy(isDeleted = true, deletedAtMillis = System.currentTimeMillis()) else it
+        }
+    }
+
+    override suspend fun restoreNote(noteId: Long) {
+        notesFlow.value = notesFlow.value.map {
+            if (it.id == noteId) it.copy(isDeleted = false, deletedAtMillis = 0L) else it
+        }
+    }
+
+    override suspend fun permanentlyDeleteNote(noteId: Long) {
         notesFlow.value = notesFlow.value.filterNot { it.id == noteId }
+    }
+
+    override suspend fun emptyTrash() {
+        notesFlow.value = notesFlow.value.filterNot { it.isDeleted }
+    }
+
+    override fun getDeletedNotes(): Flow<List<ActivityNote>> =
+        notesFlow.map { list -> list.filter { it.isDeleted } }
+
+    override fun getArchivedNotes(): Flow<List<ActivityNote>> =
+        notesFlow.map { list -> list.filter { it.isArchived && !it.isDeleted } }
+
+    override suspend fun setNoteArchived(noteId: Long, archived: Boolean) {
+        notesFlow.value = notesFlow.value.map {
+            if (it.id == noteId) it.copy(isArchived = archived, archivedAtMillis = if (archived) System.currentTimeMillis() else 0L) else it
+        }
     }
 }
 

@@ -46,7 +46,44 @@ class ActivityRepositoryImpl(
 
     override suspend fun deleteActivity(id: Long) {
         activityScheduler?.cancel(id)
-        activityDao.deleteActivity(id)
+        activityDao.moveToTrash(id, System.currentTimeMillis())
+    }
+
+    override suspend fun restoreActivity(id: Long) {
+        activityDao.restoreFromTrash(id)
+        val restored = activityDao.getActivityByIdSync(id)?.toDomain()
+        if (restored != null && !restored.isCompleted && (restored.startTimeMillis > System.currentTimeMillis() || restored.recurrenceMode != RecurrenceMode.NONE)) {
+            activityScheduler?.schedule(restored)
+        }
+    }
+
+    override suspend fun permanentlyDeleteActivity(id: Long) {
+        activityScheduler?.cancel(id)
+        activityDao.permanentlyDeleteActivity(id)
+    }
+
+    override suspend fun emptyTrash() {
+        activityDao.emptyTrashActivities()
+    }
+
+    override fun getDeletedActivities(): Flow<List<ActivityItem>> {
+        return activityDao.getDeletedActivities().map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+
+    override fun getArchivedActivities(): Flow<List<ActivityItem>> {
+        return activityDao.getArchivedActivities().map { list ->
+            list.map { it.toDomain() }
+        }
+    }
+
+    override suspend fun setActivityArchived(id: Long, archived: Boolean) {
+        activityDao.setActivityArchived(
+            id = id,
+            isArchived = archived,
+            archivedAtMillis = if (archived) System.currentTimeMillis() else 0L
+        )
     }
 
     override suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean, occurrenceDateMillis: Long) {

@@ -12,6 +12,12 @@ interface NoteRepository {
     suspend fun insertNote(note: ActivityNote): Long
     suspend fun updateNote(note: ActivityNote)
     suspend fun deleteNote(noteId: Long)
+    suspend fun restoreNote(noteId: Long)
+    suspend fun permanentlyDeleteNote(noteId: Long)
+    suspend fun emptyTrash()
+    fun getDeletedNotes(): Flow<List<ActivityNote>>
+    fun getArchivedNotes(): Flow<List<ActivityNote>>
+    suspend fun setNoteArchived(noteId: Long, archived: Boolean)
 }
 
 interface LinkRepository {

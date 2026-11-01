@@ -357,6 +357,8 @@ fun CreateEntryScreen(
             initialLabels = initialLabels,
             initialIsPinned = state.isPinned,
             onTogglePin = { viewModel.setNotePinned(it) },
+            initialIsArchived = state.isArchived,
+            onToggleArchive = { viewModel.setNoteArchived(it) },
             editingActivityId = state.editingActivityId,
             onSaveNote = { title, content, colorHex, labels ->
                 viewModel.saveNote(title, content, colorHex, labels)

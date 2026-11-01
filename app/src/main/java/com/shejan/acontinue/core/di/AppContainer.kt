@@ -126,4 +126,26 @@ class AppContainer(context: Context) {
                 return SettingsViewModel(settingsRepository) as T
             }
         }
+
+    fun provideBinViewModelFactory(): ViewModelProvider.Factory =
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return com.shejan.acontinue.presentation.bin.BinViewModel(
+                    activityRepository = activityRepository,
+                    noteRepository = noteRepository
+                ) as T
+            }
+        }
+
+    fun provideArchiveViewModelFactory(): ViewModelProvider.Factory =
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return com.shejan.acontinue.presentation.archive.ArchiveViewModel(
+                    activityRepository = activityRepository,
+                    noteRepository = noteRepository
+                ) as T
+            }
+        }
 }

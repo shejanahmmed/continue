@@ -37,7 +37,35 @@ class NoteRepositoryImpl(
     }
 
     override suspend fun deleteNote(noteId: Long) {
-        noteDao.deleteNote(noteId)
+        noteDao.moveToTrash(noteId, System.currentTimeMillis())
+    }
+
+    override suspend fun restoreNote(noteId: Long) {
+        noteDao.restoreFromTrash(noteId)
+    }
+
+    override suspend fun permanentlyDeleteNote(noteId: Long) {
+        noteDao.permanentlyDeleteNote(noteId)
+    }
+
+    override suspend fun emptyTrash() {
+        noteDao.emptyTrashNotes()
+    }
+
+    override fun getDeletedNotes(): Flow<List<ActivityNote>> {
+        return noteDao.getDeletedNotes().map { list -> list.map { it.toDomain() } }
+    }
+
+    override fun getArchivedNotes(): Flow<List<ActivityNote>> {
+        return noteDao.getArchivedNotes().map { list -> list.map { it.toDomain() } }
+    }
+
+    override suspend fun setNoteArchived(noteId: Long, archived: Boolean) {
+        noteDao.setNoteArchived(
+            noteId = noteId,
+            isArchived = archived,
+            archivedAtMillis = if (archived) System.currentTimeMillis() else 0L
+        )
     }
 }
 

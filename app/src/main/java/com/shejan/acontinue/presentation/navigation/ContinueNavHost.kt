@@ -84,6 +84,8 @@ sealed class Screen(val route: String) {
     data object Workspace : Screen("workspace/{activityId}") {
         fun createRoute(activityId: Long): String = "workspace/$activityId"
     }
+    data object Archive : Screen("archive")
+    data object Bin : Screen("bin")
 }
 
 @Composable
@@ -213,6 +215,12 @@ fun ContinueNavHost(
                     onNoteClick = { activityId ->
                         navController.navigate(Screen.NoteEditor.createRoute(activityId))
                     },
+                    onNavigateToArchive = {
+                        navController.navigate(Screen.Archive.route)
+                    },
+                    onNavigateToBin = {
+                        navController.navigate(Screen.Bin.route)
+                    },
                     modifier = Modifier.statusBarsPadding()
                 )
             }
@@ -243,6 +251,12 @@ fun ContinueNavHost(
                     onNavigateToWelcome = {
                         navController.navigate(Screen.Welcome.route)
                     },
+                    onNavigateToArchive = {
+                        navController.navigate(Screen.Archive.route)
+                    },
+                    onNavigateToBin = {
+                        navController.navigate(Screen.Bin.route)
+                    },
                     modifier = Modifier.statusBarsPadding()
                 )
             }
@@ -254,6 +268,42 @@ fun ContinueNavHost(
                 )
                 SettingsScreen(
                     viewModel = settingsViewModel,
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    modifier = Modifier.statusBarsPadding()
+                )
+            }
+
+            // Archive Destination
+            composable(Screen.Archive.route) {
+                val archiveViewModel: com.shejan.acontinue.presentation.archive.ArchiveViewModel = viewModel(
+                    factory = container.provideArchiveViewModelFactory()
+                )
+                com.shejan.acontinue.presentation.archive.ArchiveScreen(
+                    viewModel = archiveViewModel,
+                    onNoteClick = { activityId, noteId ->
+                        navController.navigate(
+                            Screen.NoteEditor.createRoute(
+                                editActivityId = activityId.takeIf { it > 0L },
+                                editNoteId = noteId.takeIf { it > 0L }
+                            )
+                        )
+                    },
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    modifier = Modifier.statusBarsPadding()
+                )
+            }
+
+            // Bin Destination
+            composable(Screen.Bin.route) {
+                val binViewModel: com.shejan.acontinue.presentation.bin.BinViewModel = viewModel(
+                    factory = container.provideBinViewModelFactory()
+                )
+                com.shejan.acontinue.presentation.bin.BinScreen(
+                    viewModel = binViewModel,
                     onNavigateBack = {
                         navController.popBackStack()
                     },
@@ -386,6 +436,8 @@ fun ContinueNavHost(
                         initialLabels = initialLabels,
                         initialIsPinned = state.isPinned,
                         onTogglePin = { noteViewModel.setNotePinned(it) },
+                        initialIsArchived = state.isArchived,
+                        onToggleArchive = { noteViewModel.setNoteArchived(it) },
                         editingActivityId = effectiveEditingId,
                         parentActivityId = parentActivityId.takeIf { it > 0L },
                         startInViewMode = if (startInEditMode) false else if (isWorkspaceMode) (editNoteId > 0L) else (editActivityId > 0L),

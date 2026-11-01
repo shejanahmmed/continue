@@ -107,7 +107,8 @@ data class CreateEntryState(
     val parentActivityId: Long? = null,
     val editingNoteId: Long? = null,
     val isWorkspaceNoteLoaded: Boolean = false,
-    val isPinned: Boolean = false
+    val isPinned: Boolean = false,
+    val isArchived: Boolean = false
 )
 
 sealed interface CreateEntryEvent {
@@ -240,7 +241,8 @@ class CreateEntryViewModel(
                     reminderCategory = categoryString,
                     reminderCategoryColorHex = effectiveColor,
                     isWorkspaceNoteLoaded = true,
-                    isPinned = isPinned
+                    isPinned = isPinned,
+                    isArchived = note.isArchived
                 )
             }
         }
@@ -350,6 +352,7 @@ class CreateEntryViewModel(
                 current.copy(
                     editingActivityId = targetId,
                     isPinned = isPinned,
+                    isArchived = activity?.isArchived == true || matchingNote?.isArchived == true,
                     entryType = activity?.entryType ?: EntryType.NOTE,
                     title = effectiveTitle,
                     notes = effectiveContent,
@@ -854,6 +857,20 @@ class CreateEntryViewModel(
         }
     }
 
+    fun setNoteArchived(archived: Boolean) {
+        _state.update { it.copy(isArchived = archived) }
+        val actId = _state.value.editingActivityId
+        val noteId = _state.value.editingNoteId
+        viewModelScope.launch {
+            if (actId != null && actId > 0L) {
+                activityRepository.setActivityArchived(actId, archived)
+            }
+            if (noteId != null && noteId > 0L) {
+                noteRepository.setNoteArchived(noteId, archived)
+            }
+        }
+    }
+
     suspend fun ensureDraftNoteId(
         title: String = "",
         content: String = "",
@@ -955,6 +972,9 @@ class CreateEntryViewModel(
                 val categoryString = if (cleanLabels.isNotEmpty()) cleanLabels.joinToString(",") else "Notes"
 
                 if (currentParentId != null && currentParentId > 0L) {
+                    val isArchived = _state.value.isArchived
+                    val archivedAt = if (isArchived) now else 0L
+
                     if (currentNoteId != null && currentNoteId > 0L) {
                         val existingNote = noteRepository.getNoteById(currentNoteId).firstOrNull()
                         if (existingNote != null) {
@@ -964,7 +984,9 @@ class CreateEntryViewModel(
                                     content = trimmedContent,
                                     colorHex = colorHex,
                                     labels = cleanLabels,
-                                    updatedAtMillis = now
+                                    updatedAtMillis = now,
+                                    isArchived = isArchived,
+                                    archivedAtMillis = archivedAt
                                 )
                             )
                         } else {
@@ -976,7 +998,9 @@ class CreateEntryViewModel(
                                     content = trimmedContent,
                                     colorHex = colorHex,
                                     labels = cleanLabels,
-                                    updatedAtMillis = now
+                                    updatedAtMillis = now,
+                                    isArchived = isArchived,
+                                    archivedAtMillis = archivedAt
                                 )
                             )
                         }
@@ -988,7 +1012,9 @@ class CreateEntryViewModel(
                                 content = trimmedContent,
                                 colorHex = colorHex,
                                 labels = cleanLabels,
-                                updatedAtMillis = now
+                                updatedAtMillis = now,
+                                isArchived = isArchived,
+                                archivedAtMillis = archivedAt
                             )
                         )
                         _state.update { it.copy(editingNoteId = newNoteId) }
@@ -1001,6 +1027,8 @@ class CreateEntryViewModel(
                     }
                 } else if (currentEditId != null) {
                     val existing = activityRepository.getActivityById(currentEditId).firstOrNull()
+                    val isArchived = _state.value.isArchived
+                    val archivedAt = if (isArchived) now else 0L
                     val updatedActivity = (existing ?: ActivityItem(
                         id = currentEditId,
                         title = effectiveTitle,
@@ -1018,7 +1046,9 @@ class CreateEntryViewModel(
                         isCompleted = false,
                         reminderCategory = categoryString,
                         reminderCategoryColorHex = colorHex,
-                        createdAtMillis = now
+                        createdAtMillis = now,
+                        isArchived = isArchived,
+                        archivedAtMillis = archivedAt
                     )).copy(
                         title = effectiveTitle,
                         description = trimmedContent,
@@ -1026,7 +1056,9 @@ class CreateEntryViewModel(
                         startTimeMillis = 0L,
                         endTimeMillis = 0L,
                         reminderCategory = categoryString,
-                        reminderCategoryColorHex = colorHex
+                        reminderCategoryColorHex = colorHex,
+                        isArchived = isArchived,
+                        archivedAtMillis = archivedAt
                     )
                     activityRepository.updateActivity(updatedActivity)
                     if (settingsRepository != null && currentEditId > 0L) {
@@ -1042,7 +1074,9 @@ class CreateEntryViewModel(
                                 content = trimmedContent,
                                 colorHex = colorHex,
                                 labels = cleanLabels,
-                                updatedAtMillis = now
+                                updatedAtMillis = now,
+                                isArchived = isArchived,
+                                archivedAtMillis = archivedAt
                             )
                         )
                     } else {
@@ -1053,11 +1087,15 @@ class CreateEntryViewModel(
                                 content = trimmedContent,
                                 colorHex = colorHex,
                                 labels = cleanLabels,
-                                updatedAtMillis = now
+                                updatedAtMillis = now,
+                                isArchived = isArchived,
+                                archivedAtMillis = archivedAt
                             )
                         )
                     }
                 } else {
+                    val isArchived = _state.value.isArchived
+                    val archivedAt = if (isArchived) now else 0L
                     val activity = ActivityItem(
                         title = effectiveTitle,
                         description = trimmedContent,
@@ -1074,7 +1112,9 @@ class CreateEntryViewModel(
                         isCompleted = false,
                         reminderCategory = categoryString,
                         reminderCategoryColorHex = colorHex,
-                        createdAtMillis = now
+                        createdAtMillis = now,
+                        isArchived = isArchived,
+                        archivedAtMillis = archivedAt
                     )
 
                     val newId = activityRepository.insertActivity(activity)
@@ -1085,7 +1125,9 @@ class CreateEntryViewModel(
                             content = trimmedContent,
                             colorHex = colorHex,
                             labels = cleanLabels,
-                            updatedAtMillis = now
+                            updatedAtMillis = now,
+                            isArchived = isArchived,
+                            archivedAtMillis = archivedAt
                         )
                     )
                     _state.update { it.copy(editingActivityId = newId) }

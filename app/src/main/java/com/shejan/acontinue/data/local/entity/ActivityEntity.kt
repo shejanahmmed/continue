@@ -34,5 +34,9 @@ data class ActivityEntity(
     val reminderCategory: String = "My reminders",
     val reminderCategoryColorHex: Long = 0xFF9D7BFC,
     val reminderCategoryIcon: String = "bell",
-    val createdAtMillis: Long
+    val createdAtMillis: Long,
+    val isDeleted: Boolean = false,
+    val deletedAtMillis: Long = 0L,
+    val isArchived: Boolean = false,
+    val archivedAtMillis: Long = 0L
 )

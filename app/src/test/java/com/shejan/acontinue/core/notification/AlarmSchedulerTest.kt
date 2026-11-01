@@ -83,6 +83,15 @@ class AlarmSchedulerTest {
             override suspend fun deleteActivity(id: Long) {
                 deletedDaoId = id
             }
+            override suspend fun moveToTrash(id: Long, deletedAtMillis: Long) {
+                deletedDaoId = id
+            }
+            override suspend fun restoreFromTrash(id: Long) {}
+            override suspend fun permanentlyDeleteActivity(id: Long) {}
+            override suspend fun emptyTrashActivities() {}
+            override fun getDeletedActivities(): Flow<List<ActivityEntity>> = flowOf(emptyList())
+            override fun getArchivedActivities(): Flow<List<ActivityEntity>> = flowOf(emptyList())
+            override suspend fun setActivityArchived(id: Long, isArchived: Boolean, archivedAtMillis: Long) {}
             override suspend fun updateCompletionStatus(id: Long, isCompleted: Boolean) {}
             override suspend fun updateSkippedStatus(id: Long, isSkipped: Boolean) {}
             override suspend fun updateCompletedDatesCsv(id: Long, completedDatesCsv: String) {}

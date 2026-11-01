@@ -7,5 +7,9 @@ data class ActivityNote(
     val content: String,
     val colorHex: Long = 0xFF000000L,
     val labels: List<String> = emptyList(),
-    val updatedAtMillis: Long = System.currentTimeMillis()
+    val updatedAtMillis: Long = System.currentTimeMillis(),
+    val isDeleted: Boolean = false,
+    val deletedAtMillis: Long = 0L,
+    val isArchived: Boolean = false,
+    val archivedAtMillis: Long = 0L
 )

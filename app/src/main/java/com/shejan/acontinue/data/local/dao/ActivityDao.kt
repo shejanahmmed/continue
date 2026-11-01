@@ -12,8 +12,9 @@ import kotlinx.coroutines.flow.Flow
 interface ActivityDao {
     @Query("""
         SELECT * FROM activities 
-        WHERE (startTimeMillis <= :endMillis AND endTimeMillis >= :startMillis)
-           OR recurrenceMode != 'NONE'
+        WHERE isDeleted = 0 
+          AND ((startTimeMillis <= :endMillis AND endTimeMillis >= :startMillis)
+           OR recurrenceMode != 'NONE')
         ORDER BY startTimeMillis ASC
     """)
     fun getActivitiesForDateRange(startMillis: Long, endMillis: Long): Flow<List<ActivityEntity>>
@@ -24,14 +25,35 @@ interface ActivityDao {
     @Query("SELECT * FROM activities WHERE id = :id LIMIT 1")
     suspend fun getActivityByIdSync(id: Long): ActivityEntity?
 
-    @Query("SELECT * FROM activities ORDER BY startTimeMillis DESC")
+    @Query("SELECT * FROM activities WHERE isDeleted = 0 ORDER BY startTimeMillis DESC")
     fun getAllActivities(): Flow<List<ActivityEntity>>
+
+    @Query("SELECT * FROM activities WHERE isDeleted = 1 ORDER BY deletedAtMillis DESC")
+    fun getDeletedActivities(): Flow<List<ActivityEntity>>
+
+    @Query("SELECT * FROM activities WHERE isDeleted = 0 AND isArchived = 1 ORDER BY archivedAtMillis DESC")
+    fun getArchivedActivities(): Flow<List<ActivityEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertActivity(activity: ActivityEntity): Long
 
     @Update
     suspend fun updateActivity(activity: ActivityEntity)
+
+    @Query("UPDATE activities SET isDeleted = 1, deletedAtMillis = :deletedAtMillis WHERE id = :id")
+    suspend fun moveToTrash(id: Long, deletedAtMillis: Long)
+
+    @Query("UPDATE activities SET isDeleted = 0, deletedAtMillis = 0 WHERE id = :id")
+    suspend fun restoreFromTrash(id: Long)
+
+    @Query("DELETE FROM activities WHERE id = :id")
+    suspend fun permanentlyDeleteActivity(id: Long)
+
+    @Query("DELETE FROM activities WHERE isDeleted = 1")
+    suspend fun emptyTrashActivities()
+
+    @Query("UPDATE activities SET isArchived = :isArchived, archivedAtMillis = :archivedAtMillis WHERE id = :id")
+    suspend fun setActivityArchived(id: Long, isArchived: Boolean, archivedAtMillis: Long)
 
     @Query("DELETE FROM activities WHERE id = :id")
     suspend fun deleteActivity(id: Long)
@@ -47,15 +69,18 @@ interface ActivityDao {
 
     @Query("""
         SELECT * FROM activities 
-        WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' 
+        WHERE isDeleted = 0 
+          AND (title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%') 
         ORDER BY startTimeMillis DESC
     """)
     fun searchActivities(query: String): Flow<List<ActivityEntity>>
 
     @Query("""
         SELECT * FROM activities 
-        WHERE (startTimeMillis > :now AND isCompleted = 0)
-           OR (recurrenceMode != 'NONE')
+        WHERE isDeleted = 0 
+          AND isArchived = 0 
+          AND ((startTimeMillis > :now AND isCompleted = 0)
+           OR (recurrenceMode != 'NONE'))
     """)
     suspend fun getUpcomingIncompleteActivities(now: Long): List<ActivityEntity>
 

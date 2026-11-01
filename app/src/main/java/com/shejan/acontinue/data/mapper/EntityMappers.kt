@@ -82,7 +82,11 @@ fun ActivityEntity.toDomain(): ActivityItem {
         reminderCategory = reminderCategory,
         reminderCategoryColorHex = reminderCategoryColorHex,
         reminderCategoryIcon = reminderCategoryIcon,
-        createdAtMillis = createdAtMillis
+        createdAtMillis = createdAtMillis,
+        isDeleted = isDeleted,
+        deletedAtMillis = deletedAtMillis,
+        isArchived = isArchived,
+        archivedAtMillis = archivedAtMillis
     )
 }
 
@@ -117,7 +121,11 @@ fun ActivityItem.toEntity(): ActivityEntity {
         reminderCategory = reminderCategory,
         reminderCategoryColorHex = reminderCategoryColorHex,
         reminderCategoryIcon = reminderCategoryIcon,
-        createdAtMillis = createdAtMillis
+        createdAtMillis = createdAtMillis,
+        isDeleted = isDeleted,
+        deletedAtMillis = deletedAtMillis,
+        isArchived = isArchived,
+        archivedAtMillis = archivedAtMillis
     )
 }
 
@@ -158,7 +166,11 @@ fun NoteEntity.toDomain(): ActivityNote {
         content = content,
         colorHex = if (colorHex != 0L && colorHex != 0xFF121212L) colorHex else 0xFF000000L,
         labels = parsedLabels,
-        updatedAtMillis = updatedAtMillis
+        updatedAtMillis = updatedAtMillis,
+        isDeleted = isDeleted,
+        deletedAtMillis = deletedAtMillis,
+        isArchived = isArchived,
+        archivedAtMillis = archivedAtMillis
     )
 }
 
@@ -170,7 +182,11 @@ fun ActivityNote.toEntity(): NoteEntity {
         content = content,
         colorHex = colorHex,
         labels = labels.map { it.trim() }.filter { it.isNotBlank() }.joinToString(","),
-        updatedAtMillis = updatedAtMillis
+        updatedAtMillis = updatedAtMillis,
+        isDeleted = isDeleted,
+        deletedAtMillis = deletedAtMillis,
+        isArchived = isArchived,
+        archivedAtMillis = archivedAtMillis
     )
 }
 

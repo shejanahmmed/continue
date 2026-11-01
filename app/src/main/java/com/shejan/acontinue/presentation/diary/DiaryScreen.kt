@@ -28,9 +28,11 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
@@ -72,7 +74,9 @@ fun DiaryScreen(
     viewModel: DiaryViewModel,
     onNoteClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
-    onActivityClick: ((Long) -> Unit)? = null
+    onActivityClick: ((Long) -> Unit)? = null,
+    onNavigateToArchive: (() -> Unit)? = null,
+    onNavigateToBin: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val noteCount = uiState.notes.size
@@ -149,26 +153,68 @@ fun DiaryScreen(
                 badgeText = if (uiState.isSelectionMode) null else badgeText,
                 actions = {
                     if (!uiState.isSelectionMode) {
-                        // Default Mode: Sort Button with Dropdown Menu
-                        Box {
-                            Box(
-                                modifier = Modifier
-                                    .size(30.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF161616))
-                                    .clickable { sortMenuExpanded = true },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.Sort,
-                                    contentDescription = "Sort cards",
-                                    tint = UtilitarianTextPrimary,
-                                    modifier = Modifier.size(18.dp)
-                                )
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (onNavigateToArchive != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
+                                        .background(Color(0xFF161616))
+                                        .clickable { onNavigateToArchive() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Archive,
+                                        contentDescription = "Archive",
+                                        tint = UtilitarianTextPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
                             }
 
-                            DropdownMenu(
+                            if (onNavigateToBin != null) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
+                                        .background(Color(0xFF161616))
+                                        .clickable { onNavigateToBin() },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.DeleteOutline,
+                                        contentDescription = "Bin",
+                                        tint = UtilitarianTextPrimary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                }
+                            }
+
+                            // Default Mode: Sort Button with Dropdown Menu
+                            Box {
+                                Box(
+                                    modifier = Modifier
+                                        .size(30.dp)
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
+                                        .background(Color(0xFF161616))
+                                        .clickable { sortMenuExpanded = true },
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.AutoMirrored.Outlined.Sort,
+                                        contentDescription = "Sort cards",
+                                        tint = UtilitarianTextPrimary,
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                DropdownMenu(
                                 expanded = sortMenuExpanded,
                                 onDismissRequest = { sortMenuExpanded = false },
                                 modifier = Modifier
@@ -204,7 +250,8 @@ fun DiaryScreen(
                                 }
                             }
                         }
-                    } else {
+                    }
+                } else {
                         // Multi-Selection Mode: Pin, Delete, and Cancel/Close Buttons
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
