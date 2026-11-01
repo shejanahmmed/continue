@@ -2,6 +2,8 @@ package com.shejan.acontinue.presentation.workspace
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shejan.acontinue.core.util.AttachmentHelper
+import com.shejan.acontinue.domain.model.ActivityAttachment
 import com.shejan.acontinue.domain.model.ActivityLink
 import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.ActivityTask
@@ -196,6 +198,27 @@ class ActivityWorkspaceViewModel(
     fun deleteLink(linkId: Long) {
         viewModelScope.launch {
             linkRepository.deleteLink(linkId)
+        }
+    }
+
+    fun addAttachment(fileName: String, uriString: String, mimeType: String, sizeBytes: Long) {
+        viewModelScope.launch {
+            linkRepository.insertAttachment(
+                ActivityAttachment(
+                    activityId = activityId,
+                    fileName = fileName,
+                    uriString = uriString,
+                    mimeType = mimeType,
+                    sizeBytes = sizeBytes
+                )
+            )
+        }
+    }
+
+    fun deleteAttachment(attachmentId: Long, filePath: String? = null) {
+        viewModelScope.launch {
+            filePath?.let { AttachmentHelper.deleteLocalFile(it) }
+            linkRepository.deleteAttachment(attachmentId)
         }
     }
 

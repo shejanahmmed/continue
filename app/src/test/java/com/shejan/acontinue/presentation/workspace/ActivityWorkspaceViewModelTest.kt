@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 
@@ -287,6 +288,38 @@ class ActivityWorkspaceViewModelTest {
         val updatedLink = linkRepository.linksFlow.value.first { it.id == linkId }
         assertEquals("https://new-link.com", updatedLink.url)
         assertEquals("Updated Documentation", updatedLink.title)
+    }
+
+    @Test
+    fun `test addAttachment and deleteAttachment update workspace aggregate attachments cleanly`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.addAttachment(
+            fileName = "session_notes.pdf",
+            uriString = "file:///attachments/session_notes.pdf",
+            mimeType = "application/pdf",
+            sizeBytes = 1048576L
+        )
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val attachments = state.aggregate?.attachments ?: emptyList()
+            assertEquals(1, attachments.size)
+            assertEquals("session_notes.pdf", attachments.first().fileName)
+            assertEquals("application/pdf", attachments.first().mimeType)
+            assertEquals(1048576L, attachments.first().sizeBytes)
+        }
+
+        val attachmentId = linkRepository.attachmentsFlow.value.first().id
+        viewModel.deleteAttachment(attachmentId)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val attachments = state.aggregate?.attachments ?: emptyList()
+            assertTrue(attachments.isEmpty())
+        }
     }
 }
 

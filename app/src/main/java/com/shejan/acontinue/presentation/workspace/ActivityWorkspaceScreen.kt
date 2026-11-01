@@ -2,6 +2,9 @@ package com.shejan.acontinue.presentation.workspace
 
 import android.content.Intent
 import android.net.Uri
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -31,6 +34,7 @@ import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -63,7 +67,11 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
@@ -323,7 +331,15 @@ fun ActivityWorkspaceScreen(
         // Tab Content
         item {
             when (uiState.selectedTab) {
-                WorkspaceTab.OVERVIEW -> OverviewTabContent(aggregate = aggregate)
+                WorkspaceTab.OVERVIEW -> OverviewTabContent(
+                    aggregate = aggregate,
+                    onAddAttachment = { fileName, uriString, mimeType, sizeBytes ->
+                        viewModel.addAttachment(fileName, uriString, mimeType, sizeBytes)
+                    },
+                    onDeleteAttachment = { attachmentId, filePath ->
+                        viewModel.deleteAttachment(attachmentId, filePath)
+                    }
+                )
                 WorkspaceTab.NOTES -> NotesTabContent(
                     notes = aggregate.notes,
                     onCreateNoteClick = { onCreateWorkspaceNote(activity.id) },
@@ -507,8 +523,38 @@ private fun WorkspaceTabRow(
 }
 
 @Composable
-private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
+private fun OverviewTabContent(
+    aggregate: ActivityWorkspaceAggregate,
+    onAddAttachment: (fileName: String, uriString: String, mimeType: String, sizeBytes: Long) -> Unit,
+    onDeleteAttachment: (attachmentId: Long, filePath: String?) -> Unit
+) {
     val activity = aggregate.activity
+    val context = LocalContext.current
+    val coroutineScope = rememberCoroutineScope()
+
+    val filePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenMultipleDocuments()
+    ) { uris ->
+        if (uris.isNotEmpty()) {
+            coroutineScope.launch(Dispatchers.IO) {
+                uris.forEach { uri ->
+                    AttachmentHelper.processAndCopyUri(context, uri)
+                        .onSuccess { proc ->
+                            onAddAttachment(proc.fileName, proc.filePath, proc.mimeType, proc.sizeBytes)
+                        }
+                        .onFailure { error ->
+                            withContext(Dispatchers.Main) {
+                                Toast.makeText(
+                                    context,
+                                    error.message ?: "Failed to process attachment",
+                                    Toast.LENGTH_LONG
+                                ).show()
+                            }
+                        }
+                }
+            }
+        }
+    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -776,21 +822,53 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
         // Card 4: ATTACHMENTS
         MonochromeCard {
                 Column {
-                    Text(
-                        text = if (aggregate.attachments.isNotEmpty()) {
-                            "ATTACHMENTS (${aggregate.attachments.size})"
-                        } else {
-                            "ATTACHMENTS"
-                        },
-                        color = UtilitarianTextSecondary,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = if (aggregate.attachments.isNotEmpty()) {
+                                "ATTACHMENTS (${aggregate.attachments.size})"
+                            } else {
+                                "ATTACHMENTS"
+                            },
+                            color = UtilitarianTextSecondary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(4.dp))
+                                .clickable(
+                                    interactionSource = remember { MutableInteractionSource() },
+                                    indication = null
+                                ) {
+                                    filePickerLauncher.launch(AttachmentHelper.SUPPORTED_MIME_TYPES)
+                                }
+                                .padding(horizontal = 4.dp, vertical = 2.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Add,
+                                contentDescription = "Add attachment",
+                                tint = UtilitarianTextPrimary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "ATTACH",
+                                color = UtilitarianTextPrimary,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(10.dp))
                     if (aggregate.attachments.isNotEmpty()) {
-                        val context = LocalContext.current
                         aggregate.attachments.forEachIndexed { index, att ->
                             if (index > 0) {
                                 Spacer(modifier = Modifier.height(8.dp))
@@ -802,10 +880,10 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                                         filePath = att.uriString,
                                         mimeType = att.mimeType
                                     ).onFailure { error ->
-                                        android.widget.Toast.makeText(
+                                        Toast.makeText(
                                             context,
                                             error.message ?: "Cannot open file",
-                                            android.widget.Toast.LENGTH_SHORT
+                                            Toast.LENGTH_SHORT
                                         ).show()
                                     }
                                 },
@@ -833,23 +911,59 @@ private fun OverviewTabContent(aggregate: ActivityWorkspaceAggregate) {
                                             color = UtilitarianTextSecondary,
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Normal,
-                                            maxLines = 1
+                                            maxLines = 1,
+                                            overflow = TextOverflow.Ellipsis
                                         )
                                         Text(
                                             text = AttachmentHelper.formatFileSize(att.sizeBytes),
-                                            color = UtilitarianTextSecondary,
+                                            color = UtilitarianTextDisabled,
                                             fontSize = 11.sp
+                                        )
+                                    }
+                                    IconButton(
+                                        onClick = { onDeleteAttachment(att.id, att.uriString) },
+                                        modifier = Modifier.size(28.dp)
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Close,
+                                            contentDescription = "Remove attachment",
+                                            tint = UtilitarianTextDisabled,
+                                            modifier = Modifier.size(16.dp)
                                         )
                                     }
                                 }
                             }
                         }
                     } else {
-                        Text(
-                            text = "No attachments",
-                            color = UtilitarianTextDisabled,
-                            fontSize = 13.sp
-                        )
+                        Surface(
+                            onClick = { filePickerLauncher.launch(AttachmentHelper.SUPPORTED_MIME_TYPES) },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            color = Color(0xFF161616),
+                            border = BorderStroke(1.dp, UtilitarianBorderStroke)
+                        ) {
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.AttachFile,
+                                    contentDescription = null,
+                                    tint = UtilitarianTextSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "+ Attach File or Photo",
+                                    color = UtilitarianTextSecondary,
+                                    fontSize = 13.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                 }
             }
