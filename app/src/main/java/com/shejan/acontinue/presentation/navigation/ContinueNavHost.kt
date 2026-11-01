@@ -254,9 +254,6 @@ fun ContinueNavHost(
                 )
                 SettingsScreen(
                     viewModel = settingsViewModel,
-                    onNavigateToWelcome = {
-                        navController.navigate(Screen.Welcome.route)
-                    },
                     onNavigateBack = {
                         navController.popBackStack()
                     },

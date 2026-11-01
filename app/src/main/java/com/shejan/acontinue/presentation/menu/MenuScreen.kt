@@ -169,7 +169,7 @@ fun MenuScreen(
 
                         Column(modifier = Modifier.weight(1f)) {
                             Text(
-                                text = "REPLAY ONBOARDING",
+                                text = "WELCOME WALKTHROUGH",
                                 color = colors.textPrimary,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Bold,
@@ -199,18 +199,20 @@ fun MenuScreen(
             }
         }
 
-        // Section 3: Application Specifications & Metadata
+        // Section 3: About & Developer
         item {
             MenuSectionHeader(
-                title = "APPLICATION SPECIFICATIONS",
+                title = "ABOUT & DEVELOPER",
                 icon = Icons.Outlined.Info
             )
 
             MonochromeCard {
                 Column(modifier = Modifier.fillMaxWidth()) {
+                    MenuSpecificationRow(label = "APPLICATION", value = "continue")
                     MenuSpecificationRow(label = "VERSION", value = "1.0.0")
                     MenuSpecificationRow(label = "LICENSE", value = "GNU GPL v3.0")
                     MenuSpecificationRow(label = "DEVELOPER", value = "Farjan Ahmmed")
+                    MenuSpecificationRow(label = "CONTACT", value = "farjan.swe@gmail.com")
 
                     Spacer(modifier = Modifier.height(14.dp))
 

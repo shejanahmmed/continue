@@ -82,7 +82,6 @@ import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 fun SettingsScreen(
     viewModel: SettingsViewModel,
     modifier: Modifier = Modifier,
-    onNavigateToWelcome: (() -> Unit)? = null,
     onNavigateBack: (() -> Unit)? = null
 ) {
     if (onNavigateBack != null) {
@@ -401,10 +400,10 @@ fun SettingsScreen(
             Spacer(modifier = Modifier.height(20.dp))
         }
 
-        // Section 4: About & Specifications
+        // Section 4: Technical Specifications
         item {
             SettingsSectionHeader(
-                title = "ABOUT & SPECIFICATIONS",
+                title = "TECHNICAL SPECIFICATIONS",
                 icon = Icons.Outlined.Info
             )
 
@@ -427,99 +426,11 @@ fun SettingsScreen(
                     )
 
                     Spacer(modifier = Modifier.height(14.dp))
-                    if (onNavigateToWelcome != null) {
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .clickable(onClick = onNavigateToWelcome),
-                            shape = RoundedCornerShape(8.dp),
-                            color = colors.surface,
-                            border = BorderStroke(1.dp, colors.borderStroke)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 12.dp, vertical = 10.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Info,
-                                        contentDescription = null,
-                                        tint = colors.textPrimary,
-                                        modifier = Modifier.size(14.dp)
-                                    )
-                                    Spacer(modifier = Modifier.width(8.dp))
-                                    Text(
-                                        text = "VIEW WELCOME GUIDE",
-                                        color = colors.textPrimary,
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.SemiBold,
-                                        fontSize = 11.sp,
-                                        letterSpacing = 1.sp
-                                    )
-                                }
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                                    contentDescription = null,
-                                    tint = colors.textSecondary,
-                                    modifier = Modifier.size(13.dp)
-                                )
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(14.dp))
-                    }
                     HorizontalDivider(color = colors.borderStroke, thickness = 1.dp)
                     Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
-                        text = "AUTHOR & MAINTAINER",
-                        color = colors.textSecondary,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.SemiBold,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "Farjan Ahmmed",
-                        color = colors.textPrimary,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 14.sp
-                    )
-                    Spacer(modifier = Modifier.height(2.dp))
-                    Text(
-                        text = "farjan.swe@gmail.com",
-                        color = colors.textSecondary,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp
-                    )
-
-                    Spacer(modifier = Modifier.height(10.dp))
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        ExternalLinkChip(
-                            label = "GitHub",
-                            url = "https://github.com/shejanahmmed",
-                            modifier = Modifier.weight(1f)
-                        )
-                        ExternalLinkChip(
-                            label = "LinkedIn",
-                            url = "https://www.linkedin.com/in/farjan-ahmmed/",
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-
-                    Spacer(modifier = Modifier.height(14.dp))
-                    HorizontalDivider(color = colors.borderStroke, thickness = 1.dp)
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Text(
-                        text = "TECHNICAL SPECIFICATION",
+                        text = "SYSTEM ARCHITECTURE",
                         color = colors.textSecondary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
@@ -839,47 +750,6 @@ private fun SettingsNavigationItem(
             tint = colors.textSecondary,
             modifier = Modifier.size(16.dp)
         )
-    }
-}
-
-@Composable
-private fun ExternalLinkChip(
-    label: String,
-    url: String,
-    modifier: Modifier = Modifier
-) {
-    val colors = LocalUtilitarianColors.current
-    val context = LocalContext.current
-
-    Surface(
-        modifier = modifier.clickable {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            context.startActivity(intent)
-        },
-        shape = RoundedCornerShape(6.dp),
-        color = Color.Transparent,
-        border = BorderStroke(1.dp, colors.borderStroke)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = label,
-                color = colors.textPrimary,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                contentDescription = null,
-                tint = colors.textSecondary,
-                modifier = Modifier.size(12.dp)
-            )
-        }
     }
 }
 
