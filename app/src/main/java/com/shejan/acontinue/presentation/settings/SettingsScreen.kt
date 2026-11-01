@@ -50,6 +50,7 @@ import androidx.compose.material3.SwitchDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -66,6 +67,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
+import androidx.lifecycle.compose.LocalLifecycleOwner
 import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.HighContrastButton
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
@@ -93,15 +97,36 @@ fun SettingsScreen(
     var showPrivacyPolicyDialog by remember { mutableStateOf(false) }
     var showLicenseDialog by remember { mutableStateOf(false) }
 
-    val notificationsSystemEnabled = remember(context) {
-        NotificationManagerCompat.from(context).areNotificationsEnabled()
+    var notificationsSystemEnabled by remember {
+        mutableStateOf(NotificationManagerCompat.from(context).areNotificationsEnabled())
     }
-    val exactAlarmSystemEnabled = remember(context) {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
-            alarmManager?.canScheduleExactAlarms() ?: true
-        } else {
-            true
+    var exactAlarmSystemEnabled by remember {
+        mutableStateOf(
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+                alarmManager?.canScheduleExactAlarms() ?: true
+            } else {
+                true
+            }
+        )
+    }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            if (event == Lifecycle.Event.ON_RESUME) {
+                notificationsSystemEnabled = NotificationManagerCompat.from(context).areNotificationsEnabled()
+                exactAlarmSystemEnabled = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                    val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager
+                    alarmManager?.canScheduleExactAlarms() ?: true
+                } else {
+                    true
+                }
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
 

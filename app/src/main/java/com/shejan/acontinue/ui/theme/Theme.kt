@@ -8,9 +8,13 @@ import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.SideEffect
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.hapticfeedback.HapticFeedback
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalView
 import androidx.core.view.WindowCompat
 import com.shejan.acontinue.domain.model.AccentPalette
@@ -140,7 +144,21 @@ fun ContinueTheme(
         }
     }
 
-    CompositionLocalProvider(LocalUtilitarianColors provides colors) {
+    val systemHaptic = LocalHapticFeedback.current
+    val effectiveHaptic = remember(systemHaptic, settings.hapticFeedbackEnabled) {
+        object : HapticFeedback {
+            override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
+                if (settings.hapticFeedbackEnabled) {
+                    systemHaptic.performHapticFeedback(hapticFeedbackType)
+                }
+            }
+        }
+    }
+
+    CompositionLocalProvider(
+        LocalUtilitarianColors provides colors,
+        LocalHapticFeedback provides effectiveHaptic
+    ) {
         MaterialTheme(
             colorScheme = colorScheme,
             typography = Typography,
