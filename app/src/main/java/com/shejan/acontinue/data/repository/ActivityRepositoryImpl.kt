@@ -5,6 +5,7 @@ import com.shejan.acontinue.data.mapper.toDomain
 import com.shejan.acontinue.data.mapper.toEntity
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.EntryType
+import com.shejan.acontinue.domain.model.RecurrenceMode
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.util.RecurrenceEvaluator
 import com.shejan.acontinue.core.notification.ActivityScheduler
@@ -48,9 +49,27 @@ class ActivityRepositoryImpl(
         activityDao.deleteActivity(id)
     }
 
-    override suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean) {
-        val existing = activityDao.getActivityByIdSync(id)
-        if (existing?.entryType == EntryType.REMINDER.name) {
+    override suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean, occurrenceDateMillis: Long) {
+        val existing = activityDao.getActivityByIdSync(id) ?: return
+        if (existing.entryType != EntryType.REMINDER.name) return
+
+        if (existing.recurrenceMode != RecurrenceMode.NONE.name) {
+            val occurrenceDayStart = RecurrenceEvaluator.getStartOfDayMillis(occurrenceDateMillis)
+            val currentCompletedDates = if (existing.completedDatesCsv.isNotBlank()) {
+                existing.completedDatesCsv.split(",").mapNotNull { it.trim().toLongOrNull() }.toMutableSet()
+            } else {
+                mutableSetOf()
+            }
+
+            if (isCompleted) {
+                currentCompletedDates.add(occurrenceDayStart)
+            } else {
+                currentCompletedDates.remove(occurrenceDayStart)
+            }
+
+            val newCsv = currentCompletedDates.sorted().joinToString(",")
+            activityDao.updateCompletedDatesCsv(id, newCsv)
+        } else {
             activityDao.updateCompletionStatus(id, isCompleted)
         }
     }

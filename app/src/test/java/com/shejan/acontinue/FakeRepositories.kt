@@ -47,10 +47,20 @@ class FakeActivityRepository : ActivityRepository {
         activitiesFlow.value = activitiesFlow.value.filterNot { it.id == id }
     }
 
-    override suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean) {
+    override suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean, occurrenceDateMillis: Long) {
         activitiesFlow.value = activitiesFlow.value.map {
             if (it.id == id && it.entryType == EntryType.REMINDER) {
-                it.copy(isCompleted = isCompleted, isSkipped = if (isCompleted) false else it.isSkipped)
+                if (it.recurrenceMode != com.shejan.acontinue.domain.model.RecurrenceMode.NONE) {
+                    val dayStart = com.shejan.acontinue.domain.util.RecurrenceEvaluator.getStartOfDayMillis(occurrenceDateMillis)
+                    val updatedDates = if (isCompleted) {
+                        (it.completedDates + dayStart).distinct().sorted()
+                    } else {
+                        it.completedDates.filterNot { d -> d == dayStart }
+                    }
+                    it.copy(completedDates = updatedDates)
+                } else {
+                    it.copy(isCompleted = isCompleted, isSkipped = if (isCompleted) false else it.isSkipped)
+                }
             } else it
         }
     }

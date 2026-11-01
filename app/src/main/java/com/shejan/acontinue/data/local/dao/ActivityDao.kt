@@ -42,6 +42,9 @@ interface ActivityDao {
     @Query("UPDATE activities SET isSkipped = :isSkipped WHERE id = :id")
     suspend fun updateSkippedStatus(id: Long, isSkipped: Boolean)
 
+    @Query("UPDATE activities SET completedDatesCsv = :completedDatesCsv WHERE id = :id")
+    suspend fun updateCompletedDatesCsv(id: Long, completedDatesCsv: String)
+
     @Query("""
         SELECT * FROM activities 
         WHERE title LIKE '%' || :query || '%' OR description LIKE '%' || :query || '%' 

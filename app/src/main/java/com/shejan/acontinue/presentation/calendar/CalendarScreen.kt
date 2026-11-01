@@ -434,7 +434,7 @@ fun CalendarScreen(
                 } else {
                     // 1. All-Day Cards (at the top)
                     if (uiState.allDayActivities.isNotEmpty()) {
-                        items(uiState.allDayActivities, key = { "allday_${it.id}" }) { activity ->
+                        items(uiState.allDayActivities, key = { "allday_${it.id}_${it.startTimeMillis}" }) { activity ->
                             CalendarActivityCard(
                                 activity = activity,
                                 onClick = {
@@ -445,7 +445,7 @@ fun CalendarScreen(
                                     }
                                 },
                                 onToggleCompletion = { done ->
-                                    viewModel.toggleActivityCompletion(activity.id, done)
+                                    viewModel.toggleActivityCompletion(activity.id, done, activity.startTimeMillis)
                                 }
                             )
                             Spacer(modifier = Modifier.height(8.dp))
@@ -454,7 +454,7 @@ fun CalendarScreen(
 
                     // 2. Timed Activities & Reminders Cards
                     if (uiState.timedActivities.isNotEmpty()) {
-                        items(uiState.timedActivities, key = { "timed_${it.id}" }) { activity ->
+                        items(uiState.timedActivities, key = { "timed_${it.id}_${it.startTimeMillis}" }) { activity ->
                             CalendarActivityCard(
                                 activity = activity,
                                 onClick = {
@@ -465,7 +465,7 @@ fun CalendarScreen(
                                     }
                                 },
                                 onToggleCompletion = { done ->
-                                    viewModel.toggleActivityCompletion(activity.id, done)
+                                    viewModel.toggleActivityCompletion(activity.id, done, activity.startTimeMillis)
                                 }
                             )
                             Spacer(modifier = Modifier.height(8.dp))
@@ -513,7 +513,13 @@ fun CalendarScreen(
                 activity = uiState.selectedActivityForDetail!!,
                 onDismiss = { viewModel.dismissActivityDetail() },
                 onDelete = { id -> viewModel.deleteActivity(id) },
-                onToggleCompletion = { id, done -> viewModel.toggleActivityCompletion(id, done) },
+                onToggleCompletion = { id, done ->
+                    viewModel.toggleActivityCompletion(
+                        id,
+                        done,
+                        uiState.selectedActivityForDetail?.startTimeMillis ?: uiState.selectedDateMillis
+                    )
+                },
                 onToggleSkip = { id -> viewModel.skipReminder(id) },
                 onOpenWorkspace = { id ->
                     viewModel.dismissActivityDetail()

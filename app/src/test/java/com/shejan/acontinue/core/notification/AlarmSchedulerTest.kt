@@ -85,6 +85,7 @@ class AlarmSchedulerTest {
             }
             override suspend fun updateCompletionStatus(id: Long, isCompleted: Boolean) {}
             override suspend fun updateSkippedStatus(id: Long, isSkipped: Boolean) {}
+            override suspend fun updateCompletedDatesCsv(id: Long, completedDatesCsv: String) {}
             override suspend fun getUpcomingIncompleteActivities(now: Long): List<ActivityEntity> = emptyList()
             override fun searchActivities(query: String): Flow<List<ActivityEntity>> = flowOf(emptyList())
             override suspend fun updateReminderCategoryDetails(categoryName: String, colorHex: Long, icon: String) {}

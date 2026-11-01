@@ -200,9 +200,9 @@ class CalendarViewModel(
         _todayPulseTrigger.value = now
     }
 
-    fun toggleActivityCompletion(id: Long, isCompleted: Boolean) {
+    fun toggleActivityCompletion(id: Long, isCompleted: Boolean, occurrenceDateMillis: Long = _selectedDate.value) {
         viewModelScope.launch {
-            activityRepository.toggleActivityCompletion(id, isCompleted)
+            activityRepository.toggleActivityCompletion(id, isCompleted, occurrenceDateMillis)
         }
     }
 
@@ -283,7 +283,17 @@ class CalendarViewModel(
 
         val todayDate = Calendar.getInstance().apply { timeInMillis = todayMillis }.get(Calendar.DAY_OF_MONTH)
         val resolvedDetail = detailActivity?.let { da ->
-            activities.firstOrNull { it.id == da.id }
+            val master = activities.firstOrNull { it.id == da.id } ?: return@let null
+            if (master.recurrenceMode != RecurrenceMode.NONE) {
+                val occurrenceDayStart = getStartOfDayMillis(selectedMillis)
+                master.copy(
+                    startTimeMillis = da.startTimeMillis,
+                    endTimeMillis = da.endTimeMillis,
+                    isCompleted = master.completedDates.contains(occurrenceDayStart)
+                )
+            } else {
+                master
+            }
         }
 
         return CalendarUiState(

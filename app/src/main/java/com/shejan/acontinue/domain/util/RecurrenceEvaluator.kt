@@ -190,10 +190,17 @@ object RecurrenceEvaluator {
         val occurrenceStart = targetDayCal.timeInMillis
         val duration = (activity.endTimeMillis - activity.startTimeMillis).coerceAtLeast(0L)
         val occurrenceEnd = occurrenceStart + duration
+        val occurrenceDayStart = getStartOfDayMillis(occurrenceStart)
+        val isOccurrenceCompleted = if (activity.recurrenceMode != RecurrenceMode.NONE) {
+            activity.completedDates.contains(occurrenceDayStart)
+        } else {
+            activity.isCompleted
+        }
 
         return activity.copy(
             startTimeMillis = occurrenceStart,
-            endTimeMillis = occurrenceEnd
+            endTimeMillis = occurrenceEnd,
+            isCompleted = isOccurrenceCompleted
         )
     }
 
@@ -241,10 +248,17 @@ object RecurrenceEvaluator {
             val maxResults = 500
             while (currentOccur <= rangeEndMillis && currentOccur <= endLimit && count < maxCount && results.size < maxResults) {
                 if (currentOccur + duration >= rangeStartMillis && currentOccur <= rangeEndMillis) {
+                    val occurDayStart = getStartOfDayMillis(currentOccur)
+                    val isOccurCompleted = if (activity.recurrenceMode != RecurrenceMode.NONE) {
+                        activity.completedDates.contains(occurDayStart)
+                    } else {
+                        activity.isCompleted
+                    }
                     results.add(
                         activity.copy(
                             startTimeMillis = currentOccur,
-                            endTimeMillis = currentOccur + duration
+                            endTimeMillis = currentOccur + duration,
+                            isCompleted = isOccurCompleted
                         )
                     )
                 }

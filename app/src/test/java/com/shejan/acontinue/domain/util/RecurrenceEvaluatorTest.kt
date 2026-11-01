@@ -294,4 +294,41 @@ class RecurrenceEvaluatorTest {
         val nextStart = RecurrenceEvaluator.getNextOccurrenceStart(reminder, afterSecond)
         assertNull(nextStart)
     }
+
+    @Test
+    fun `recurring reminder occurrence completion is isolated to specific dates in completedDates`() {
+        val startCal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 10, 9, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val day1Start = RecurrenceEvaluator.getStartOfDayMillis(startCal.timeInMillis)
+        val day2Cal = (startCal.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 1) }
+        val day2Start = RecurrenceEvaluator.getStartOfDayMillis(day2Cal.timeInMillis)
+        val day3Cal = (startCal.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 2) }
+
+        val recurringReminder = createBaseActivity(
+            startCal = startCal,
+            durationMinutes = 0,
+            recurrenceMode = RecurrenceMode.DAILY,
+            interval = 1
+        ).copy(
+            entryType = EntryType.REMINDER,
+            isCompleted = false,
+            completedDates = listOf(day2Start)
+        )
+
+        val occurrences = RecurrenceEvaluator.expandOccurrencesForRange(
+            activity = recurringReminder,
+            rangeStartMillis = day1Start,
+            rangeEndMillis = day3Cal.timeInMillis
+        )
+
+        assertEquals(3, occurrences.size)
+        // Day 1 occurrence should NOT be completed
+        assertEquals(false, occurrences[0].isCompleted)
+        // Day 2 occurrence SHOULD be completed
+        assertEquals(true, occurrences[1].isCompleted)
+        // Day 3 occurrence should NOT be completed
+        assertEquals(false, occurrences[2].isCompleted)
+    }
 }

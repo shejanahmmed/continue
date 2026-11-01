@@ -550,5 +550,52 @@ class CalendarViewModelTest {
             assertEquals(42, state.monthDays.size)
         }
     }
+
+    @Test
+    fun `test recurring reminder occurrence completion is isolated to selected day`() = runTest(testDispatcher) {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 10, 9, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val day1Time = cal.timeInMillis
+        val day2Cal = (cal.clone() as Calendar).apply { add(Calendar.DAY_OF_MONTH, 1) }
+        val day2Time = day2Cal.timeInMillis
+
+        val recurringReminder = ActivityItem(
+            id = 201L,
+            title = "Drink Water Daily",
+            entryType = EntryType.REMINDER,
+            startTimeMillis = day1Time,
+            endTimeMillis = day1Time,
+            recurrenceMode = RecurrenceMode.DAILY,
+            recurrenceInterval = 1,
+            isCompleted = false
+        )
+        activityRepository.insertActivity(recurringReminder)
+        testScheduler.advanceUntilIdle()
+
+        // Select Day 1 and toggle completion
+        viewModel.selectDate(day1Time)
+        testScheduler.advanceUntilIdle()
+        viewModel.toggleActivityCompletion(201L, true, day1Time)
+        testScheduler.advanceUntilIdle()
+
+        // Day 1: occurrence should be completed
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val day1Occurrence = state.selectedDayActivities.first { it.id == 201L }
+            assertTrue(day1Occurrence.isCompleted)
+        }
+
+        // Now select Day 2: occurrence on Day 2 should NOT be completed
+        viewModel.selectDate(day2Time)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val day2Occurrence = state.selectedDayActivities.first { it.id == 201L }
+            assertFalse(day2Occurrence.isCompleted)
+        }
+    }
 }
 

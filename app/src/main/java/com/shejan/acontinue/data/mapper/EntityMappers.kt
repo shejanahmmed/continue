@@ -41,6 +41,11 @@ fun ActivityEntity.toDomain(): ActivityItem {
     } else {
         emptyList()
     }
+    val parsedCompletedDates = if (completedDatesCsv.isNotBlank()) {
+        completedDatesCsv.split(",").mapNotNull { it.trim().toLongOrNull() }
+    } else {
+        emptyList()
+    }
 
     val parsedEntryType = when (entryType.trim().uppercase()) {
         "REMINDER" -> EntryType.REMINDER
@@ -73,6 +78,7 @@ fun ActivityEntity.toDomain(): ActivityItem {
         recurrenceEndDateMillis = recurrenceEndDateMillis,
         isCompleted = if (parsedEntryType == EntryType.REMINDER) isCompleted else false,
         isSkipped = if (parsedEntryType == EntryType.REMINDER) isSkipped else false,
+        completedDates = parsedCompletedDates,
         reminderCategory = reminderCategory,
         reminderCategoryColorHex = reminderCategoryColorHex,
         reminderCategoryIcon = reminderCategoryIcon,
@@ -107,6 +113,7 @@ fun ActivityItem.toEntity(): ActivityEntity {
         recurrenceEndDateMillis = recurrenceEndDateMillis,
         isCompleted = if (entryType == EntryType.REMINDER) isCompleted else false,
         isSkipped = if (entryType == EntryType.REMINDER) isSkipped else false,
+        completedDatesCsv = completedDates.joinToString(","),
         reminderCategory = reminderCategory,
         reminderCategoryColorHex = reminderCategoryColorHex,
         reminderCategoryIcon = reminderCategoryIcon,

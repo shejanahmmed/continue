@@ -10,7 +10,7 @@ interface ActivityRepository {
     suspend fun insertActivity(activity: ActivityItem): Long
     suspend fun updateActivity(activity: ActivityItem)
     suspend fun deleteActivity(id: Long)
-    suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean)
+    suspend fun toggleActivityCompletion(id: Long, isCompleted: Boolean, occurrenceDateMillis: Long = System.currentTimeMillis())
     suspend fun toggleActivitySkipped(id: Long, isSkipped: Boolean)
     fun searchActivities(query: String): Flow<List<ActivityItem>>
     suspend fun updateReminderCategoryDetails(categoryName: String, colorHex: Long, icon: String)
