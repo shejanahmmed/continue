@@ -160,18 +160,25 @@ fun DiaryScreen(
                             if (onNavigateToArchive != null) {
                                 Box(
                                     modifier = Modifier
-                                        .size(30.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF161616))
-                                        .clickable { onNavigateToArchive() },
+                                        .size(38.dp)
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(Color(0xFF202020))
+                                        .border(
+                                            1.dp,
+                                            UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                            RoundedCornerShape(5.dp)
+                                        )
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onNavigateToArchive()
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.Archive,
                                         contentDescription = "Archive",
                                         tint = UtilitarianTextPrimary,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
@@ -179,18 +186,25 @@ fun DiaryScreen(
                             if (onNavigateToBin != null) {
                                 Box(
                                     modifier = Modifier
-                                        .size(30.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF161616))
-                                        .clickable { onNavigateToBin() },
+                                        .size(38.dp)
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(Color(0xFF202020))
+                                        .border(
+                                            1.dp,
+                                            UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                            RoundedCornerShape(5.dp)
+                                        )
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            onNavigateToBin()
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.Outlined.DeleteOutline,
                                         contentDescription = "Bin",
                                         tint = UtilitarianTextPrimary,
-                                        modifier = Modifier.size(16.dp)
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
@@ -199,57 +213,64 @@ fun DiaryScreen(
                             Box {
                                 Box(
                                     modifier = Modifier
-                                        .size(30.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF161616))
-                                        .clickable { sortMenuExpanded = true },
+                                        .size(38.dp)
+                                        .clip(RoundedCornerShape(5.dp))
+                                        .background(Color(0xFF202020))
+                                        .border(
+                                            1.dp,
+                                            UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                            RoundedCornerShape(5.dp)
+                                        )
+                                        .clickable {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            sortMenuExpanded = true
+                                        },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
                                         imageVector = Icons.AutoMirrored.Outlined.Sort,
                                         contentDescription = "Sort cards",
                                         tint = UtilitarianTextPrimary,
-                                        modifier = Modifier.size(18.dp)
+                                        modifier = Modifier.size(22.dp)
                                     )
                                 }
 
                                 DropdownMenu(
-                                expanded = sortMenuExpanded,
-                                onDismissRequest = { sortMenuExpanded = false },
-                                modifier = Modifier
-                                    .background(Color(0xFF161616))
-                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
-                            ) {
-                                DiarySortOption.entries.forEach { option ->
-                                    val isSelected = uiState.sortOption == option
-                                    DropdownMenuItem(
-                                        text = {
-                                            Text(
-                                                text = option.displayName,
-                                                color = if (isSelected) UtilitarianTextPrimary else UtilitarianTextSecondary,
-                                                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
-                                                fontSize = 14.sp
-                                            )
-                                        },
-                                        trailingIcon = if (isSelected) {
-                                            {
-                                                Icon(
-                                                    imageVector = Icons.Outlined.Check,
-                                                    contentDescription = "Selected",
-                                                    tint = UtilitarianTextPrimary,
-                                                    modifier = Modifier.size(16.dp)
+                                    expanded = sortMenuExpanded,
+                                    onDismissRequest = { sortMenuExpanded = false },
+                                    modifier = Modifier
+                                        .background(Color(0xFF161616))
+                                        .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
+                                ) {
+                                    DiarySortOption.entries.forEach { option ->
+                                        val isSelected = uiState.sortOption == option
+                                        DropdownMenuItem(
+                                            text = {
+                                                Text(
+                                                    text = option.displayName,
+                                                    color = if (isSelected) UtilitarianTextPrimary else UtilitarianTextSecondary,
+                                                    fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
+                                                    fontSize = 14.sp
                                                 )
+                                            },
+                                            trailingIcon = if (isSelected) {
+                                                {
+                                                    Icon(
+                                                        imageVector = Icons.Outlined.Check,
+                                                        contentDescription = "Selected",
+                                                        tint = UtilitarianTextPrimary,
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            } else null,
+                                            onClick = {
+                                                viewModel.onSortOptionChange(option)
+                                                sortMenuExpanded = false
                                             }
-                                        } else null,
-                                        onClick = {
-                                            viewModel.onSortOptionChange(option)
-                                            sortMenuExpanded = false
-                                        }
-                                    )
+                                        )
+                                    }
                                 }
                             }
-                        }
                     }
                 } else {
                         // Multi-Selection Mode: Pin, Delete, and Cancel/Close Buttons
@@ -260,10 +281,14 @@ fun DiaryScreen(
                             // Pin Button
                             Box(
                                 modifier = Modifier
-                                    .size(30.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF161616))
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(Color(0xFF202020))
+                                    .border(
+                                        1.dp,
+                                        UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                        RoundedCornerShape(5.dp)
+                                    )
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         viewModel.togglePinSelectedNotes()
@@ -274,43 +299,57 @@ fun DiaryScreen(
                                     imageVector = if (uiState.areAllSelectedPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                                     contentDescription = if (uiState.areAllSelectedPinned) "Unpin notes" else "Pin notes",
                                     tint = UtilitarianTextPrimary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
 
                             // Delete Button
                             Box(
                                 modifier = Modifier
-                                    .size(30.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, Color(0xFFFF453A), RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF161616))
-                                    .clickable { showDeleteDialog = true },
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(Color(0xFF202020))
+                                    .border(
+                                        1.dp,
+                                        Color(0xFFFF453A).copy(alpha = 0.7f),
+                                        RoundedCornerShape(5.dp)
+                                    )
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        showDeleteDialog = true
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Delete,
                                     contentDescription = "Delete selected notes",
                                     tint = Color(0xFFFF453A),
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
 
                             // Cancel / Close Selection Button
                             Box(
                                 modifier = Modifier
-                                    .size(30.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF161616))
-                                    .clickable { viewModel.clearSelection() },
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(Color(0xFF202020))
+                                    .border(
+                                        1.dp,
+                                        UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                        RoundedCornerShape(5.dp)
+                                    )
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.clearSelection()
+                                    },
                                 contentAlignment = Alignment.Center
                             ) {
                                 Icon(
                                     imageVector = Icons.Outlined.Close,
                                     contentDescription = "Cancel selection",
                                     tint = UtilitarianTextSecondary,
-                                    modifier = Modifier.size(18.dp)
+                                    modifier = Modifier.size(22.dp)
                                 )
                             }
                         }
