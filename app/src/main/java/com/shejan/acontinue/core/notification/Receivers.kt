@@ -12,6 +12,7 @@ import com.shejan.acontinue.MainActivity
 import com.shejan.acontinue.R
 import com.shejan.acontinue.data.local.ContinueDatabase
 import com.shejan.acontinue.data.mapper.toDomain
+import com.shejan.acontinue.data.repository.SettingsRepositoryImpl
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -140,6 +141,7 @@ class AlarmReceiver : BroadcastReceiver() {
         if (isEvent) {
             val openIntent = Intent(context, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+                putExtra(AlarmScheduler.EXTRA_ACTIVITY_ID, activityId)
             }
             val pendingIntent = PendingIntent.getActivity(
                 context,
@@ -259,7 +261,12 @@ class AlarmReceiver : BroadcastReceiver() {
             }
         }
 
-        notificationManager.notify(activityId.toInt(), notificationBuilder.build())
+        val settingsRepo = SettingsRepositoryImpl(context)
+        val areNotificationsEnabled = settingsRepo.getCurrentSettings().notificationsEnabled
+
+        if (areNotificationsEnabled) {
+            notificationManager.notify(activityId.toInt(), notificationBuilder.build())
+        }
 
         // If activity is repeating, re-arm the next upcoming occurrence
         if (activityId > 0) {
@@ -285,15 +292,22 @@ class AlarmReceiver : BroadcastReceiver() {
 class BootReceiver : BroadcastReceiver() {
 
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+        if (intent.action == Intent.ACTION_BOOT_COMPLETED || intent.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+            val pendingResult = goAsync()
             val scheduler = AlarmScheduler(context)
             val dao = ContinueDatabase.getInstance(context).activityDao()
 
             CoroutineScope(Dispatchers.IO).launch {
-                val now = System.currentTimeMillis()
-                val upcoming = dao.getUpcomingIncompleteActivities(now)
-                upcoming.forEach { entity ->
-                    scheduler.schedule(entity.toDomain())
+                try {
+                    val now = System.currentTimeMillis()
+                    val upcoming = dao.getUpcomingIncompleteActivities(now)
+                    upcoming.forEach { entity ->
+                        scheduler.schedule(entity.toDomain())
+                    }
+                } catch (e: Exception) {
+                    // Suppress background rescheduling exceptions
+                } finally {
+                    pendingResult.finish()
                 }
             }
         }

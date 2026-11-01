@@ -49,7 +49,11 @@ interface ActivityDao {
     """)
     fun searchActivities(query: String): Flow<List<ActivityEntity>>
 
-    @Query("SELECT * FROM activities WHERE (startTimeMillis > :now OR recurrenceMode != 'NONE') AND isCompleted = 0")
+    @Query("""
+        SELECT * FROM activities 
+        WHERE (startTimeMillis > :now AND isCompleted = 0)
+           OR (recurrenceMode != 'NONE')
+    """)
     suspend fun getUpcomingIncompleteActivities(now: Long): List<ActivityEntity>
 
     @Query("UPDATE activities SET reminderCategoryColorHex = :colorHex, reminderCategoryIcon = :icon WHERE reminderCategory = :categoryName")

@@ -19,6 +19,7 @@ import com.shejan.acontinue.core.notification.AlarmScheduler
 import com.shejan.acontinue.presentation.navigation.ContinueNavHost
 import com.shejan.acontinue.presentation.navigation.Screen
 import com.shejan.acontinue.ui.theme.ContinueTheme
+import kotlinx.coroutines.flow.MutableStateFlow
 
 class MainActivity : ComponentActivity() {
 
@@ -26,10 +27,13 @@ class MainActivity : ComponentActivity() {
         ActivityResultContracts.RequestPermission()
     ) { /* Permission result handled */ }
 
+    private val currentIntentFlow = MutableStateFlow<Intent?>(null)
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        currentIntentFlow.value = intent
         requestNotificationPermissionIfNeeded()
 
         val appContainer = (application as ContinueApplication).container
@@ -41,10 +45,12 @@ class MainActivity : ComponentActivity() {
 
             ContinueTheme(settings = userSettings) {
                 val navController = rememberNavController()
+                val currentIntent by currentIntentFlow.collectAsState()
 
                 // Handle direct workspace deep link from notification
-                LaunchedEffect(intent) {
-                    val activityId = intent.getLongExtra(AlarmScheduler.EXTRA_ACTIVITY_ID, -1L)
+                LaunchedEffect(currentIntent) {
+                    val target = currentIntent ?: return@LaunchedEffect
+                    val activityId = target.getLongExtra(AlarmScheduler.EXTRA_ACTIVITY_ID, -1L)
                     if (activityId > 0) {
                         navController.navigate(Screen.Workspace.createRoute(activityId)) {
                             launchSingleTop = true
@@ -64,6 +70,7 @@ class MainActivity : ComponentActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
+        currentIntentFlow.value = intent
     }
 
     private fun requestNotificationPermissionIfNeeded() {
