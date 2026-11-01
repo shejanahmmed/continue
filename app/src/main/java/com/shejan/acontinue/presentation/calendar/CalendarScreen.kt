@@ -107,6 +107,7 @@ import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.shejan.acontinue.core.designsystem.components.HighContrastButton
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
@@ -390,28 +391,43 @@ fun CalendarScreen(
                     Spacer(modifier = Modifier.height(10.dp))
                 }
 
-                // Selected Day Agenda Items or Screenshot-Matched Empty State
+                // Selected Day Agenda Items or Functional Empty State
                 if (uiState.selectedDayActivities.isEmpty()) {
                     item {
                         Column(
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .padding(vertical = 44.dp),
+                                .padding(vertical = 36.dp, horizontal = 16.dp),
                             horizontalAlignment = Alignment.CenterHorizontally,
                             verticalArrangement = Arrangement.Center
                         ) {
                             Icon(
-                                imageVector = Icons.Outlined.SentimentSatisfiedAlt,
+                                imageVector = Icons.Outlined.CalendarToday,
                                 contentDescription = null,
-                                tint = Color(0xFF6E7681),
-                                modifier = Modifier.size(38.dp)
+                                tint = UtilitarianTextDisabled,
+                                modifier = Modifier.size(32.dp)
                             )
                             Spacer(modifier = Modifier.height(12.dp))
                             Text(
-                                text = "Tap to add a sticker to this day.",
+                                text = "NO SCHEDULED ACTIVITIES",
                                 color = UtilitarianTextSecondary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Normal
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 12.sp,
+                                letterSpacing = 1.sp
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = "This day is free. Schedule an event or set a reminder.",
+                                color = UtilitarianTextDisabled,
+                                fontSize = 12.sp,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(20.dp))
+                            HighContrastButton(
+                                text = "+ Schedule Activity",
+                                isOutlined = true,
+                                onClick = { onCreateClick(uiState.selectedDateMillis) }
                             )
                         }
                     }
