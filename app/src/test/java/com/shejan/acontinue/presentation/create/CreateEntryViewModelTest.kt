@@ -22,7 +22,9 @@ import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
+import kotlinx.coroutines.flow.first
 import org.junit.Before
 import org.junit.Test
 
@@ -849,6 +851,35 @@ class CreateEntryViewModelTest {
         viewModel.deleteNoteLabel("Work")
         testScheduler.advanceUntilIdle()
         assertEquals(listOf("Personal"), viewModel.state.value.savedNoteLabels)
+    }
+
+    @Test
+    fun `test setNotePinned updates state and synchronizes with settings repository`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        // Initially unpinned
+        assertEquals(false, viewModel.state.value.isPinned)
+
+        // Set pinned before save
+        viewModel.setNotePinned(true)
+        testScheduler.advanceUntilIdle()
+        assertEquals(true, viewModel.state.value.isPinned)
+
+        // Save note and verify pinned ID in repository
+        viewModel.saveNote("Pinned Note", "Content", 0xFF000000L, emptyList())
+        testScheduler.advanceUntilIdle()
+
+        val savedId = viewModel.state.value.editingActivityId
+        assertNotNull(savedId)
+        val pinnedIds = settingsRepository.getPinnedNoteIds().first()
+        assertTrue(pinnedIds.contains("act_$savedId"))
+
+        // Unpin while editing
+        viewModel.setNotePinned(false)
+        testScheduler.advanceUntilIdle()
+        assertEquals(false, viewModel.state.value.isPinned)
+        val updatedPinnedIds = settingsRepository.getPinnedNoteIds().first()
+        assertFalse(updatedPinnedIds.contains("act_$savedId"))
     }
 
     @Test

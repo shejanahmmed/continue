@@ -92,6 +92,8 @@ import java.util.Locale
 import android.graphics.Bitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
+import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Label
@@ -233,6 +235,8 @@ fun CreateNoteScreen(
     initialContent: String = "",
     initialColorHex: Long = DEFAULT_NOTE_COLOR_HEX,
     initialLabels: List<String> = emptyList(),
+    initialIsPinned: Boolean = false,
+    onTogglePin: ((Boolean) -> Unit)? = null,
     onSaveNote: (title: String, content: String, colorHex: Long, labels: List<String>) -> Unit,
     onDiscard: () -> Unit,
     initialUpdatedAtMillis: Long? = null,
@@ -326,6 +330,11 @@ fun CreateNoteScreen(
     var attachedImageUris by remember { mutableStateOf(listOf<Uri>()) }
     var recordedAudioUris by remember { mutableStateOf(parsedAudioUris) }
     var selectedLabels by remember { mutableStateOf(initialLabels.toSet()) }
+    var isPinned by remember { mutableStateOf(initialIsPinned) }
+
+    LaunchedEffect(initialIsPinned) {
+        isPinned = initialIsPinned
+    }
     var showLabelScreen by remember { mutableStateOf(false) }
     var showBottomSheet by remember { mutableStateOf(false) }
     var showColorSheet by remember { mutableStateOf(false) }
@@ -881,16 +890,16 @@ fun CreateNoteScreen(
                 .imePadding()
                 .navigationBarsPadding()
         ) {
-        // Top Bar: Back button on the left (pin & archive intentionally excluded)
+        // Top Bar: Back button on the left, Pin button on the right
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(start = 10.dp, end = 20.dp, top = 8.dp, bottom = 0.dp),
+                .padding(horizontal = 16.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(44.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
                     .clickable(onClick = handleExit),
                 contentAlignment = Alignment.Center
@@ -900,6 +909,34 @@ fun CreateNoteScreen(
                     contentDescription = "Back",
                     tint = colors.textPrimaryMuted,
                     modifier = Modifier.size(24.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(Color(0xFF202020))
+                    .border(
+                        1.dp,
+                        colors.borderStroke.copy(alpha = 0.5f),
+                        RoundedCornerShape(5.dp)
+                    )
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        val newPinned = !isPinned
+                        isPinned = newPinned
+                        onTogglePin?.invoke(newPinned)
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                    contentDescription = if (isPinned) "Unpin note" else "Pin note",
+                    tint = if (isPinned) colors.textPrimary else colors.textPrimaryMuted,
+                    modifier = Modifier.size(22.dp)
                 )
             }
         }

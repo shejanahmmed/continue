@@ -106,7 +106,8 @@ data class CreateEntryState(
     val editingActivityId: Long? = null,
     val parentActivityId: Long? = null,
     val editingNoteId: Long? = null,
-    val isWorkspaceNoteLoaded: Boolean = false
+    val isWorkspaceNoteLoaded: Boolean = false,
+    val isPinned: Boolean = false
 )
 
 sealed interface CreateEntryEvent {
@@ -225,6 +226,8 @@ class CreateEntryViewModel(
             val effectiveTitle = if (note.title.equals("Untitled Note", ignoreCase = true)) "" else note.title
             val categoryString = if (note.labels.isNotEmpty()) note.labels.joinToString(",") else "Notes"
             val effectiveColor = if (note.colorHex != 0L && note.colorHex != 0xFF121212L) note.colorHex else 0xFF000000L
+            val pinnedIds = settingsRepository?.getPinnedNoteIds()?.firstOrNull() ?: emptySet()
+            val isPinned = "note_${note.id}" in pinnedIds || (note.activityId > 0L && "act_${note.activityId}" in pinnedIds)
 
             _state.update { current ->
                 current.copy(
@@ -236,7 +239,8 @@ class CreateEntryViewModel(
                     notes = note.content,
                     reminderCategory = categoryString,
                     reminderCategoryColorHex = effectiveColor,
-                    isWorkspaceNoteLoaded = true
+                    isWorkspaceNoteLoaded = true,
+                    isPinned = isPinned
                 )
             }
         }
@@ -339,10 +343,13 @@ class CreateEntryViewModel(
                     sizeBytes = att.sizeBytes
                 )
             }
+            val pinnedIds = settingsRepository?.getPinnedNoteIds()?.firstOrNull() ?: emptySet()
+            val isPinned = "act_$targetId" in pinnedIds || "act_$activityId" in pinnedIds || (matchingNote != null && "note_${matchingNote.id}" in pinnedIds)
 
             _state.update { current ->
                 current.copy(
                     editingActivityId = targetId,
+                    isPinned = isPinned,
                     entryType = activity?.entryType ?: EntryType.NOTE,
                     title = effectiveTitle,
                     notes = effectiveContent,
@@ -831,6 +838,22 @@ class CreateEntryViewModel(
         }
     }
 
+    fun setNotePinned(pinned: Boolean) {
+        _state.update { it.copy(isPinned = pinned) }
+        val actId = _state.value.editingActivityId
+        val noteId = _state.value.editingNoteId
+        val key = when {
+            actId != null && actId > 0L -> "act_$actId"
+            noteId != null && noteId > 0L -> "note_$noteId"
+            else -> null
+        }
+        if (key != null) {
+            viewModelScope.launch {
+                settingsRepository?.setNotesPinned(setOf(key), pinned)
+            }
+        }
+    }
+
     suspend fun ensureDraftNoteId(
         title: String = "",
         content: String = "",
@@ -969,6 +992,12 @@ class CreateEntryViewModel(
                             )
                         )
                         _state.update { it.copy(editingNoteId = newNoteId) }
+                        if (_state.value.isPinned) {
+                            settingsRepository?.setNotesPinned(setOf("note_$newNoteId"), true)
+                        }
+                    }
+                    if (currentNoteId != null && currentNoteId > 0L && settingsRepository != null) {
+                        settingsRepository.setNotesPinned(setOf("note_$currentNoteId"), _state.value.isPinned)
                     }
                 } else if (currentEditId != null) {
                     val existing = activityRepository.getActivityById(currentEditId).firstOrNull()
@@ -1000,6 +1029,9 @@ class CreateEntryViewModel(
                         reminderCategoryColorHex = colorHex
                     )
                     activityRepository.updateActivity(updatedActivity)
+                    if (settingsRepository != null && currentEditId > 0L) {
+                        settingsRepository.setNotesPinned(setOf("act_$currentEditId"), _state.value.isPinned)
+                    }
 
                     val existingNotes = noteRepository.getNotesForActivity(currentEditId).firstOrNull() ?: emptyList()
                     val targetNote = existingNotes.firstOrNull()
@@ -1057,6 +1089,9 @@ class CreateEntryViewModel(
                         )
                     )
                     _state.update { it.copy(editingActivityId = newId) }
+                    if (_state.value.isPinned) {
+                        settingsRepository?.setNotesPinned(setOf("act_$newId"), true)
+                    }
                 }
 
                 _state.update { it.copy(isSaving = false) }
@@ -1072,6 +1107,7 @@ class CreateEntryViewModel(
             if (currentNoteId != null && currentNoteId > 0L) {
                 viewModelScope.launch {
                     withContext(NonCancellable) {
+                        settingsRepository?.setNotesPinned(setOf("note_$currentNoteId"), false)
                         noteRepository.deleteNote(currentNoteId)
                         _events.emit(CreateEntryEvent.SavedSuccessfully)
                     }
@@ -1083,8 +1119,10 @@ class CreateEntryViewModel(
         val currentEditId = _state.value.editingActivityId ?: return
         viewModelScope.launch {
             withContext(NonCancellable) {
+                settingsRepository?.setNotesPinned(setOf("act_$currentEditId"), false)
                 val notes = noteRepository.getNotesForActivity(currentEditId).firstOrNull() ?: emptyList()
                 for (n in notes) {
+                    settingsRepository?.setNotesPinned(setOf("note_${n.id}"), false)
                     noteRepository.deleteNote(n.id)
                 }
                 activityRepository.deleteActivity(currentEditId)

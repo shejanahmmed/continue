@@ -384,6 +384,8 @@ fun ContinueNavHost(
                         initialContent = state.notes,
                         initialColorHex = if (state.reminderCategoryColorHex != 0L && state.reminderCategoryColorHex != 0xFF121212L) state.reminderCategoryColorHex else 0xFF000000L,
                         initialLabels = initialLabels,
+                        initialIsPinned = state.isPinned,
+                        onTogglePin = { noteViewModel.setNotePinned(it) },
                         editingActivityId = effectiveEditingId,
                         parentActivityId = parentActivityId.takeIf { it > 0L },
                         startInViewMode = if (startInEditMode) false else if (isWorkspaceMode) (editNoteId > 0L) else (editActivityId > 0L),
