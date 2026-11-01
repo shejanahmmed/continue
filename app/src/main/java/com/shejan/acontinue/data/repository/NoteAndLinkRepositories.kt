@@ -53,6 +53,10 @@ class LinkRepositoryImpl(
         return linkDao.insertLink(link.toEntity())
     }
 
+    override suspend fun updateLink(link: ActivityLink) {
+        linkDao.updateLink(link.toEntity())
+    }
+
     override suspend fun deleteLink(linkId: Long) {
         linkDao.deleteLink(linkId)
     }

@@ -17,6 +17,7 @@ interface NoteRepository {
 interface LinkRepository {
     fun getLinksForActivity(activityId: Long): Flow<List<ActivityLink>>
     suspend fun insertLink(link: ActivityLink): Long
+    suspend fun updateLink(link: ActivityLink)
     suspend fun deleteLink(linkId: Long)
 
     fun getAttachmentsForActivity(activityId: Long): Flow<List<ActivityAttachment>>

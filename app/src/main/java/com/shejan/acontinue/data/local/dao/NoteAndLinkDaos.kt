@@ -39,6 +39,9 @@ interface LinkDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertLink(link: LinkEntity): Long
 
+    @Update
+    suspend fun updateLink(link: LinkEntity)
+
     @Query("DELETE FROM links WHERE id = :linkId")
     suspend fun deleteLink(linkId: Long)
 

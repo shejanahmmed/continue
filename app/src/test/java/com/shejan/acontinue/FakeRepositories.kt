@@ -179,6 +179,10 @@ class FakeLinkRepository : LinkRepository {
         return id
     }
 
+    override suspend fun updateLink(link: ActivityLink) {
+        linksFlow.value = linksFlow.value.map { if (it.id == link.id) link else it }
+    }
+
     override suspend fun deleteLink(linkId: Long) {
         linksFlow.value = linksFlow.value.filterNot { it.id == linkId }
     }

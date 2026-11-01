@@ -161,6 +161,15 @@ class ActivityWorkspaceViewModel(
         }
     }
 
+    fun updateTask(taskId: Long, newTitle: String) {
+        val trimmed = newTitle.trim()
+        if (trimmed.isBlank()) return
+        viewModelScope.launch {
+            val task = _uiState.value.aggregate?.tasks?.firstOrNull { it.id == taskId } ?: return@launch
+            taskRepository.updateTask(task.copy(title = trimmed))
+        }
+    }
+
     fun addLink(url: String, title: String) {
         if (url.isBlank()) return
         viewModelScope.launch {
@@ -171,6 +180,16 @@ class ActivityWorkspaceViewModel(
                     title = if (title.isBlank()) url.trim() else title.trim()
                 )
             )
+        }
+    }
+
+    fun updateLink(linkId: Long, newUrl: String, newTitle: String) {
+        val trimmedUrl = newUrl.trim()
+        if (trimmedUrl.isBlank()) return
+        viewModelScope.launch {
+            val link = _uiState.value.aggregate?.links?.firstOrNull { it.id == linkId } ?: return@launch
+            val trimmedTitle = if (newTitle.trim().isBlank()) trimmedUrl else newTitle.trim()
+            linkRepository.updateLink(link.copy(url = trimmedUrl, title = trimmedTitle))
         }
     }
 

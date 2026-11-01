@@ -54,6 +54,7 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TextField
 import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
@@ -332,12 +333,14 @@ fun ActivityWorkspaceScreen(
                 WorkspaceTab.TASKS -> TasksTabContent(
                     tasks = aggregate.tasks,
                     onAddTask = { viewModel.addTask(it) },
+                    onUpdateTask = { id, title -> viewModel.updateTask(id, title) },
                     onToggleTask = { id, done -> viewModel.toggleTask(id, done) },
                     onDeleteTask = { viewModel.deleteTask(it) }
                 )
                 WorkspaceTab.LINKS -> LinksTabContent(
                     links = aggregate.links,
                     onAddLink = { url, title -> viewModel.addLink(url, title) },
+                    onUpdateLink = { id, url, title -> viewModel.updateLink(id, url, title) },
                     onDeleteLink = { viewModel.deleteLink(it) }
                 )
             }
@@ -1192,10 +1195,12 @@ private fun WorkspaceNoteCard(
 private fun TasksTabContent(
     tasks: List<ActivityTask>,
     onAddTask: (String) -> Unit,
+    onUpdateTask: (Long, String) -> Unit,
     onToggleTask: (Long, Boolean) -> Unit,
     onDeleteTask: (Long) -> Unit
 ) {
     var taskInput by remember { mutableStateOf("") }
+    var taskToEdit by remember { mutableStateOf<ActivityTask?>(null) }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1268,9 +1273,73 @@ private fun TasksTabContent(
                             textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
                             modifier = Modifier.weight(1f)
                         )
+                        IconButton(onClick = { taskToEdit = task }) {
+                            Icon(imageVector = Icons.Outlined.Edit, contentDescription = "Edit", tint = UtilitarianTextDisabled, modifier = Modifier.size(16.dp))
+                        }
                         IconButton(onClick = { onDeleteTask(task.id) }) {
                             Icon(imageVector = Icons.Outlined.Delete, contentDescription = "Delete", tint = UtilitarianTextDisabled, modifier = Modifier.size(16.dp))
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    if (taskToEdit != null) {
+        val currentTask = taskToEdit!!
+        var editTitle by remember(currentTask) { mutableStateOf(currentTask.title) }
+
+        Dialog(onDismissRequest = { taskToEdit = null }) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = UtilitarianCardBackground,
+                border = BorderStroke(1.dp, UtilitarianBorderStroke),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "EDIT TASK",
+                        color = UtilitarianTextSecondary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    TextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = UtilitarianCardBackground,
+                            unfocusedContainerColor = UtilitarianCardBackground,
+                            focusedTextColor = UtilitarianTextPrimary,
+                            unfocusedTextColor = UtilitarianTextPrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = { taskToEdit = null }) {
+                            Text("Cancel", color = UtilitarianTextSecondary)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        HighContrastButton(
+                            text = "Save",
+                            onClick = {
+                                if (editTitle.isNotBlank()) {
+                                    onUpdateTask(currentTask.id, editTitle)
+                                    taskToEdit = null
+                                }
+                            }
+                        )
                     }
                 }
             }
@@ -1282,10 +1351,12 @@ private fun TasksTabContent(
 private fun LinksTabContent(
     links: List<ActivityLink>,
     onAddLink: (String, String) -> Unit,
+    onUpdateLink: (Long, String, String) -> Unit,
     onDeleteLink: (Long) -> Unit
 ) {
     var urlInput by remember { mutableStateOf("") }
     var titleInput by remember { mutableStateOf("") }
+    var linkToEdit by remember { mutableStateOf<ActivityLink?>(null) }
     val context = LocalContext.current
 
     Column(
@@ -1372,9 +1443,88 @@ private fun LinksTabContent(
                         }
                         Icon(imageVector = Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, tint = UtilitarianTextDisabled, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
+                        IconButton(onClick = { linkToEdit = link }) {
+                            Icon(imageVector = Icons.Outlined.Edit, contentDescription = "Edit", tint = UtilitarianTextDisabled, modifier = Modifier.size(16.dp))
+                        }
                         IconButton(onClick = { onDeleteLink(link.id) }) {
                             Icon(imageVector = Icons.Outlined.Delete, contentDescription = "Delete", tint = UtilitarianTextDisabled, modifier = Modifier.size(16.dp))
                         }
+                    }
+                }
+            }
+        }
+    }
+
+    if (linkToEdit != null) {
+        val currentLink = linkToEdit!!
+        var editTitle by remember(currentLink) { mutableStateOf(currentLink.title) }
+        var editUrl by remember(currentLink) { mutableStateOf(currentLink.url) }
+
+        Dialog(onDismissRequest = { linkToEdit = null }) {
+            Surface(
+                shape = RoundedCornerShape(12.dp),
+                color = UtilitarianCardBackground,
+                border = BorderStroke(1.dp, UtilitarianBorderStroke),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Text(
+                        text = "EDIT LINK",
+                        color = UtilitarianTextSecondary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
+                    TextField(
+                        value = editTitle,
+                        onValueChange = { editTitle = it },
+                        placeholder = { Text("Link title", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = UtilitarianCardBackground,
+                            unfocusedContainerColor = UtilitarianCardBackground,
+                            focusedTextColor = UtilitarianTextPrimary,
+                            unfocusedTextColor = UtilitarianTextPrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    TextField(
+                        value = editUrl,
+                        onValueChange = { editUrl = it },
+                        placeholder = { Text("https://...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                        colors = TextFieldDefaults.colors(
+                            focusedContainerColor = UtilitarianCardBackground,
+                            unfocusedContainerColor = UtilitarianCardBackground,
+                            focusedTextColor = UtilitarianTextPrimary,
+                            unfocusedTextColor = UtilitarianTextPrimary
+                        ),
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        TextButton(onClick = { linkToEdit = null }) {
+                            Text("Cancel", color = UtilitarianTextSecondary)
+                        }
+                        Spacer(modifier = Modifier.width(8.dp))
+                        HighContrastButton(
+                            text = "Save",
+                            onClick = {
+                                if (editUrl.isNotBlank()) {
+                                    onUpdateLink(currentLink.id, editUrl, editTitle)
+                                    linkToEdit = null
+                                }
+                            }
+                        )
                     }
                 }
             }

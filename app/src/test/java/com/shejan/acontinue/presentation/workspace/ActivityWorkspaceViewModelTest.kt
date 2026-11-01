@@ -257,4 +257,36 @@ class ActivityWorkspaceViewModelTest {
         assertEquals(1, viewModel.uiState.value.aggregate?.notes?.size)
         assertEquals("Second Note", viewModel.uiState.value.aggregate?.notes?.first()?.title)
     }
+
+    @Test
+    fun `test updateTask updates existing task title cleanly`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.addTask("Initial Task")
+        testScheduler.advanceUntilIdle()
+
+        val taskId = taskRepository.tasksFlow.value.first().id
+        viewModel.updateTask(taskId, "Refined Task Title")
+        testScheduler.advanceUntilIdle()
+
+        val updatedTask = taskRepository.tasksFlow.value.first { it.id == taskId }
+        assertEquals("Refined Task Title", updatedTask.title)
+    }
+
+    @Test
+    fun `test updateLink updates existing link url and title cleanly`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.addLink("https://old-link.com", "Old Documentation")
+        testScheduler.advanceUntilIdle()
+
+        val linkId = linkRepository.linksFlow.value.first().id
+        viewModel.updateLink(linkId, "https://new-link.com", "Updated Documentation")
+        testScheduler.advanceUntilIdle()
+
+        val updatedLink = linkRepository.linksFlow.value.first { it.id == linkId }
+        assertEquals("https://new-link.com", updatedLink.url)
+        assertEquals("Updated Documentation", updatedLink.title)
+    }
 }
+
