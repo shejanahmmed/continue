@@ -1,8 +1,12 @@
 package com.shejan.acontinue.presentation.create
 
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -19,33 +23,34 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Label
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.CheckBox
-import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
-import androidx.compose.foundation.ExperimentalFoundationApi
-import androidx.compose.foundation.combinedClickable
-import androidx.compose.foundation.border
-import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
+import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.ModalBottomSheet
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.rememberModalBottomSheetState
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
-import kotlinx.coroutines.launch
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -57,11 +62,21 @@ import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.shejan.acontinue.core.designsystem.components.HighContrastButton
+import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
+import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
+import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -127,17 +142,20 @@ fun NoteLabelsScreen(
             .background(colors.background)
             .statusBarsPadding()
             .navigationBarsPadding()
+            .padding(horizontal = 16.dp)
     ) {
-        // Top App Bar: Back button and Search text input
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Top Navigation Header: Clean typographic header without icon
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 8.dp, vertical = 8.dp),
+                .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(48.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
                     .clickable {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
@@ -149,159 +167,389 @@ fun NoteLabelsScreen(
                     imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
                     contentDescription = "Back",
                     tint = colors.textPrimary,
-                    modifier = Modifier.size(24.dp)
+                    modifier = Modifier.size(22.dp)
                 )
             }
 
             Spacer(modifier = Modifier.width(8.dp))
 
-            BasicTextField(
-                value = searchQuery,
-                onValueChange = { searchQuery = it },
-                modifier = Modifier
-                    .weight(1f)
-                    .focusRequester(searchFocusRequester),
-                textStyle = TextStyle(
-                    color = colors.textPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Normal
-                ),
-                cursorBrush = SolidColor(colors.textPrimary),
-                singleLine = true,
-                decorationBox = { innerTextField ->
-                    Box(contentAlignment = Alignment.CenterStart) {
-                        if (searchQuery.isEmpty()) {
-                            Text(
-                                text = "Enter label name",
-                                color = colors.textSecondary.copy(alpha = 0.6f),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Normal
-                            )
-                        }
-                        innerTextField()
-                    }
-                }
+            Text(
+                text = "LABELS",
+                color = colors.textPrimary,
+                fontFamily = FontFamily.Monospace,
+                fontWeight = FontWeight.Bold,
+                fontSize = 20.sp,
+                letterSpacing = 1.2.sp
             )
+
+            Spacer(modifier = Modifier.weight(1f))
+
+            if (selectedLabels.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = colors.borderStroke
+                ) {
+                    Text(
+                        text = "${selectedLabels.size} SELECTED",
+                        color = colors.textPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            } else if (allLabels.isNotEmpty()) {
+                Surface(
+                    shape = RoundedCornerShape(4.dp),
+                    color = colors.cardBackground,
+                    border = BorderStroke(1.dp, colors.borderStroke)
+                ) {
+                    Text(
+                        text = "${allLabels.size} TOTAL",
+                        color = colors.textSecondary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                    )
+                }
+            }
         }
 
-        Spacer(modifier = Modifier.height(8.dp))
+        Spacer(modifier = Modifier.height(16.dp))
 
-        LazyColumn(
-            modifier = Modifier.fillMaxWidth()
+        // Search & Quick-Add Input Card
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(12.dp),
+            color = colors.cardBackground,
+            border = BorderStroke(1.dp, colors.borderStroke)
         ) {
-            // Case A: Query is NOT empty and does NOT match an existing label: Show `+ Create "<query>"`
-            if (trimmedQuery.isNotBlank() && !isExactMatchExisting) {
-                item {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Search,
+                    contentDescription = "Search",
+                    tint = colors.textSecondary,
+                    modifier = Modifier.size(20.dp)
+                )
+
+                Spacer(modifier = Modifier.width(10.dp))
+
+                BasicTextField(
+                    value = searchQuery,
+                    onValueChange = { searchQuery = it },
+                    modifier = Modifier
+                        .weight(1f)
+                        .focusRequester(searchFocusRequester),
+                    textStyle = TextStyle(
+                        color = colors.textPrimary,
+                        fontSize = 15.sp,
+                        fontWeight = FontWeight.Normal
+                    ),
+                    cursorBrush = SolidColor(colors.textPrimary),
+                    singleLine = true,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            if (trimmedQuery.isNotBlank() && !isExactMatchExisting) {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 onCreateLabel(trimmedQuery)
                                 onToggleLabel(trimmedQuery)
                                 searchQuery = ""
+                                keyboardController?.hide()
                             }
-                            .padding(horizontal = 24.dp, vertical = 15.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(
-                            imageVector = Icons.Outlined.Add,
-                            contentDescription = "Create label",
-                            tint = Color(0xFF76D1FF),
-                            modifier = Modifier.size(22.dp)
-                        )
-
-                        Spacer(modifier = Modifier.width(20.dp))
-
-                        Text(
-                            text = "Create \"$trimmedQuery\"",
-                            color = colors.textPrimary,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Normal
-                        )
+                        }
+                    ),
+                    decorationBox = { innerTextField ->
+                        Box(contentAlignment = Alignment.CenterStart) {
+                            if (searchQuery.isEmpty()) {
+                                Text(
+                                    text = "Search or add label...",
+                                    color = colors.textSecondary.copy(alpha = 0.6f),
+                                    fontSize = 15.sp,
+                                    fontWeight = FontWeight.Normal
+                                )
+                            }
+                            innerTextField()
+                        }
                     }
-                }
-            }
+                )
 
-            // Case B: Query is empty: Always show `+ Create a label`
-            if (trimmedQuery.isBlank()) {
-                item {
-                    Row(
+                if (searchQuery.isNotEmpty()) {
+                    Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                showCreateDialog = true
-                            }
-                            .padding(horizontal = 24.dp, vertical = 15.dp),
-                        verticalAlignment = Alignment.CenterVertically
+                            .size(28.dp)
+                            .clip(CircleShape)
+                            .clickable { searchQuery = "" },
+                        contentAlignment = Alignment.Center
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Add,
-                            contentDescription = "Create a label",
-                            tint = Color(0xFF76D1FF),
-                            modifier = Modifier.size(22.dp)
-                        )
-
-                        Spacer(modifier = Modifier.width(20.dp))
-
-                        Text(
-                            text = "Create a label",
-                            color = colors.textPrimary,
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Normal
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Clear search",
+                            tint = colors.textSecondary,
+                            modifier = Modifier.size(16.dp)
                         )
                     }
                 }
             }
+        }
 
-            // Existing labels with Tag Outline icon and Checkbox
-            items(filteredLabels, key = { it }) { label ->
-                val isChecked = label in selectedLabels
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .combinedClickable(
-                            onClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                onToggleLabel(label)
-                            },
-                            onLongClick = {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                labelForOptions = label
+        Spacer(modifier = Modifier.height(14.dp))
+
+        LazyColumn(
+            modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(10.dp)
+        ) {
+            // Case A: Query is typed and NOT an exact match of an existing label: Quick-Create Card
+            if (trimmedQuery.isNotBlank() && !isExactMatchExisting) {
+                item {
+                    Surface(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onCreateLabel(trimmedQuery)
+                            onToggleLabel(trimmedQuery)
+                            searchQuery = ""
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        color = colors.cardBackground,
+                        border = BorderStroke(1.dp, colors.borderStroke),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Add,
+                                contentDescription = null,
+                                tint = colors.textPrimary,
+                                modifier = Modifier.size(20.dp)
+                            )
+
+                            Spacer(modifier = Modifier.width(12.dp))
+
+                            Text(
+                                text = "Create \"$trimmedQuery\"",
+                                color = colors.textPrimary,
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                modifier = Modifier.weight(1f)
+                            )
+
+                            Surface(
+                                shape = RoundedCornerShape(4.dp),
+                                color = colors.borderStroke
+                            ) {
+                                Text(
+                                    text = "NEW",
+                                    color = colors.textPrimary,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontSize = 10.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp)
+                                )
                             }
-                        )
-                        .padding(horizontal = 24.dp, vertical = 15.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.Label,
-                        contentDescription = null,
-                        tint = colors.textSecondary,
-                        modifier = Modifier.size(22.dp)
-                    )
+                        }
+                    }
+                }
+            }
 
-                    Spacer(modifier = Modifier.width(20.dp))
+            // Case B: Query is empty and labels exist: Show "+ NEW LABEL" quick action
+            if (trimmedQuery.isBlank() && allLabels.isNotEmpty()) {
+                item {
+                    Surface(
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            showCreateDialog = true
+                        },
+                        shape = RoundedCornerShape(12.dp),
+                        color = colors.cardBackground,
+                        border = BorderStroke(1.dp, colors.borderStroke),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Add,
+                                contentDescription = null,
+                                tint = colors.textSecondary,
+                                modifier = Modifier.size(20.dp)
+                            )
 
-                    Text(
-                        text = label,
-                        color = colors.textPrimary,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Normal,
-                        modifier = Modifier.weight(1f)
-                    )
+                            Spacer(modifier = Modifier.width(12.dp))
 
-                    Icon(
-                        imageVector = if (isChecked) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
-                        contentDescription = if (isChecked) "Checked" else "Unchecked",
-                        tint = if (isChecked) Color(0xFF76D1FF) else colors.textSecondary,
-                        modifier = Modifier.size(24.dp)
-                    )
+                            Text(
+                                text = "NEW LABEL",
+                                color = colors.textPrimary,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Case C: Empty state when no labels exist at all
+            if (allLabels.isEmpty() && trimmedQuery.isBlank()) {
+                item {
+                    MonochromeCard {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 32.dp, horizontal = 16.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.Label,
+                                contentDescription = null,
+                                tint = colors.textSecondary.copy(alpha = 0.5f),
+                                modifier = Modifier.size(40.dp)
+                            )
+
+                            Spacer(modifier = Modifier.height(16.dp))
+
+                            Text(
+                                text = "NO LABELS YET",
+                                color = colors.textPrimary,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 15.sp,
+                                letterSpacing = 1.sp
+                            )
+
+                            Spacer(modifier = Modifier.height(8.dp))
+
+                            Text(
+                                text = "Create labels to organize and quickly filter your notes.",
+                                color = colors.textSecondary,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center
+                            )
+
+                            Spacer(modifier = Modifier.height(20.dp))
+
+                            HighContrastButton(
+                                text = "+ CREATE FIRST LABEL",
+                                onClick = { showCreateDialog = true }
+                            )
+                        }
+                    }
+                }
+            }
+
+            // Case D: Filtered Labels List Card
+            if (filteredLabels.isNotEmpty()) {
+                item {
+                    Surface(
+                        shape = RoundedCornerShape(12.dp),
+                        color = colors.cardBackground,
+                        border = BorderStroke(1.dp, colors.borderStroke),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                            filteredLabels.forEachIndexed { index, label ->
+                                val isChecked = label in selectedLabels
+
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .combinedClickable(
+                                            onClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                onToggleLabel(label)
+                                            },
+                                            onLongClick = {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                labelForOptions = label
+                                            }
+                                        )
+                                        .padding(horizontal = 16.dp, vertical = 14.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    // Custom Utilitarian Checkbox
+                                    Box(
+                                        modifier = Modifier
+                                            .size(20.dp)
+                                            .clip(RoundedCornerShape(4.dp))
+                                            .background(if (isChecked) colors.textPrimary else Color.Transparent)
+                                            .border(
+                                                1.5.dp,
+                                                if (isChecked) colors.textPrimary else colors.textSecondary.copy(alpha = 0.6f),
+                                                RoundedCornerShape(4.dp)
+                                            ),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        if (isChecked) {
+                                            Icon(
+                                                imageVector = Icons.Default.Check,
+                                                contentDescription = "Selected",
+                                                tint = colors.background,
+                                                modifier = Modifier.size(14.dp)
+                                            )
+                                        }
+                                    }
+
+                                    Spacer(modifier = Modifier.width(14.dp))
+
+                                    // Label text
+                                    Text(
+                                        text = label,
+                                        color = colors.textPrimary,
+                                        fontSize = 15.sp,
+                                        fontWeight = if (isChecked) FontWeight.SemiBold else FontWeight.Normal,
+                                        maxLines = 1,
+                                        overflow = TextOverflow.Ellipsis,
+                                        modifier = Modifier.weight(1f)
+                                    )
+
+                                    // Explicit Edit Button
+                                    Box(
+                                        modifier = Modifier
+                                            .size(36.dp)
+                                            .clip(CircleShape)
+                                            .clickable {
+                                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                                labelForOptions = label
+                                            },
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Edit,
+                                            contentDescription = "Edit label",
+                                            tint = colors.textSecondary,
+                                            modifier = Modifier.size(18.dp)
+                                        )
+                                    }
+                                }
+
+                                if (index < filteredLabels.lastIndex) {
+                                    HorizontalDivider(
+                                        color = colors.borderStroke.copy(alpha = 0.5f),
+                                        thickness = 0.5.dp,
+                                        modifier = Modifier.padding(horizontal = 16.dp)
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
             }
         }
     }
 
+    // Create Label Dialog
     if (showCreateDialog) {
         var newLabelName by remember { mutableStateOf("") }
         val dialogFocusRequester = remember { FocusRequester() }
@@ -314,10 +562,11 @@ fun NoteLabelsScreen(
             onDismissRequest = { showCreateDialog = false },
             title = {
                 Text(
-                    text = "New label",
+                    text = "NEW LABEL",
                     color = colors.textPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
             },
             text = {
@@ -327,11 +576,12 @@ fun NoteLabelsScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(dialogFocusRequester)
-                        .border(1.dp, colors.borderStroke.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .background(colors.background, RoundedCornerShape(8.dp))
+                        .border(1.dp, colors.borderStroke, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
                     textStyle = TextStyle(
                         color = colors.textPrimary,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Normal
                     ),
                     cursorBrush = SolidColor(colors.textPrimary),
@@ -342,7 +592,7 @@ fun NoteLabelsScreen(
                                 Text(
                                     text = "Enter label name",
                                     color = colors.textSecondary.copy(alpha = 0.6f),
-                                    fontSize = 16.sp
+                                    fontSize = 15.sp
                                 )
                             }
                             inner()
@@ -361,19 +611,30 @@ fun NoteLabelsScreen(
                         showCreateDialog = false
                     }
                 ) {
-                    Text("Create", color = Color(0xFF76D1FF), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = "CREATE",
+                        color = colors.textPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showCreateDialog = false }) {
-                    Text("Cancel", color = colors.textSecondary)
+                    Text(
+                        text = "CANCEL",
+                        color = colors.textSecondary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
-            containerColor = Color(0xFF1E2225),
-            shape = RoundedCornerShape(16.dp)
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(12.dp)
         )
     }
 
+    // Label Options Bottom Sheet
     if (labelForOptions != null) {
         val targetLabel = labelForOptions!!
         val optionsSheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
@@ -381,7 +642,7 @@ fun NoteLabelsScreen(
         ModalBottomSheet(
             onDismissRequest = { labelForOptions = null },
             sheetState = optionsSheetState,
-            containerColor = Color(0xFF1E2225),
+            containerColor = Color(0xFF202020),
             shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
             dragHandle = null
         ) {
@@ -393,8 +654,8 @@ fun NoteLabelsScreen(
             ) {
                 Text(
                     text = targetLabel,
-                    color = colors.textPrimary,
-                    fontSize = 17.sp,
+                    color = colors.textPrimaryMuted,
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                     modifier = Modifier.padding(horizontal = 24.dp)
                 )
@@ -412,13 +673,13 @@ fun NoteLabelsScreen(
                                 showEditDialogForLabel = targetLabel
                             }
                         }
-                        .padding(horizontal = 24.dp, vertical = 15.dp),
+                        .padding(horizontal = 24.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Edit,
                         contentDescription = "Edit label",
-                        tint = colors.textPrimary,
+                        tint = colors.textPrimaryMuted,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(20.dp))
@@ -441,19 +702,19 @@ fun NoteLabelsScreen(
                                 showDeleteConfirmForLabel = targetLabel
                             }
                         }
-                        .padding(horizontal = 24.dp, vertical = 15.dp),
+                        .padding(horizontal = 24.dp, vertical = 14.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         imageVector = Icons.Outlined.Delete,
                         contentDescription = "Delete label",
-                        tint = Color(0xFFD71921),
+                        tint = UtilitarianAccentRed,
                         modifier = Modifier.size(24.dp)
                     )
                     Spacer(modifier = Modifier.width(20.dp))
                     Text(
                         text = "Delete label",
-                        color = Color(0xFFD71921),
+                        color = UtilitarianAccentRed,
                         fontSize = 16.sp,
                         fontWeight = FontWeight.Normal
                     )
@@ -462,9 +723,17 @@ fun NoteLabelsScreen(
         }
     }
 
+    // Edit Label Dialog
     if (showEditDialogForLabel != null) {
         val oldName = showEditDialogForLabel!!
-        var editedLabelName by remember(oldName) { mutableStateOf(oldName) }
+        var editedLabelValue by remember(oldName) {
+            mutableStateOf(
+                TextFieldValue(
+                    text = oldName,
+                    selection = TextRange(oldName.length)
+                )
+            )
+        }
         val editFocusRequester = remember { FocusRequester() }
 
         LaunchedEffect(Unit) {
@@ -475,35 +744,37 @@ fun NoteLabelsScreen(
             onDismissRequest = { showEditDialogForLabel = null },
             title = {
                 Text(
-                    text = "Edit label",
+                    text = "EDIT LABEL",
                     color = colors.textPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 BasicTextField(
-                    value = editedLabelName,
-                    onValueChange = { editedLabelName = it },
+                    value = editedLabelValue,
+                    onValueChange = { editedLabelValue = it },
                     modifier = Modifier
                         .fillMaxWidth()
                         .focusRequester(editFocusRequester)
-                        .border(1.dp, colors.borderStroke.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-                        .padding(horizontal = 14.dp, vertical = 10.dp),
+                        .background(colors.background, RoundedCornerShape(8.dp))
+                        .border(1.dp, colors.borderStroke, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 14.dp, vertical = 12.dp),
                     textStyle = TextStyle(
                         color = colors.textPrimary,
-                        fontSize = 16.sp,
+                        fontSize = 15.sp,
                         fontWeight = FontWeight.Normal
                     ),
                     cursorBrush = SolidColor(colors.textPrimary),
                     singleLine = true,
                     decorationBox = { inner ->
                         Box {
-                            if (editedLabelName.isEmpty()) {
+                            if (editedLabelValue.text.isEmpty()) {
                                 Text(
                                     text = "Enter label name",
                                     color = colors.textSecondary.copy(alpha = 0.6f),
-                                    fontSize = 16.sp
+                                    fontSize = 15.sp
                                 )
                             }
                             inner()
@@ -514,44 +785,56 @@ fun NoteLabelsScreen(
             confirmButton = {
                 TextButton(
                     onClick = {
-                        val trimmed = editedLabelName.trim()
+                        val trimmed = editedLabelValue.text.trim()
                         if (trimmed.isNotBlank() && !trimmed.equals(oldName, ignoreCase = true)) {
                             onEditLabel(oldName, trimmed)
                         }
                         showEditDialogForLabel = null
                     }
                 ) {
-                    Text("Save", color = Color(0xFF76D1FF), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = "SAVE",
+                        color = colors.textPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showEditDialogForLabel = null }) {
-                    Text("Cancel", color = colors.textSecondary)
+                    Text(
+                        text = "CANCEL",
+                        color = colors.textSecondary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
-            containerColor = Color(0xFF1E2225),
-            shape = RoundedCornerShape(16.dp)
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(12.dp)
         )
     }
 
+    // Delete Label Confirmation Dialog
     if (showDeleteConfirmForLabel != null) {
         val targetLabel = showDeleteConfirmForLabel!!
         AlertDialog(
             onDismissRequest = { showDeleteConfirmForLabel = null },
             title = {
                 Text(
-                    text = "Delete label?",
+                    text = "DELETE LABEL?",
                     color = colors.textPrimary,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.SemiBold
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Bold
                 )
             },
             text = {
                 Text(
-                    text = "We will delete this label and remove it from all of your notes. Your notes won't be deleted.",
+                    text = "This label will be removed from all associated notes. Notes will not be deleted.",
                     color = colors.textSecondary,
-                    fontSize = 15.sp,
-                    lineHeight = 22.sp
+                    fontSize = 13.sp,
+                    lineHeight = 18.sp
                 )
             },
             confirmButton = {
@@ -561,16 +844,26 @@ fun NoteLabelsScreen(
                         showDeleteConfirmForLabel = null
                     }
                 ) {
-                    Text("Delete", color = Color(0xFFD71921), fontWeight = FontWeight.SemiBold)
+                    Text(
+                        text = "DELETE",
+                        color = UtilitarianAccentRed,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
             dismissButton = {
                 TextButton(onClick = { showDeleteConfirmForLabel = null }) {
-                    Text("Cancel", color = colors.textPrimary)
+                    Text(
+                        text = "CANCEL",
+                        color = colors.textSecondary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold
+                    )
                 }
             },
-            containerColor = Color(0xFF1E2225),
-            shape = RoundedCornerShape(16.dp)
+            containerColor = colors.cardBackground,
+            shape = RoundedCornerShape(12.dp)
         )
     }
 }

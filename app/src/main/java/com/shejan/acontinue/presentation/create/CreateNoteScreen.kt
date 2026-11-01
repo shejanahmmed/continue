@@ -1633,20 +1633,31 @@ fun CreateNoteScreen(
                         Box(
                             modifier = Modifier
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF262C30))
-                                .border(1.dp, Color(0xFF3E4348), RoundedCornerShape(8.dp))
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                showLabelScreen = true
-                            }
-                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                                .background(colors.cardBackground)
+                                .border(1.dp, colors.borderStroke, RoundedCornerShape(8.dp))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showLabelScreen = true
+                                }
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
                         ) {
-                            Text(
-                                text = label,
-                                color = colors.textPrimary,
-                                fontSize = 13.sp,
-                                fontWeight = FontWeight.Normal
-                            )
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                horizontalArrangement = Arrangement.spacedBy(6.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.Label,
+                                    contentDescription = null,
+                                    tint = colors.textSecondary,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Text(
+                                    text = label,
+                                    color = colors.textPrimary,
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
                         }
                     }
                 }
