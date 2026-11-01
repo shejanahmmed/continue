@@ -93,6 +93,7 @@ import android.graphics.Bitmap
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.filled.PushPin
+import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -936,6 +937,31 @@ fun CreateNoteScreen(
                     imageVector = if (isPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
                     contentDescription = if (isPinned) "Unpin note" else "Pin note",
                     tint = if (isPinned) colors.textPrimary else colors.textPrimaryMuted,
+                    modifier = Modifier.size(22.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.width(8.dp))
+
+            Box(
+                modifier = Modifier
+                    .size(38.dp)
+                    .clip(RoundedCornerShape(5.dp))
+                    .background(Color(0xFF202020))
+                    .border(
+                        1.dp,
+                        colors.borderStroke.copy(alpha = 0.5f),
+                        RoundedCornerShape(5.dp)
+                    )
+                    .clickable {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Archive,
+                    contentDescription = "Archive note",
+                    tint = colors.textPrimaryMuted,
                     modifier = Modifier.size(22.dp)
                 )
             }
