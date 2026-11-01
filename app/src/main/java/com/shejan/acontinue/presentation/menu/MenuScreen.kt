@@ -24,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Info
-import androidx.compose.material.icons.outlined.Menu
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.TouchApp
@@ -68,7 +67,6 @@ fun MenuScreen(
         item {
             DotMatrixHeader(
                 title = "MENU",
-                leadingIcon = Icons.Outlined.Menu,
                 badgeText = "V1.0",
                 isAccentBadge = true
             )

@@ -39,7 +39,6 @@ import androidx.compose.material.icons.outlined.Email
 import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Security
-import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Vibration
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.HorizontalDivider
@@ -138,7 +137,6 @@ fun SettingsScreen(
         item {
             DotMatrixHeader(
                 title = "SETTINGS",
-                leadingIcon = Icons.Outlined.Settings,
                 badgeText = "V1.0",
                 isAccentBadge = true,
                 actions = if (onNavigateBack != null) {

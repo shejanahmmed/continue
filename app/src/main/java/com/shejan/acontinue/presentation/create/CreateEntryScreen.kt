@@ -94,7 +94,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.Notifications
-import androidx.compose.material.icons.outlined.Edit
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
@@ -545,15 +544,6 @@ fun CreateEntryScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     }
-
-                    Spacer(modifier = Modifier.width(6.dp))
-
-                    Icon(
-                        imageVector = Icons.Outlined.Edit,
-                        contentDescription = null,
-                        tint = colors.textPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
 
                     Spacer(modifier = Modifier.width(8.dp))
 

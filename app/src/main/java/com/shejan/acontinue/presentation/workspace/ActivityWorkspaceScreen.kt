@@ -35,10 +35,8 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Close
-import androidx.compose.material.icons.outlined.Dashboard
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
-import androidx.compose.material.icons.outlined.Subtitles
 import androidx.compose.material.icons.outlined.Flag
 import androidx.compose.material.icons.outlined.Link
 import androidx.compose.material.icons.outlined.LocationOn
@@ -178,13 +176,6 @@ fun ActivityWorkspaceScreen(
                         modifier = Modifier.size(20.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(6.dp))
-                Icon(
-                    imageVector = Icons.Outlined.Dashboard,
-                    contentDescription = null,
-                    tint = UtilitarianTextPrimary,
-                    modifier = Modifier.size(20.dp)
-                )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "WORKSPACE",
@@ -290,28 +281,19 @@ fun ActivityWorkspaceScreen(
             }
         }
 
-        // Header Title Card with Subtitles Icon and First-Line Alignment
+        // Header Title Card
         item {
             MonochromeCard {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.Top
                 ) {
-                    Icon(
-                        imageVector = Icons.Outlined.Subtitles,
-                        contentDescription = null,
-                        tint = UtilitarianTextPrimaryMuted,
-                        modifier = Modifier
-                            .padding(top = 2.dp)
-                            .size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(10.dp))
                     Text(
                         text = activity.title,
                         color = UtilitarianTextPrimaryMuted,
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Normal,
-                        modifier = Modifier.weight(1f)
+                        modifier = Modifier.fillMaxWidth()
                     )
                 }
             }

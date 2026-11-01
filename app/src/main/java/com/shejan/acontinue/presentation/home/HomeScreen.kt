@@ -27,7 +27,6 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Flag
-import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
@@ -118,7 +117,6 @@ fun HomeScreen(
         item {
             DotMatrixHeader(
                 title = "HOME",
-                leadingIcon = Icons.Outlined.Home,
                 badgeText = dateHeader.uppercase(),
                 badgeAtEnd = true
             )

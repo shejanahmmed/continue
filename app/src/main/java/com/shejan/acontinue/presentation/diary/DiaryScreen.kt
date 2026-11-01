@@ -26,7 +26,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.MenuBook
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.Check
@@ -147,7 +146,6 @@ fun DiaryScreen(
 
             DotMatrixHeader(
                 title = if (uiState.isSelectionMode) "${uiState.selectedKeys.size} SELECTED" else "DIARY",
-                leadingIcon = if (uiState.isSelectionMode) null else Icons.AutoMirrored.Outlined.MenuBook,
                 badgeText = if (uiState.isSelectionMode) null else badgeText,
                 actions = {
                     if (!uiState.isSelectionMode) {
