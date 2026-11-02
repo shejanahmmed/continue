@@ -501,7 +501,7 @@ fun HomeScreen(
                                     onClick = { viewModel.skipReminder(focalReminder.id) },
                                     modifier = Modifier.weight(1f),
                                     shape = RoundedCornerShape(8.dp),
-                                    color = Color.Transparent,
+                                    color = Color(0xFF383838),
                                     border = BorderStroke(1.dp, UtilitarianBorderStroke)
                                 ) {
                                     Row(
@@ -514,13 +514,13 @@ fun HomeScreen(
                                         Icon(
                                             imageVector = Icons.Outlined.Close,
                                             contentDescription = "Skip",
-                                            tint = UtilitarianTextSecondary,
+                                            tint = Color.White,
                                             modifier = Modifier.size(13.dp)
                                         )
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Text(
                                             text = "SKIP",
-                                            color = UtilitarianTextSecondary,
+                                            color = Color.White,
                                             fontFamily = FontFamily.Monospace,
                                             fontSize = 11.sp,
                                             fontWeight = FontWeight.Bold,
