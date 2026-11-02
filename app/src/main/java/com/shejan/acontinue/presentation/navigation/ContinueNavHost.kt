@@ -224,6 +224,9 @@ fun ContinueNavHost(
                     onNoteClick = { activityId ->
                         navController.navigate(Screen.NoteEditor.createRoute(activityId))
                     },
+                    onCreateNote = {
+                        navController.navigate(Screen.NoteEditor.createRoute())
+                    },
                     onNavigateToArchive = {
                         navController.navigate(Screen.Archive.route)
                     },
