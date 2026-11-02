@@ -361,7 +361,7 @@ fun DiaryScreen(
                                     Icon(
                                         imageVector = Icons.Outlined.Close,
                                         contentDescription = "Cancel selection",
-                                        tint = UtilitarianTextSecondary,
+                                        tint = UtilitarianTextPrimary,
                                         modifier = Modifier.size(22.dp)
                                     )
                                 }
@@ -719,6 +719,8 @@ private fun FilterSpeedDialPills(
     onCloseClick: () -> Unit,
     modifier: Modifier = Modifier
 ) {
+    val haptic = LocalHapticFeedback.current
+
     Column(
         modifier = modifier.wrapContentSize(),
         horizontalAlignment = Alignment.End,
@@ -747,19 +749,22 @@ private fun FilterSpeedDialPills(
                 .size(38.dp)
                 .clip(CircleShape)
                 .background(Color(0xFF202020))
-                .border(1.dp, UtilitarianBorderStroke, CircleShape)
-                .clickable(
-                    interactionSource = remember { MutableInteractionSource() },
-                    indication = null,
-                    onClick = onCloseClick
-                ),
+                .border(
+                    1.dp,
+                    UtilitarianBorderStroke.copy(alpha = 0.5f),
+                    CircleShape
+                )
+                .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onCloseClick()
+                },
             contentAlignment = Alignment.Center
         ) {
             Icon(
                 imageVector = Icons.Outlined.Close,
                 contentDescription = "Close filter options",
                 tint = UtilitarianTextPrimary,
-                modifier = Modifier.size(18.dp)
+                modifier = Modifier.size(20.dp)
             )
         }
     }
