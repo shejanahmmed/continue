@@ -67,6 +67,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -75,6 +76,9 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.boundsInRoot
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import kotlinx.coroutines.delay
@@ -113,8 +117,10 @@ fun DiaryScreen(
     val haptic = LocalHapticFeedback.current
     val toastState = LocalToastState.current
     val staggeredGridState = rememberLazyStaggeredGridState()
+    val coroutineScope = rememberCoroutineScope()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
+    var animatingDeleteKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
     var isFilterOpen by remember { mutableStateOf(false) }
 
     // Intercept hardware/system back button during filter overlay or multi-selection mode
@@ -208,9 +214,15 @@ fun DiaryScreen(
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     val deletedCount = count
-                                    viewModel.deleteSelectedNotes()
+                                    val keysToDelete = uiState.selectedKeys.toSet()
                                     showDeleteDialog = false
-                                    toastState.show(if (deletedCount == 1) "1 note moved to bin" else "$deletedCount notes moved to bin")
+                                    animatingDeleteKeys = keysToDelete
+                                    coroutineScope.launch {
+                                        delay(230L)
+                                        viewModel.deleteSelectedNotes()
+                                        animatingDeleteKeys = emptySet()
+                                        toastState.show(if (deletedCount == 1) "1 note moved to bin" else "$deletedCount notes moved to bin")
+                                    }
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -467,10 +479,18 @@ fun DiaryScreen(
             } else {
                 items(uiState.notes, key = { "diary_note_${it.activityId}_${it.noteId}" }) { note ->
                     val isSelected = note.itemKey in uiState.selectedKeys
+                    val isDeleting = note.itemKey in animatingDeleteKeys
                     DiaryNoteCard(
                         note = note,
                         isSelected = isSelected,
                         isSelectionMode = uiState.isSelectionMode,
+                        isDeleting = isDeleting,
+                        isGridMode = uiState.isGridMode,
+                        modifier = Modifier.animateItem(
+                            fadeInSpec = null,
+                            placementSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                            fadeOutSpec = null
+                        ),
                         onClick = {
                             if (uiState.isSelectionMode) {
                                 viewModel.toggleSelection(note.itemKey)
@@ -640,9 +660,28 @@ private fun DiaryNoteCard(
     note: DiaryNoteItem,
     isSelected: Boolean,
     isSelectionMode: Boolean,
+    isDeleting: Boolean = false,
+    isGridMode: Boolean = false,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
+    val configuration = LocalConfiguration.current
+    val density = LocalDensity.current
+    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+
+    var isRightColumn by remember { mutableStateOf(false) }
+    val exitAnim = remember { Animatable(0f) }
+
+    LaunchedEffect(isDeleting) {
+        if (isDeleting) {
+            exitAnim.animateTo(
+                targetValue = 1f,
+                animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
+            )
+        }
+    }
+
     val hasTitle = note.title.isNotBlank() && !note.title.equals("Untitled Note", ignoreCase = true)
     val hasContent = note.previewText.isNotBlank()
     val hasLabels = note.labels.isNotEmpty()
@@ -672,10 +711,24 @@ private fun DiaryNoteCard(
     val cardBackgroundColor = if (isSelected) Color(0xFF1E1E1E) else UtilitarianCardBackground
 
     Surface(
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth()
+            .onGloballyPositioned { coordinates ->
+                if (isGridMode) {
+                    isRightColumn = coordinates.boundsInRoot().center.x >= (screenWidthPx / 2f)
+                }
+            }
+            .graphicsLayer {
+                if (exitAnim.value > 0f) {
+                    val travelDistance = if (isGridMode) (screenWidthPx / 2f) * 1.5f else screenWidthPx * 1.1f
+                    val direction = if (isGridMode && isRightColumn) 1f else -1f
+                    this.translationX = exitAnim.value * travelDistance * direction
+                    this.alpha = (1f - exitAnim.value).coerceIn(0f, 1f)
+                }
+            }
             .clip(cardShape)
             .combinedClickable(
+                enabled = !isDeleting,
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
