@@ -174,14 +174,28 @@ class DiaryViewModel(
     fun togglePinSelectedNotes() {
         val selected = _selectedKeys.value
         if (selected.isEmpty()) return
+        val selectedNotes = _uiState.value.notes.filter { it.itemKey in selected }
+        val willUnpin = _uiState.value.areAllSelectedPinned
+        val targetPinnedState = !willUnpin
+
+        val allKeysToUpdate = mutableSetOf<String>()
+        for (note in selectedNotes) {
+            allKeysToUpdate.add(note.itemKey)
+            if (note.activityId > 0L) {
+                allKeysToUpdate.add("act_${note.activityId}")
+            }
+            if (note.noteId > 0L) {
+                allKeysToUpdate.add("note_${note.noteId}")
+            }
+        }
+        allKeysToUpdate.addAll(selected)
+
         viewModelScope.launch {
             if (settingsRepository != null) {
-                settingsRepository.toggleNotesPinned(selected)
+                settingsRepository.setNotesPinned(allKeysToUpdate, targetPinnedState)
             } else {
-                val current = _localPinnedKeys.value
-                val allPinned = selected.all { it in current }
-                _localPinnedKeys.update {
-                    if (allPinned) it - selected else it + selected
+                _localPinnedKeys.update { current ->
+                    if (targetPinnedState) current + allKeysToUpdate else current - allKeysToUpdate
                 }
             }
             clearSelection()
@@ -192,6 +206,14 @@ class DiaryViewModel(
         val selected = _selectedKeys.value
         if (selected.isEmpty()) return
         val notesToDelete = _uiState.value.notes.filter { it.itemKey in selected }
+        val allKeysToRemove = mutableSetOf<String>()
+        for (note in notesToDelete) {
+            allKeysToRemove.add(note.itemKey)
+            if (note.activityId > 0L) allKeysToRemove.add("act_${note.activityId}")
+            if (note.noteId > 0L) allKeysToRemove.add("note_${note.noteId}")
+        }
+        allKeysToRemove.addAll(selected)
+
         viewModelScope.launch {
             for (note in notesToDelete) {
                 if (note.activityId > 0L) {
@@ -202,9 +224,9 @@ class DiaryViewModel(
                 }
             }
             if (settingsRepository != null) {
-                settingsRepository.setNotesPinned(selected, false)
+                settingsRepository.setNotesPinned(allKeysToRemove, false)
             } else {
-                _localPinnedKeys.update { it - selected }
+                _localPinnedKeys.update { it - allKeysToRemove }
             }
             clearSelection()
         }
@@ -218,6 +240,14 @@ class DiaryViewModel(
         val selected = _selectedKeys.value
         if (selected.isEmpty()) return
         val notesToArchive = _uiState.value.notes.filter { it.itemKey in selected }
+        val allKeysToRemove = mutableSetOf<String>()
+        for (note in notesToArchive) {
+            allKeysToRemove.add(note.itemKey)
+            if (note.activityId > 0L) allKeysToRemove.add("act_${note.activityId}")
+            if (note.noteId > 0L) allKeysToRemove.add("note_${note.noteId}")
+        }
+        allKeysToRemove.addAll(selected)
+
         viewModelScope.launch {
             for (note in notesToArchive) {
                 if (note.activityId > 0L) {
@@ -228,9 +258,9 @@ class DiaryViewModel(
                 }
             }
             if (settingsRepository != null) {
-                settingsRepository.setNotesPinned(selected, false)
+                settingsRepository.setNotesPinned(allKeysToRemove, false)
             } else {
-                _localPinnedKeys.update { it - selected }
+                _localPinnedKeys.update { it - allKeysToRemove }
             }
             clearSelection()
         }
@@ -288,7 +318,9 @@ class DiaryViewModel(
             }
 
             val itemKey = if (act.id > 0L) "act_${act.id}" else "note_${matchingNote?.id ?: 0L}"
-            val isPinned = itemKey in pinnedKeys
+            val isPinned = itemKey in pinnedKeys ||
+                (act.id > 0L && "act_${act.id}" in pinnedKeys) ||
+                (matchingNote != null && matchingNote.id > 0L && "note_${matchingNote.id}" in pinnedKeys)
 
             result.add(
                 DiaryNoteItem(
@@ -323,7 +355,9 @@ class DiaryViewModel(
                 }
 
                 val itemKey = if (note.activityId > 0L) "act_${note.activityId}" else "note_${note.id}"
-                val isPinned = itemKey in pinnedKeys
+                val isPinned = itemKey in pinnedKeys ||
+                    (note.id > 0L && "note_${note.id}" in pinnedKeys) ||
+                    (note.activityId > 0L && "act_${note.activityId}" in pinnedKeys)
 
                 result.add(
                     DiaryNoteItem(

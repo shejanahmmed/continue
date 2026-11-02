@@ -511,6 +511,86 @@ class DiaryViewModelTest {
     }
 
     @Test
+    fun `test pinned notes persist across ViewModel reload with key alias synchronization`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 5L,
+                title = "Meeting Note",
+                description = "Architecture discussion",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 1000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 55L,
+                activityId = 5L,
+                title = "Meeting Note",
+                content = "Architecture discussion",
+                updatedAtMillis = 1000L
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        // Pin the note via DiaryViewModel
+        viewModel.toggleSelection("act_5")
+        testScheduler.advanceUntilIdle()
+        viewModel.togglePinSelectedNotes()
+        testScheduler.advanceUntilIdle()
+
+        // Verify both key aliases ('act_5' and 'note_55') are persisted in SettingsRepository
+        val pinnedKeys = settingsRepository.pinnedNotesFlow.value
+        assertTrue("act_5 must be in pinned keys", "act_5" in pinnedKeys)
+        assertTrue("note_55 must be in pinned keys", "note_55" in pinnedKeys)
+
+        // Simulate app restart / ViewModel re-instantiation with same settingsRepository
+        val reloadedViewModel = DiaryViewModel(activityRepository, noteRepository, settingsRepository)
+        testScheduler.advanceUntilIdle()
+
+        val reloadedNotes = reloadedViewModel.uiState.value.notes
+        assertEquals(1, reloadedNotes.size)
+        assertTrue("Note must still be pinned after restart", reloadedNotes[0].isPinned)
+    }
+
+    @Test
+    fun `test note saved with note_ prefix is recognized as pinned on Diary reload`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 8L,
+                title = "Idea Note",
+                description = "Important idea",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 1000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 88L,
+                activityId = 8L,
+                title = "Idea Note",
+                content = "Important idea",
+                updatedAtMillis = 1000L
+            )
+        )
+
+        // Pre-seed settingsRepository with note_88 (as created in NoteEditor)
+        settingsRepository.setNotesPinned(setOf("note_88"), true)
+        testScheduler.advanceUntilIdle()
+
+        // Create new DiaryViewModel simulating app launch
+        val newViewModel = DiaryViewModel(activityRepository, noteRepository, settingsRepository)
+        testScheduler.advanceUntilIdle()
+
+        val notes = newViewModel.uiState.value.notes
+        assertEquals(1, notes.size)
+        assertTrue("Note must be recognized as pinned via note_ prefix", notes[0].isPinned)
+    }
+
+    @Test
     fun `test deleteSelectedNotes removes activities notes and clears selection`() = runTest(testDispatcher) {
         activityRepository.insertActivity(
             ActivityItem(

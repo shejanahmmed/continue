@@ -352,7 +352,16 @@ fun DiaryScreen(
                                 )
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    val count = uiState.selectedKeys.size
+                                    val willUnpin = uiState.areAllSelectedPinned
                                     viewModel.togglePinSelectedNotes()
+                                    toastState.show(
+                                        if (willUnpin) {
+                                            if (count == 1) "1 note unpinned" else "$count notes unpinned"
+                                        } else {
+                                            if (count == 1) "1 note pinned" else "$count notes pinned"
+                                        }
+                                    )
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -473,6 +482,10 @@ fun DiaryScreen(
                 }
             }
         } else {
+            val pinnedNotes = remember(uiState.notes) { uiState.notes.filter { it.isPinned } }
+            val otherNotes = remember(uiState.notes) { uiState.notes.filter { !it.isPinned } }
+            val hasPinned = pinnedNotes.isNotEmpty()
+
             LazyVerticalStaggeredGrid(
                 columns = StaggeredGridCells.Fixed(if (uiState.isGridMode) 2 else 1),
                 state = staggeredGridState,
@@ -488,32 +501,120 @@ fun DiaryScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
-                items(uiState.notes, key = { "diary_note_${it.activityId}_${it.noteId}" }) { note ->
-                    val isSelected = note.itemKey in uiState.selectedKeys
-                    val isDismissing = note.itemKey in animatingDismissKeys
-                    DiaryNoteCard(
-                        note = note,
-                        isSelected = isSelected,
-                        isSelectionMode = uiState.isSelectionMode,
-                        isDismissing = isDismissing,
-                        isGridMode = uiState.isGridMode,
-                        modifier = Modifier.animateItem(
-                            fadeInSpec = null,
-                            placementSpec = spring(stiffness = Spring.StiffnessMediumLow),
-                            fadeOutSpec = null
-                        ),
-                        onClick = {
-                            if (uiState.isSelectionMode) {
+                if (hasPinned) {
+                    item(span = StaggeredGridItemSpan.FullLine) {
+                        Text(
+                            text = "PINNED",
+                            color = UtilitarianTextSecondary,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 11.sp,
+                            fontWeight = FontWeight.SemiBold,
+                            letterSpacing = 1.sp,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 4.dp, bottom = 4.dp)
+                        )
+                    }
+
+                    items(pinnedNotes, key = { "diary_note_${it.activityId}_${it.noteId}" }) { note ->
+                        val isSelected = note.itemKey in uiState.selectedKeys
+                        val isDismissing = note.itemKey in animatingDismissKeys
+                        DiaryNoteCard(
+                            note = note,
+                            isSelected = isSelected,
+                            isSelectionMode = uiState.isSelectionMode,
+                            isDismissing = isDismissing,
+                            isGridMode = uiState.isGridMode,
+                            modifier = Modifier.animateItem(
+                                fadeInSpec = null,
+                                placementSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                fadeOutSpec = null
+                            ),
+                            onClick = {
+                                if (uiState.isSelectionMode) {
+                                    viewModel.toggleSelection(note.itemKey)
+                                } else {
+                                    onNoteClick(if (note.activityId > 0L) note.activityId else note.noteId)
+                                }
+                            },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 viewModel.toggleSelection(note.itemKey)
-                            } else {
-                                onNoteClick(if (note.activityId > 0L) note.activityId else note.noteId)
                             }
-                        },
-                        onLongClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.toggleSelection(note.itemKey)
+                        )
+                    }
+
+                    if (otherNotes.isNotEmpty()) {
+                        item(span = StaggeredGridItemSpan.FullLine) {
+                            Text(
+                                text = "OTHERS",
+                                color = UtilitarianTextSecondary,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.SemiBold,
+                                letterSpacing = 1.sp,
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 14.dp, bottom = 4.dp)
+                            )
                         }
-                    )
+
+                        items(otherNotes, key = { "diary_note_${it.activityId}_${it.noteId}" }) { note ->
+                            val isSelected = note.itemKey in uiState.selectedKeys
+                            val isDismissing = note.itemKey in animatingDismissKeys
+                            DiaryNoteCard(
+                                note = note,
+                                isSelected = isSelected,
+                                isSelectionMode = uiState.isSelectionMode,
+                                isDismissing = isDismissing,
+                                isGridMode = uiState.isGridMode,
+                                modifier = Modifier.animateItem(
+                                    fadeInSpec = null,
+                                    placementSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                    fadeOutSpec = null
+                                ),
+                                onClick = {
+                                    if (uiState.isSelectionMode) {
+                                        viewModel.toggleSelection(note.itemKey)
+                                    } else {
+                                        onNoteClick(if (note.activityId > 0L) note.activityId else note.noteId)
+                                    }
+                                },
+                                onLongClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    viewModel.toggleSelection(note.itemKey)
+                                }
+                            )
+                        }
+                    }
+                } else {
+                    items(uiState.notes, key = { "diary_note_${it.activityId}_${it.noteId}" }) { note ->
+                        val isSelected = note.itemKey in uiState.selectedKeys
+                        val isDismissing = note.itemKey in animatingDismissKeys
+                        DiaryNoteCard(
+                            note = note,
+                            isSelected = isSelected,
+                            isSelectionMode = uiState.isSelectionMode,
+                            isDismissing = isDismissing,
+                            isGridMode = uiState.isGridMode,
+                            modifier = Modifier.animateItem(
+                                fadeInSpec = null,
+                                placementSpec = spring(stiffness = Spring.StiffnessMediumLow),
+                                fadeOutSpec = null
+                            ),
+                            onClick = {
+                                if (uiState.isSelectionMode) {
+                                    viewModel.toggleSelection(note.itemKey)
+                                } else {
+                                    onNoteClick(if (note.activityId > 0L) note.activityId else note.noteId)
+                                }
+                            },
+                            onLongClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.toggleSelection(note.itemKey)
+                            }
+                        )
+                    }
                 }
             }
         }
@@ -671,7 +772,7 @@ private fun DiaryNoteCard(
                     ) {
                         if (note.isPinned) {
                             Icon(
-                                imageVector = Icons.Outlined.PushPin,
+                                imageVector = Icons.Filled.PushPin,
                                 contentDescription = "Pinned note",
                                 tint = UtilitarianTextSecondary,
                                 modifier = Modifier.size(16.dp)
@@ -730,7 +831,7 @@ private fun DiaryNoteCard(
                             ) {
                                 if (note.isPinned) {
                                     Icon(
-                                        imageVector = Icons.Outlined.PushPin,
+                                        imageVector = Icons.Filled.PushPin,
                                         contentDescription = "Pinned note",
                                         tint = UtilitarianTextSecondary,
                                         modifier = Modifier.size(16.dp)

@@ -843,16 +843,14 @@ class CreateEntryViewModel(
 
     fun setNotePinned(pinned: Boolean) {
         _state.update { it.copy(isPinned = pinned) }
-        val actId = _state.value.editingActivityId
+        val actId = _state.value.editingActivityId ?: _state.value.parentActivityId
         val noteId = _state.value.editingNoteId
-        val key = when {
-            actId != null && actId > 0L -> "act_$actId"
-            noteId != null && noteId > 0L -> "note_$noteId"
-            else -> null
-        }
-        if (key != null) {
+        val keys = mutableSetOf<String>()
+        if (actId != null && actId > 0L) keys.add("act_$actId")
+        if (noteId != null && noteId > 0L) keys.add("note_$noteId")
+        if (keys.isNotEmpty()) {
             viewModelScope.launch {
-                settingsRepository?.setNotesPinned(setOf(key), pinned)
+                settingsRepository?.setNotesPinned(keys, pinned)
             }
         }
     }
@@ -1019,11 +1017,15 @@ class CreateEntryViewModel(
                         )
                         _state.update { it.copy(editingNoteId = newNoteId) }
                         if (_state.value.isPinned) {
-                            settingsRepository?.setNotesPinned(setOf("note_$newNoteId"), true)
+                            val keys = mutableSetOf("note_$newNoteId")
+                            if (currentParentId > 0L) keys.add("act_$currentParentId")
+                            settingsRepository?.setNotesPinned(keys, true)
                         }
                     }
                     if (currentNoteId != null && currentNoteId > 0L && settingsRepository != null) {
-                        settingsRepository.setNotesPinned(setOf("note_$currentNoteId"), _state.value.isPinned)
+                        val keys = mutableSetOf("note_$currentNoteId")
+                        if (currentParentId > 0L) keys.add("act_$currentParentId")
+                        settingsRepository.setNotesPinned(keys, _state.value.isPinned)
                     }
                 } else if (currentEditId != null) {
                     val existing = activityRepository.getActivityById(currentEditId).firstOrNull()
@@ -1061,12 +1063,13 @@ class CreateEntryViewModel(
                         archivedAtMillis = archivedAt
                     )
                     activityRepository.updateActivity(updatedActivity)
-                    if (settingsRepository != null && currentEditId > 0L) {
-                        settingsRepository.setNotesPinned(setOf("act_$currentEditId"), _state.value.isPinned)
-                    }
-
                     val existingNotes = noteRepository.getNotesForActivity(currentEditId).firstOrNull() ?: emptyList()
                     val targetNote = existingNotes.firstOrNull()
+                    if (settingsRepository != null && currentEditId > 0L) {
+                        val keys = mutableSetOf("act_$currentEditId")
+                        if (targetNote != null && targetNote.id > 0L) keys.add("note_${targetNote.id}")
+                        settingsRepository.setNotesPinned(keys, _state.value.isPinned)
+                    }
                     if (targetNote != null) {
                         noteRepository.updateNote(
                             targetNote.copy(

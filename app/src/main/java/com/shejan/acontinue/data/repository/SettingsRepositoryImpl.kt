@@ -177,7 +177,8 @@ class SettingsRepositoryImpl(
         } else {
             current.removeAll(ids)
         }
-        prefs.edit().putString(KEY_PINNED_NOTES, current.joinToString(DELIMITER)).apply()
+        val serialized = if (current.isEmpty()) "" else current.joinToString(DELIMITER)
+        prefs.edit().putString(KEY_PINNED_NOTES, serialized).commit()
         _pinnedNotesFlow.value = current
     }
 
