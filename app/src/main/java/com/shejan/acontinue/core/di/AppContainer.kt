@@ -158,4 +158,15 @@ class AppContainer(context: Context) {
                 ) as T
             }
         }
+
+    fun provideSearchViewModelFactory(): ViewModelProvider.Factory =
+        object : ViewModelProvider.Factory {
+            @Suppress("UNCHECKED_CAST")
+            override fun <T : ViewModel> create(modelClass: Class<T>): T {
+                return com.shejan.acontinue.presentation.search.SearchViewModel(
+                    activityRepository = activityRepository,
+                    noteRepository = noteRepository
+                ) as T
+            }
+        }
 }

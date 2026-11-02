@@ -87,6 +87,7 @@ sealed class Screen(val route: String) {
     data object Archive : Screen("archive")
     data object Bin : Screen("bin")
     data object Year : Screen("year")
+    data object Search : Screen("search")
 }
 
 @Composable
@@ -222,6 +223,9 @@ fun ContinueNavHost(
                     onNavigateToBin = {
                         navController.navigate(Screen.Bin.route)
                     },
+                    onNavigateToSearch = {
+                        navController.navigate(Screen.Search.route)
+                    },
                     modifier = Modifier.statusBarsPadding()
                 )
             }
@@ -322,6 +326,28 @@ fun ContinueNavHost(
                 )
                 com.shejan.acontinue.presentation.year.YearScreen(
                     viewModel = yearViewModel,
+                    onNavigateBack = {
+                        navController.popBackStack()
+                    },
+                    modifier = Modifier.statusBarsPadding()
+                )
+            }
+
+            // Dedicated Search Destination
+            composable(Screen.Search.route) {
+                val searchViewModel: com.shejan.acontinue.presentation.search.SearchViewModel = viewModel(
+                    factory = container.provideSearchViewModelFactory()
+                )
+                com.shejan.acontinue.presentation.search.SearchScreen(
+                    viewModel = searchViewModel,
+                    onNoteClick = { activityId, noteId ->
+                        navController.navigate(
+                            Screen.NoteEditor.createRoute(
+                                editActivityId = activityId.takeIf { it > 0L },
+                                editNoteId = noteId.takeIf { it > 0L }
+                            )
+                        )
+                    },
                     onNavigateBack = {
                         navController.popBackStack()
                     },

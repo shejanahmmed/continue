@@ -51,7 +51,8 @@ data class DiaryUiState(
     val notes: List<DiaryNoteItem> = emptyList(),
     val isLoading: Boolean = false,
     val sortOption: DiarySortOption = DiarySortOption.DEFAULT,
-    val selectedKeys: Set<String> = emptySet()
+    val selectedKeys: Set<String> = emptySet(),
+    val isGridMode: Boolean = false
 ) {
     val isSelectionMode: Boolean
         get() = selectedKeys.isNotEmpty()
@@ -68,7 +69,8 @@ private data class FilterParams(
     val query: String,
     val sortOption: DiarySortOption,
     val selectedKeys: Set<String>,
-    val pinnedKeys: Set<String>
+    val pinnedKeys: Set<String>,
+    val isGridMode: Boolean
 )
 
 class DiaryViewModel(
@@ -81,6 +83,7 @@ class DiaryViewModel(
     private val _sortOption = MutableStateFlow(DiarySortOption.DEFAULT)
     private val _selectedKeys = MutableStateFlow<Set<String>>(emptySet())
     private val _localPinnedKeys = MutableStateFlow<Set<String>>(emptySet())
+    private val _isGridMode = MutableStateFlow(false)
 
     private val pinnedKeysFlow: Flow<Set<String>> =
         settingsRepository?.getPinnedNoteIds() ?: _localPinnedKeys.asStateFlow()
@@ -93,9 +96,10 @@ class DiaryViewModel(
             _searchQuery,
             _sortOption,
             _selectedKeys,
-            pinnedKeysFlow
-        ) { query, sortOption, selectedKeys, pinnedKeys ->
-            FilterParams(query, sortOption, selectedKeys, pinnedKeys)
+            pinnedKeysFlow,
+            _isGridMode
+        ) { query, sortOption, selectedKeys, pinnedKeys, isGridMode ->
+            FilterParams(query, sortOption, selectedKeys, pinnedKeys, isGridMode)
         }
 
         combine(
@@ -135,7 +139,8 @@ class DiaryViewModel(
                 notes = sorted,
                 isLoading = false,
                 sortOption = params.sortOption,
-                selectedKeys = validSelectedKeys
+                selectedKeys = validSelectedKeys,
+                isGridMode = params.isGridMode
             )
         }
         .onEach { state ->
@@ -194,6 +199,32 @@ class DiaryViewModel(
                 }
                 if (note.noteId > 0L) {
                     noteRepository.deleteNote(note.noteId)
+                }
+            }
+            if (settingsRepository != null) {
+                settingsRepository.setNotesPinned(selected, false)
+            } else {
+                _localPinnedKeys.update { it - selected }
+            }
+            clearSelection()
+        }
+    }
+
+    fun toggleLayoutMode() {
+        _isGridMode.update { !it }
+    }
+
+    fun archiveSelectedNotes() {
+        val selected = _selectedKeys.value
+        if (selected.isEmpty()) return
+        val notesToArchive = _uiState.value.notes.filter { it.itemKey in selected }
+        viewModelScope.launch {
+            for (note in notesToArchive) {
+                if (note.activityId > 0L) {
+                    activityRepository.setActivityArchived(note.activityId, true)
+                }
+                if (note.noteId > 0L) {
+                    noteRepository.setNoteArchived(note.noteId, true)
                 }
             }
             if (settingsRepository != null) {

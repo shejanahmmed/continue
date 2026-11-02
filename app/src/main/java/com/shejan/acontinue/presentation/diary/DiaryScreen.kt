@@ -22,8 +22,11 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.staggeredgrid.LazyVerticalStaggeredGrid
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridCells
+import androidx.compose.foundation.lazy.staggeredgrid.StaggeredGridItemSpan
+import androidx.compose.foundation.lazy.staggeredgrid.items
+import androidx.compose.foundation.lazy.staggeredgrid.rememberLazyStaggeredGridState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Sort
@@ -33,8 +36,11 @@ import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.DeleteOutline
+import androidx.compose.material.icons.outlined.FilterList
+import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Search
+import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -43,8 +49,6 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -76,12 +80,14 @@ fun DiaryScreen(
     modifier: Modifier = Modifier,
     onActivityClick: ((Long) -> Unit)? = null,
     onNavigateToArchive: (() -> Unit)? = null,
-    onNavigateToBin: (() -> Unit)? = null
+    onNavigateToBin: (() -> Unit)? = null,
+    onNavigateToSearch: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val noteCount = uiState.notes.size
     val badgeText = if (noteCount == 1) "1 NOTE" else "$noteCount NOTES"
     val haptic = LocalHapticFeedback.current
+    val staggeredGridState = rememberLazyStaggeredGridState()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
 
@@ -139,13 +145,17 @@ fun DiaryScreen(
         )
     }
 
-    LazyColumn(
+    LazyVerticalStaggeredGrid(
+        columns = StaggeredGridCells.Fixed(if (uiState.isGridMode) 2 else 1),
+        state = staggeredGridState,
+        horizontalArrangement = Arrangement.spacedBy(10.dp),
+        verticalItemSpacing = 10.dp,
         modifier = modifier
             .fillMaxSize()
             .padding(horizontal = 16.dp),
         contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
     ) {
-        item {
+        item(span = StaggeredGridItemSpan.FullLine) {
             var sortMenuExpanded by remember { mutableStateOf(false) }
 
             DotMatrixHeader(
@@ -157,7 +167,8 @@ fun DiaryScreen(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (onNavigateToArchive != null) {
+                            // 1. SEARCH (Opens dedicated Search screen)
+                            if (onNavigateToSearch != null) {
                                 Box(
                                     modifier = Modifier
                                         .size(38.dp)
@@ -170,46 +181,45 @@ fun DiaryScreen(
                                         )
                                         .clickable {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            onNavigateToArchive()
+                                            onNavigateToSearch()
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.Outlined.Archive,
-                                        contentDescription = "Archive",
+                                        imageVector = Icons.Outlined.Search,
+                                        contentDescription = "Search notes",
                                         tint = UtilitarianTextPrimary,
                                         modifier = Modifier.size(22.dp)
                                     )
                                 }
                             }
 
-                            if (onNavigateToBin != null) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(38.dp)
-                                        .clip(RoundedCornerShape(5.dp))
-                                        .background(Color(0xFF202020))
-                                        .border(
-                                            1.dp,
-                                            UtilitarianBorderStroke.copy(alpha = 0.5f),
-                                            RoundedCornerShape(5.dp)
-                                        )
-                                        .clickable {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            onNavigateToBin()
-                                        },
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.DeleteOutline,
-                                        contentDescription = "Bin",
-                                        tint = UtilitarianTextPrimary,
-                                        modifier = Modifier.size(22.dp)
+                            // 2. CARD FORMAT TOGGLE (1-column vs 2-column)
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(Color(0xFF202020))
+                                    .border(
+                                        1.dp,
+                                        UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                        RoundedCornerShape(5.dp)
                                     )
-                                }
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.toggleLayoutMode()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = if (uiState.isGridMode) Icons.Outlined.ViewAgenda else Icons.Outlined.GridView,
+                                    contentDescription = "Toggle card layout",
+                                    tint = UtilitarianTextPrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
                             }
 
-                            // Default Mode: Sort Button with Dropdown Menu
+                            // 3. FILTER (Updates sort menu with Filter icon)
                             Box {
                                 Box(
                                     modifier = Modifier
@@ -228,8 +238,8 @@ fun DiaryScreen(
                                     contentAlignment = Alignment.Center
                                 ) {
                                     Icon(
-                                        imageVector = Icons.AutoMirrored.Outlined.Sort,
-                                        contentDescription = "Sort cards",
+                                        imageVector = Icons.Outlined.FilterList,
+                                        contentDescription = "Filter and sort cards",
                                         tint = UtilitarianTextPrimary,
                                         modifier = Modifier.size(22.dp)
                                     )
@@ -271,14 +281,14 @@ fun DiaryScreen(
                                     }
                                 }
                             }
-                    }
-                } else {
-                        // Multi-Selection Mode: Pin, Delete, and Cancel/Close Buttons
+                        }
+                    } else {
+                        // Multi-Selection Mode: Pin, Archive, Delete, and Cancel/Close Buttons
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            // Pin Button
+                            // 1. Pin Button
                             Box(
                                 modifier = Modifier
                                     .size(38.dp)
@@ -303,7 +313,32 @@ fun DiaryScreen(
                                 )
                             }
 
-                            // Delete Button
+                            // 2. Archive Button
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(Color(0xFF202020))
+                                    .border(
+                                        1.dp,
+                                        UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                        RoundedCornerShape(5.dp)
+                                    )
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.archiveSelectedNotes()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Archive,
+                                    contentDescription = "Archive selected notes",
+                                    tint = UtilitarianTextPrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+
+                            // 3. Delete Button
                             Box(
                                 modifier = Modifier
                                     .size(38.dp)
@@ -328,7 +363,7 @@ fun DiaryScreen(
                                 )
                             }
 
-                            // Cancel / Close Selection Button
+                            // 4. Cancel / Close Selection Button
                             Box(
                                 modifier = Modifier
                                     .size(38.dp)
@@ -359,43 +394,9 @@ fun DiaryScreen(
             Spacer(modifier = Modifier.height(12.dp))
         }
 
-        // Search Bar
-        item {
-            TextField(
-                value = uiState.searchQuery,
-                onValueChange = { viewModel.onSearchQueryChange(it) },
-                placeholder = {
-                    Text(
-                        text = "Search notes...",
-                        color = UtilitarianTextDisabled,
-                        fontSize = 14.sp
-                    )
-                },
-                leadingIcon = {
-                    Icon(
-                        imageVector = Icons.Outlined.Search,
-                        contentDescription = "Search notes",
-                        tint = UtilitarianTextSecondary,
-                        modifier = Modifier.size(18.dp)
-                    )
-                },
-                colors = TextFieldDefaults.colors(
-                    focusedContainerColor = UtilitarianCardBackground,
-                    unfocusedContainerColor = UtilitarianCardBackground,
-                    focusedTextColor = UtilitarianTextPrimary,
-                    unfocusedTextColor = UtilitarianTextPrimary,
-                    focusedIndicatorColor = Color.Transparent,
-                    unfocusedIndicatorColor = Color.Transparent
-                ),
-                shape = RoundedCornerShape(12.dp),
-                modifier = Modifier.fillMaxWidth()
-            )
-            Spacer(modifier = Modifier.height(16.dp))
-        }
-
         // Notes List or Empty State
         if (uiState.notes.isEmpty()) {
-            item {
+            item(span = StaggeredGridItemSpan.FullLine) {
                 MonochromeCard {
                     Column(
                         modifier = Modifier
@@ -404,14 +405,14 @@ fun DiaryScreen(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
                         Text(
-                            text = if (uiState.searchQuery.isNotBlank()) "No matching notes found." else "No notes recorded yet.",
+                            text = "No notes recorded yet.",
                             color = UtilitarianTextPrimary,
                             fontWeight = FontWeight.SemiBold,
                             fontSize = 14.sp
                         )
                         Spacer(modifier = Modifier.height(4.dp))
                         Text(
-                            text = if (uiState.searchQuery.isNotBlank()) "Try searching with different keywords." else "Capture your thoughts, ideas, and voice notes.",
+                            text = "Capture your thoughts, ideas, and voice notes.",
                             color = UtilitarianTextSecondary,
                             fontSize = 12.sp
                         )
@@ -437,7 +438,6 @@ fun DiaryScreen(
                         viewModel.toggleSelection(note.itemKey)
                     }
                 )
-                Spacer(modifier = Modifier.height(10.dp))
             }
         }
     }

@@ -614,5 +614,56 @@ class DiaryViewModelTest {
             assertEquals(200L, state.notes.first().activityId)
         }
     }
+
+    @Test
+    fun `test toggleLayoutMode alternates between single and two column mode`() = runTest(testDispatcher) {
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isGridMode)
+
+        viewModel.toggleLayoutMode()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isGridMode)
+
+        viewModel.toggleLayoutMode()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(viewModel.uiState.value.isGridMode)
+    }
+
+    @Test
+    fun `test archiveSelectedNotes sets isArchived on selected activities and notes`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 301L,
+                title = "Note to Archive",
+                description = "Content to archive",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 1000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 601L,
+                activityId = 301L,
+                title = "Note to Archive",
+                content = "Content to archive",
+                updatedAtMillis = 1000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleSelection("act_301")
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isSelectionMode)
+
+        viewModel.archiveSelectedNotes()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(viewModel.uiState.value.isSelectionMode)
+        assertTrue(viewModel.uiState.value.notes.isEmpty())
+        assertTrue(activityRepository.activitiesFlow.value.first { it.id == 301L }.isArchived)
+        assertTrue(noteRepository.notesFlow.value.first { it.id == 601L }.isArchived)
+    }
 }
 

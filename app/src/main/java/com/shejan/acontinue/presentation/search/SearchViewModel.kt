@@ -1,0 +1,166 @@
+package com.shejan.acontinue.presentation.search
+
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.shejan.acontinue.domain.model.ActivityItem
+import com.shejan.acontinue.domain.model.ActivityNote
+import com.shejan.acontinue.domain.model.EntryType
+import com.shejan.acontinue.domain.repository.ActivityRepository
+import com.shejan.acontinue.domain.repository.NoteRepository
+import com.shejan.acontinue.presentation.diary.DiaryNoteItem
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
+
+private val AUDIO_TAG_REGEX = Regex("""!\[audio\]\(([^)]+)\)""")
+private val PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
+
+data class SearchUiState(
+    val searchQuery: String = "",
+    val results: List<DiaryNoteItem> = emptyList(),
+    val isLoading: Boolean = false
+)
+
+class SearchViewModel(
+    private val activityRepository: ActivityRepository,
+    private val noteRepository: NoteRepository
+) : ViewModel() {
+
+    private val _searchQuery = MutableStateFlow("")
+    private val _uiState = MutableStateFlow(SearchUiState())
+    val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
+
+    init {
+        combine(
+            _searchQuery,
+            activityRepository.getAllActivities(),
+            noteRepository.searchNotes("")
+        ) { query, activities, notes ->
+            if (query.isBlank()) {
+                SearchUiState(searchQuery = query, results = emptyList(), isLoading = false)
+            } else {
+                val allNoteItems = buildSearchNoteItems(activities, notes)
+                val filtered = allNoteItems.filter { note ->
+                    note.title.contains(query, ignoreCase = true) ||
+                    note.previewText.contains(query, ignoreCase = true) ||
+                    note.labels.any { it.contains(query, ignoreCase = true) }
+                }
+                SearchUiState(searchQuery = query, results = filtered, isLoading = false)
+            }
+        }.onEach { state ->
+            _uiState.value = state
+        }.launchIn(viewModelScope)
+    }
+
+    fun onSearchQueryChange(query: String) {
+        _searchQuery.value = query
+    }
+
+    private fun buildSearchNoteItems(
+        activities: List<ActivityItem>,
+        notes: List<ActivityNote>
+    ): List<DiaryNoteItem> {
+        val noteActivities = activities.filter { it.entryType == EntryType.NOTE && !it.isDeleted && !it.isArchived }
+        val nonNoteActivityIds = activities.filter { it.entryType != EntryType.NOTE }.map { it.id }.toSet()
+        val notesByActivityId = notes.groupBy { it.activityId }
+        val result = mutableListOf<DiaryNoteItem>()
+        val seenActivityIds = mutableSetOf<Long>()
+
+        for (act in noteActivities) {
+            seenActivityIds.add(act.id)
+            val matchingNote = notesByActivityId[act.id]?.firstOrNull()
+            if (matchingNote != null && (matchingNote.isDeleted || matchingNote.isArchived)) {
+                continue
+            }
+            val rawTitle = matchingNote?.title ?: act.title
+            val title = if (rawTitle.equals("Untitled Note", ignoreCase = true)) "" else rawTitle
+            val rawContent = matchingNote?.content ?: act.description
+            val updatedAt = matchingNote?.updatedAtMillis ?: act.createdAtMillis
+
+            val audioCount = AUDIO_TAG_REGEX.findAll(rawContent).count()
+            val photoCount = PHOTO_TAG_REGEX.findAll(rawContent).count()
+
+            val cleanPreview = rawContent
+                .replace(AUDIO_TAG_REGEX, "")
+                .replace(PHOTO_TAG_REGEX, "")
+                .trim()
+
+            val lines = cleanPreview.lines().filter { it.isNotBlank() }
+            val isChecklist = lines.isNotEmpty() && lines.all {
+                it.startsWith("[ ] ") || it.startsWith("[x] ") || it.startsWith("[X] ")
+            }
+
+            val color = if (matchingNote != null && matchingNote.colorHex != 0L && matchingNote.colorHex != 0xFF121212L) {
+                matchingNote.colorHex
+            } else if (act.reminderCategoryColorHex != 0L && act.reminderCategoryColorHex != 0xFF121212L) {
+                act.reminderCategoryColorHex
+            } else {
+                0xFF000000L
+            }
+
+            val labels = if (matchingNote != null && matchingNote.labels.isNotEmpty()) {
+                matchingNote.labels
+            } else if (act.reminderCategory.isBlank() || act.reminderCategory.equals("Notes", ignoreCase = true)) {
+                emptyList()
+            } else {
+                act.reminderCategory.split(",").map { it.trim() }.filter { it.isNotBlank() }
+            }
+
+            result.add(
+                DiaryNoteItem(
+                    activityId = act.id,
+                    noteId = matchingNote?.id ?: 0L,
+                    title = title,
+                    content = rawContent,
+                    previewText = cleanPreview,
+                    colorHex = color,
+                    labels = labels,
+                    createdAtMillis = act.createdAtMillis,
+                    updatedAtMillis = updatedAt,
+                    audioCount = audioCount,
+                    photoCount = photoCount,
+                    isChecklist = isChecklist,
+                    isPinned = false
+                )
+            )
+        }
+
+        for (note in notes) {
+            if (!seenActivityIds.contains(note.activityId) && !nonNoteActivityIds.contains(note.activityId) && !note.isDeleted && !note.isArchived) {
+                val audioCount = AUDIO_TAG_REGEX.findAll(note.content).count()
+                val photoCount = PHOTO_TAG_REGEX.findAll(note.content).count()
+                val cleanPreview = note.content
+                    .replace(AUDIO_TAG_REGEX, "")
+                    .replace(PHOTO_TAG_REGEX, "")
+                    .trim()
+                val lines = cleanPreview.lines().filter { it.isNotBlank() }
+                val isChecklist = lines.isNotEmpty() && lines.all {
+                    it.startsWith("[ ] ") || it.startsWith("[x] ") || it.startsWith("[X] ")
+                }
+
+                result.add(
+                    DiaryNoteItem(
+                        activityId = note.activityId,
+                        noteId = note.id,
+                        title = if (note.title.equals("Untitled Note", ignoreCase = true)) "" else note.title,
+                        content = note.content,
+                        previewText = cleanPreview,
+                        colorHex = if (note.colorHex != 0L && note.colorHex != 0xFF121212L) note.colorHex else 0xFF000000L,
+                        labels = note.labels,
+                        createdAtMillis = note.updatedAtMillis,
+                        updatedAtMillis = note.updatedAtMillis,
+                        audioCount = audioCount,
+                        photoCount = photoCount,
+                        isChecklist = isChecklist,
+                        isPinned = false
+                    )
+                )
+            }
+        }
+
+        return result
+    }
+}
