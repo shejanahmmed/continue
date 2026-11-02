@@ -885,7 +885,7 @@ private fun CalendarActivityCard(
                 }
             }
 
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(11.dp))
 
             // Category Vertical Accent Stroke
             Box(
@@ -1103,14 +1103,12 @@ internal fun UtilitarianEventDetailSheet(
 
             Spacer(modifier = Modifier.height(14.dp))
 
-            // 6. Category Row (Color dot moved to the right side of the category name)
+            // 6. Category Row (Color dot removed from drawer)
             val catName = if (isReminder) activity.reminderCategory else activity.category.displayName
             UtilitarianDetailLine(
                 icon = Icons.Outlined.Folder,
                 label = "Category",
-                value = catName,
-                badgeDotColor = catColor,
-                badgeDotOnRight = true
+                value = catName
             )
 
             // Optional: Location if present
@@ -1144,24 +1142,23 @@ internal fun UtilitarianEventDetailSheet(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // DELETE (Solid red square box with white trash icon only)
+                // DELETE (Solid red button with text only)
                 Surface(
                     onClick = {
                         showDeleteConfirmDialog = true
                     },
                     shape = RoundedCornerShape(8.dp),
                     color = Color(0xFFD71921),
-                    shadowElevation = 0.dp,
-                    modifier = Modifier.size(38.dp)
+                    shadowElevation = 0.dp
                 ) {
-                    Box(contentAlignment = Alignment.Center) {
-                        Icon(
-                            imageVector = Icons.Outlined.Delete,
-                            contentDescription = "Delete",
-                            tint = Color.White,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
+                    Text(
+                        text = "DELETE",
+                        color = Color.White,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        fontFamily = FontFamily.Monospace,
+                        modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                    )
                 }
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

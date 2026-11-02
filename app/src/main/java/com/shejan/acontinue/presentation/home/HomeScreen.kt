@@ -336,6 +336,17 @@ fun HomeScreen(
                 val reminderAccent = if (isReminderMissed) UtilitarianAccentRed else UtilitarianTextSecondary
                 val reminderBorder = if (isReminderMissed) UtilitarianAccentRed else UtilitarianBorderActive
 
+                val reminderTransition = rememberInfiniteTransition(label = "missedReminderPulse")
+                val reminderPulseAlpha by reminderTransition.animateFloat(
+                    initialValue = 1f,
+                    targetValue = if (isReminderMissed) 0.2f else 1f,
+                    animationSpec = infiniteRepeatable(
+                        animation = tween(durationMillis = 900, easing = FastOutSlowInEasing),
+                        repeatMode = RepeatMode.Reverse
+                    ),
+                    label = "missedReminderDotAlpha"
+                )
+
                 Text(
                     text = reminderHeader,
                     color = reminderAccent,
@@ -367,6 +378,7 @@ fun HomeScreen(
                                 Box(
                                     modifier = Modifier
                                         .size(8.dp)
+                                        .graphicsLayer { alpha = reminderPulseAlpha }
                                         .background(Color(focalReminder.reminderCategoryColorHex), CircleShape)
                                 )
                             }
@@ -726,7 +738,7 @@ private fun TimelineActivityItem(
             val barColor = if (isReminder && activity.isCompleted) catColor.copy(alpha = 0.4f) else catColor
             val subTextColor = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextSecondary
 
-            Spacer(modifier = Modifier.width(4.dp))
+            Spacer(modifier = Modifier.width(11.dp))
 
             Box(
                 modifier = Modifier
