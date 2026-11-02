@@ -835,7 +835,7 @@ private fun CalendarActivityCard(
 
     MonochromeCard(
         onClick = onClick,
-        borderColor = if (isCompleted) UtilitarianBorderStroke else Color(0xFF2C2C2C)
+        borderColor = barColor
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),

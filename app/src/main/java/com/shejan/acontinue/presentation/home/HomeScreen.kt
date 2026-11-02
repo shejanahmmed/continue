@@ -683,9 +683,13 @@ private fun TimelineActivityItem(
     val startStr = timeFormat.format(Date(activity.startTimeMillis))
     val endStr = timeFormat.format(Date(activity.endTimeMillis))
 
+    val catColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
+    val barColor = if (isReminder && activity.isCompleted) catColor.copy(alpha = 0.4f) else catColor
+    val subTextColor = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextSecondary
+
     MonochromeCard(
         onClick = onActivityClick,
-        borderColor = if (isReminder && activity.isCompleted) UtilitarianBorderStroke else UtilitarianBorderActive
+        borderColor = barColor
     ) {
         Row(
             modifier = Modifier.fillMaxWidth(),
@@ -731,10 +735,6 @@ private fun TimelineActivityItem(
                     )
                 }
             }
-
-            val catColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
-            val barColor = if (isReminder && activity.isCompleted) catColor.copy(alpha = 0.4f) else catColor
-            val subTextColor = if (isReminder && activity.isCompleted) UtilitarianTextDisabled else UtilitarianTextSecondary
 
             Spacer(modifier = Modifier.width(11.dp))
 
