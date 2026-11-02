@@ -31,8 +31,6 @@ import androidx.compose.material.icons.outlined.HourglassEmpty
 import androidx.compose.material.icons.outlined.LocationOn
 import androidx.compose.material.icons.outlined.Notifications
 import androidx.compose.material.icons.outlined.Timer
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -793,18 +791,6 @@ private fun TimelineActivityItem(
                         )
                     }
                 }
-            }
-
-            if (isReminder) {
-                Checkbox(
-                    checked = activity.isCompleted,
-                    onCheckedChange = onToggleCompletion,
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = UtilitarianAccentRed,
-                        uncheckedColor = UtilitarianBorderStroke,
-                        checkmarkColor = UtilitarianTextPrimary
-                    )
-                )
             }
         }
     }

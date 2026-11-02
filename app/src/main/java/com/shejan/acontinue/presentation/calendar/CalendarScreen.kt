@@ -42,8 +42,6 @@ import androidx.compose.material.icons.outlined.Repeat
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.SentimentSatisfiedAlt
 import androidx.compose.material.icons.outlined.Subtitles
-import androidx.compose.material3.Checkbox
-import androidx.compose.material3.CheckboxDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
@@ -942,18 +940,6 @@ private fun CalendarActivityCard(
                         )
                     }
                 }
-            }
-
-            if (isReminder) {
-                Checkbox(
-                    checked = activity.isCompleted,
-                    onCheckedChange = { done -> onToggleCompletion?.invoke(done) },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = UtilitarianAccentRed,
-                        uncheckedColor = UtilitarianBorderStroke,
-                        checkmarkColor = UtilitarianTextPrimary
-                    )
-                )
             }
         }
     }
