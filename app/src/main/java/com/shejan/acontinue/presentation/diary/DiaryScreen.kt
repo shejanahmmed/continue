@@ -123,7 +123,7 @@ fun DiaryScreen(
     val coroutineScope = rememberCoroutineScope()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
-    var animatingDeleteKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
+    var animatingDismissKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
     var isFilterOpen by remember { mutableStateOf(false) }
 
     // Intercept hardware/system back button during filter overlay or multi-selection mode
@@ -219,11 +219,11 @@ fun DiaryScreen(
                                     val deletedCount = count
                                     val keysToDelete = uiState.selectedKeys.toSet()
                                     showDeleteDialog = false
-                                    animatingDeleteKeys = keysToDelete
+                                    animatingDismissKeys = keysToDelete
                                     coroutineScope.launch {
                                         delay(230L)
                                         viewModel.deleteSelectedNotes()
-                                        animatingDeleteKeys = emptySet()
+                                        animatingDismissKeys = emptySet()
                                         toastState.show(if (deletedCount == 1) "1 note moved to bin" else "$deletedCount notes moved to bin")
                                     }
                                 },
@@ -377,7 +377,15 @@ fun DiaryScreen(
                                 )
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    viewModel.archiveSelectedNotes()
+                                    val archiveCount = uiState.selectedKeys.size
+                                    val keysToArchive = uiState.selectedKeys.toSet()
+                                    animatingDismissKeys = keysToArchive
+                                    coroutineScope.launch {
+                                        delay(230L)
+                                        viewModel.archiveSelectedNotes()
+                                        animatingDismissKeys = emptySet()
+                                        toastState.show(if (archiveCount == 1) "1 note archived" else "$archiveCount notes archived")
+                                    }
                                 },
                             contentAlignment = Alignment.Center
                         ) {
@@ -482,12 +490,12 @@ fun DiaryScreen(
 
                 items(uiState.notes, key = { "diary_note_${it.activityId}_${it.noteId}" }) { note ->
                     val isSelected = note.itemKey in uiState.selectedKeys
-                    val isDeleting = note.itemKey in animatingDeleteKeys
+                    val isDismissing = note.itemKey in animatingDismissKeys
                     DiaryNoteCard(
                         note = note,
                         isSelected = isSelected,
                         isSelectionMode = uiState.isSelectionMode,
-                        isDeleting = isDeleting,
+                        isDismissing = isDismissing,
                         isGridMode = uiState.isGridMode,
                         modifier = Modifier.animateItem(
                             fadeInSpec = null,
@@ -576,7 +584,7 @@ private fun DiaryNoteCard(
     note: DiaryNoteItem,
     isSelected: Boolean,
     isSelectionMode: Boolean,
-    isDeleting: Boolean = false,
+    isDismissing: Boolean = false,
     isGridMode: Boolean = false,
     modifier: Modifier = Modifier,
     onClick: () -> Unit,
@@ -589,8 +597,8 @@ private fun DiaryNoteCard(
     var isRightColumn by remember { mutableStateOf(false) }
     val exitAnim = remember { Animatable(0f) }
 
-    LaunchedEffect(isDeleting) {
-        if (isDeleting) {
+    LaunchedEffect(isDismissing) {
+        if (isDismissing) {
             exitAnim.animateTo(
                 targetValue = 1f,
                 animationSpec = tween(durationMillis = 220, easing = FastOutSlowInEasing)
@@ -644,7 +652,7 @@ private fun DiaryNoteCard(
             }
             .clip(cardShape)
             .combinedClickable(
-                enabled = !isDeleting,
+                enabled = !isDismissing,
                 onClick = onClick,
                 onLongClick = onLongClick
             ),
