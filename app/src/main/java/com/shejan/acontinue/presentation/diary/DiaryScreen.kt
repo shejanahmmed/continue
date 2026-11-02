@@ -2,11 +2,16 @@ package com.shejan.acontinue.presentation.diary
 
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
 import androidx.compose.animation.slideInVertically
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -59,6 +64,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -68,9 +74,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -439,52 +449,117 @@ fun DiaryScreen(
             )
         }
 
-        // Layer 3A: Top Filter Button (rendered above scrim so it is NOT dimmed; tap closes overlay)
+        // Layer 3A: Top Header (rendered above scrim so page title "DIARY", badge & buttons are un-dimmed)
         AnimatedVisibility(
             visible = isFilterOpen,
             enter = fadeIn(tween(120)),
             exit = fadeOut(tween(120)),
             modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(top = 24.dp, end = 16.dp)
+                .align(Alignment.TopStart)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+                .padding(top = 16.dp)
         ) {
-            Box(
-                modifier = Modifier
-                    .size(38.dp)
-                    .clip(RoundedCornerShape(5.dp))
-                    .background(Color(0xFF2C2C2C))
-                    .border(
-                        1.dp,
-                        Color.White.copy(alpha = 0.8f),
-                        RoundedCornerShape(5.dp)
-                    )
-                    .clickable {
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        isFilterOpen = false
-                    },
-                contentAlignment = Alignment.Center
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.FilterList,
-                    contentDescription = "Close filter options",
-                    tint = UtilitarianTextPrimary,
-                    modifier = Modifier.size(22.dp)
-                )
-            }
+            DotMatrixHeader(
+                title = if (uiState.isSelectionMode) "${uiState.selectedKeys.size} SELECTED" else "DIARY",
+                badgeText = if (uiState.isSelectionMode) null else badgeText,
+                actions = {
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // 1. Search
+                        if (onNavigateToSearch != null) {
+                            Box(
+                                modifier = Modifier
+                                    .size(38.dp)
+                                    .clip(RoundedCornerShape(5.dp))
+                                    .background(Color(0xFF202020))
+                                    .border(
+                                        1.dp,
+                                        UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                        RoundedCornerShape(5.dp)
+                                    )
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        isFilterOpen = false
+                                        onNavigateToSearch()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Search,
+                                    contentDescription = "Search notes",
+                                    tint = UtilitarianTextPrimary,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
+                        }
+
+                        // 2. Card Format Toggle
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(Color(0xFF202020))
+                                .border(
+                                    1.dp,
+                                    UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                    RoundedCornerShape(5.dp)
+                                )
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    viewModel.toggleLayoutMode()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = if (uiState.isGridMode) Icons.Outlined.ViewAgenda else Icons.Outlined.GridView,
+                                contentDescription = "Toggle card layout",
+                                tint = UtilitarianTextPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+
+                        // 3. Filter Button (Active state, tap closes overlay)
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(Color(0xFF2C2C2C))
+                                .border(
+                                    1.dp,
+                                    Color.White.copy(alpha = 0.8f),
+                                    RoundedCornerShape(5.dp)
+                                )
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    isFilterOpen = false
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.FilterList,
+                                contentDescription = "Close filter options",
+                                tint = UtilitarianTextPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+                }
+            )
         }
 
-        // Layer 3B: Floating Filter Speed Dial Pills aligned with right edge (lowered slightly to 76.dp)
+        // Layer 3B: Floating Filter Speed Dial Pills (staggered cascade entrance from right edge)
         AnimatedVisibility(
             visible = isFilterOpen,
-            enter = fadeIn(tween(160)) + slideInVertically(
-                animationSpec = tween(160, easing = FastOutSlowInEasing)
-            ) { -it / 3 },
-            exit = fadeOut(tween(120)) + slideOutVertically(
-                animationSpec = tween(120, easing = FastOutSlowInEasing)
-            ) { -it / 3 },
+            enter = fadeIn(tween(100)),
+            exit = fadeOut(tween(120)) + slideOutHorizontally(
+                animationSpec = tween(140, easing = FastOutSlowInEasing)
+            ) { fullWidth -> fullWidth },
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .padding(top = 76.dp, end = 16.dp)
+                .padding(top = 72.dp, end = 16.dp)
         ) {
             FilterSpeedDialPills(
                 currentOption = uiState.sortOption,
@@ -720,32 +795,63 @@ private fun FilterSpeedDialPills(
     modifier: Modifier = Modifier
 ) {
     val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val travelDistancePx = with(density) { 260.dp.toPx() }
+
+    // 4 items: 3 pills + 1 cross button
+    val animatables = remember { List(4) { Animatable(1f) } }
+
+    LaunchedEffect(Unit) {
+        animatables.forEachIndexed { index, animatable ->
+            launch {
+                delay(index * 40L) // Staggered by 40ms (~20% progress of the preceding spring)
+                animatable.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMediumLow,
+                        dampingRatio = Spring.DampingRatioLowBouncy
+                    )
+                )
+            }
+        }
+    }
 
     Column(
         modifier = modifier.wrapContentSize(),
         horizontalAlignment = Alignment.End,
         verticalArrangement = Arrangement.spacedBy(10.dp)
     ) {
-        DiarySortOption.entries.forEach { option ->
+        DiarySortOption.entries.forEachIndexed { index, option ->
             val icon = when (option) {
                 DiarySortOption.DEFAULT -> Icons.AutoMirrored.Outlined.Sort
                 DiarySortOption.DATE_CREATED -> Icons.Outlined.CalendarToday
                 DiarySortOption.DATE_MODIFIED -> Icons.Outlined.AccessTime
             }
-            FilterOptionPill(
-                icon = icon,
-                option = option,
-                isSelected = currentOption == option,
-                onClick = { onSelectOption(option) }
-            )
+            val animValue = animatables[index].value
+            Box(
+                modifier = Modifier.graphicsLayer {
+                    translationX = animValue * travelDistancePx
+                    alpha = (1f - animValue).coerceIn(0f, 1f)
+                }
+            ) {
+                FilterOptionPill(
+                    icon = icon,
+                    option = option,
+                    isSelected = currentOption == option,
+                    onClick = { onSelectOption(option) }
+                )
+            }
         }
 
-        Spacer(modifier = Modifier.height(2.dp))
-
         // Dedicated Cross close button horizontally centered just below the last pill
+        val crossAnimValue = animatables[3].value
         Box(
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
+                .graphicsLayer {
+                    translationX = crossAnimValue * travelDistancePx
+                    alpha = (1f - crossAnimValue).coerceIn(0f, 1f)
+                }
                 .size(38.dp)
                 .clip(CircleShape)
                 .background(Color(0xFF202020))
