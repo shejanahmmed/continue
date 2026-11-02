@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
+import com.shejan.acontinue.core.designsystem.components.LocalToastState
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
@@ -63,6 +64,7 @@ fun BinScreen(
     val uiState by viewModel.uiState.collectAsState()
     val colors = LocalUtilitarianColors.current
     val haptic = LocalHapticFeedback.current
+    val toastState = LocalToastState.current
 
     var itemToDeleteForever by remember { mutableStateOf<TrashItem?>(null) }
     var showEmptyBinDialog by remember { mutableStateOf(false) }
@@ -359,6 +361,7 @@ fun BinScreen(
                     onClick = {
                         viewModel.permanentlyDeleteItem(item)
                         itemToDeleteForever = null
+                        toastState.show("Item permanently deleted")
                     }
                 ) {
                     Text(
@@ -407,6 +410,7 @@ fun BinScreen(
                     onClick = {
                         viewModel.emptyTrash()
                         showEmptyBinDialog = false
+                        toastState.show("Bin emptied")
                     }
                 ) {
                     Text(

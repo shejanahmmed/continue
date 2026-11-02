@@ -57,12 +57,10 @@ import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.ViewAgenda
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -83,10 +81,14 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
+import com.shejan.acontinue.core.designsystem.components.LocalToastState
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
 import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
@@ -109,6 +111,7 @@ fun DiaryScreen(
     val noteCount = uiState.notes.size
     val badgeText = if (noteCount == 1) "1 NOTE" else "$noteCount NOTES"
     val haptic = LocalHapticFeedback.current
+    val toastState = LocalToastState.current
     val staggeredGridState = rememberLazyStaggeredGridState()
 
     var showDeleteDialog by remember { mutableStateOf(false) }
@@ -125,51 +128,105 @@ fun DiaryScreen(
 
     if (showDeleteDialog) {
         val count = uiState.selectedKeys.size
-        AlertDialog(
+        Dialog(
             onDismissRequest = { showDeleteDialog = false },
-            containerColor = Color(0xFF161616),
-            shape = RoundedCornerShape(12.dp),
-            title = {
-                Text(
-                    text = "DELETE $count ${if (count == 1) "NOTE" else "NOTES"}?",
-                    color = UtilitarianTextPrimary,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 16.sp
-                )
-            },
-            text = {
-                Text(
-                    text = "This action cannot be undone.",
-                    color = UtilitarianTextSecondary,
-                    fontSize = 13.sp
-                )
-            },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        viewModel.deleteSelectedNotes()
-                        showDeleteDialog = false
-                    }
+            properties = DialogProperties(usePlatformDefaultWidth = false)
+        ) {
+            Surface(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 28.dp),
+                shape = RoundedCornerShape(14.dp),
+                color = Color(0xFF161616),
+                border = BorderStroke(1.dp, UtilitarianBorderStroke)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(24.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     Text(
-                        text = "DELETE",
-                        color = Color(0xFFFF453A),
+                        text = "DELETE $count ${if (count == 1) "NOTE" else "NOTES"}?",
+                        color = UtilitarianTextPrimary,
+                        fontFamily = FontFamily.Monospace,
                         fontWeight = FontWeight.Bold,
-                        fontFamily = FontFamily.Monospace
+                        fontSize = 16.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
-                }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteDialog = false }) {
+
+                    Spacer(modifier = Modifier.height(8.dp))
+
                     Text(
-                        text = "CANCEL",
+                        text = "This action cannot be undone.",
                         color = UtilitarianTextSecondary,
-                        fontFamily = FontFamily.Monospace
+                        fontSize = 13.sp,
+                        textAlign = TextAlign.Center,
+                        modifier = Modifier.fillMaxWidth()
                     )
+
+                    Spacer(modifier = Modifier.height(22.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        // Cancel Button Box
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFF202020))
+                                .border(1.dp, Color(0xFF383838), RoundedCornerShape(8.dp))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    showDeleteDialog = false
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "CANCEL",
+                                color = UtilitarianTextPrimary,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+
+                        // Delete Button Box
+                        Box(
+                            modifier = Modifier
+                                .weight(1f)
+                                .height(42.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .background(Color(0xFFFF453A).copy(alpha = 0.16f))
+                                .border(1.dp, Color(0xFFFF453A), RoundedCornerShape(8.dp))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    val deletedCount = count
+                                    viewModel.deleteSelectedNotes()
+                                    showDeleteDialog = false
+                                    toastState.show(if (deletedCount == 1) "1 note moved to bin" else "$deletedCount notes moved to bin")
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = "DELETE",
+                                color = Color(0xFFFF453A),
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 13.sp,
+                                textAlign = TextAlign.Center
+                            )
+                        }
+                    }
                 }
             }
-        )
+        }
     }
 
     Box(modifier = modifier.fillMaxSize()) {

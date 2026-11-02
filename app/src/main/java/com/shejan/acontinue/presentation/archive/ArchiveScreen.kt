@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
+import com.shejan.acontinue.core.designsystem.components.LocalToastState
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
@@ -63,6 +64,7 @@ fun ArchiveScreen(
     val uiState by viewModel.uiState.collectAsState()
     val colors = LocalUtilitarianColors.current
     val haptic = LocalHapticFeedback.current
+    val toastState = LocalToastState.current
 
     val dateFormat = remember { SimpleDateFormat("MMM d, yyyy", Locale.getDefault()) }
 
@@ -332,6 +334,7 @@ fun ArchiveScreen(
                                         .clickable {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             viewModel.deleteNote(note)
+                                            toastState.show("Note moved to bin")
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {

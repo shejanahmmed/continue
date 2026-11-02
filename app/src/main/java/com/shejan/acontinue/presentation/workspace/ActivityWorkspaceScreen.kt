@@ -89,6 +89,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.HighContrastButton
+import com.shejan.acontinue.core.designsystem.components.LocalToastState
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.core.designsystem.components.UtilitarianBadge
 import com.shejan.acontinue.core.util.ClickableLinkText
@@ -121,6 +122,7 @@ fun ActivityWorkspaceScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val toastState = LocalToastState.current
 
     var showMenu by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
@@ -128,7 +130,10 @@ fun ActivityWorkspaceScreen(
     LaunchedEffect(Unit) {
         viewModel.events.collectLatest { event ->
             when (event) {
-                is WorkspaceEvent.ActivityDeleted -> onNavigateBack()
+                is WorkspaceEvent.ActivityDeleted -> {
+                    toastState.show("Activity deleted")
+                    onNavigateBack()
+                }
             }
         }
     }
@@ -320,26 +325,36 @@ fun ActivityWorkspaceScreen(
                     },
                     onDeleteAttachment = { attachmentId, filePath ->
                         viewModel.deleteAttachment(attachmentId, filePath)
+                        toastState.show("Attachment deleted")
                     }
                 )
                 WorkspaceTab.NOTES -> NotesTabContent(
                     notes = aggregate.notes,
                     onCreateNoteClick = { onCreateWorkspaceNote(activity.id) },
                     onNoteClick = { noteId -> onOpenWorkspaceNote(activity.id, noteId) },
-                    onDeleteNote = { viewModel.deleteNote(it) }
+                    onDeleteNote = {
+                        viewModel.deleteNote(it)
+                        toastState.show("Note moved to bin")
+                    }
                 )
                 WorkspaceTab.TASKS -> TasksTabContent(
                     tasks = aggregate.tasks,
                     onAddTask = { viewModel.addTask(it) },
                     onUpdateTask = { id, title -> viewModel.updateTask(id, title) },
                     onToggleTask = { id, done -> viewModel.toggleTask(id, done) },
-                    onDeleteTask = { viewModel.deleteTask(it) }
+                    onDeleteTask = {
+                        viewModel.deleteTask(it)
+                        toastState.show("Task deleted")
+                    }
                 )
                 WorkspaceTab.LINKS -> LinksTabContent(
                     links = aggregate.links,
                     onAddLink = { url, title -> viewModel.addLink(url, title) },
                     onUpdateLink = { id, url, title -> viewModel.updateLink(id, url, title) },
-                    onDeleteLink = { viewModel.deleteLink(it) }
+                    onDeleteLink = {
+                        viewModel.deleteLink(it)
+                        toastState.show("Link deleted")
+                    }
                 )
             }
         }

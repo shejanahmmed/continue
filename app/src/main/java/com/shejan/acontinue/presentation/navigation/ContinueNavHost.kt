@@ -35,9 +35,12 @@ import com.shejan.acontinue.presentation.home.HomeScreen
 import com.shejan.acontinue.presentation.home.HomeViewModel
 import com.shejan.acontinue.presentation.menu.MenuScreen
 import com.shejan.acontinue.presentation.settings.SettingsScreen
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import com.shejan.acontinue.core.designsystem.components.LocalToastState
+import com.shejan.acontinue.core.designsystem.components.rememberUtilitarianToastState
 import kotlinx.coroutines.launch
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.model.UserSettings
@@ -119,9 +122,13 @@ fun ContinueNavHost(
         }
     }
 
-    UtilitarianScaffold(
-        currentRoute = currentRoute,
-        onNavigate = { targetRoute ->
+    val toastState = rememberUtilitarianToastState()
+
+    CompositionLocalProvider(LocalToastState provides toastState) {
+        UtilitarianScaffold(
+            currentRoute = currentRoute,
+            toastState = toastState,
+            onNavigate = { targetRoute ->
             if (targetRoute != currentRoute) {
                 if (targetRoute == Screen.Home.route) {
                     val popped = navController.popBackStack(Screen.Home.route, inclusive = false)
@@ -505,6 +512,7 @@ fun ContinueNavHost(
                             container.audioRecordingManager.cancelRecording()
                             noteViewModel.deleteCurrentNote()
                             navController.safePopBackStack("note_editor")
+                            toastState.show("Note moved to bin")
                         },
                         onMakeCopy = { title, content, colorHex, labels ->
                             coroutineScope.launch {
@@ -536,7 +544,10 @@ fun ContinueNavHost(
                         allLabels = state.savedNoteLabels,
                         onCreateLabel = { noteViewModel.addNoteLabel(it) },
                         onEditLabel = { oldName, newName -> noteViewModel.updateNoteLabel(oldName, newName) },
-                        onDeleteLabel = { noteViewModel.deleteNoteLabel(it) }
+                        onDeleteLabel = {
+                            noteViewModel.deleteNoteLabel(it)
+                            toastState.show("Label deleted")
+                        }
                     )
                 }
             }
@@ -620,6 +631,7 @@ fun ContinueNavHost(
                 .zIndex(999f)
         )
         }
+    }
     }
 }
 }

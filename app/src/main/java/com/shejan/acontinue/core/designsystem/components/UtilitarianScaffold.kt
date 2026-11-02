@@ -40,6 +40,7 @@ fun UtilitarianScaffold(
     onCreateClick: () -> Unit,
     onQuickCreate: (EntryType) -> Unit = {},
     showBottomBar: Boolean = true,
+    toastState: UtilitarianToastState = LocalToastState.current,
     content: @Composable (PaddingValues) -> Unit
 ) {
     var isSpeedDialOpen by remember { mutableStateOf(false) }
@@ -130,6 +131,15 @@ fun UtilitarianScaffold(
                 modifier = Modifier.align(Alignment.BottomCenter)
             )
         }
+
+        // Layer 5: Utilitarian Toast Host (centered above nav bar or above bottom edge)
+        UtilitarianToastHost(
+            toastState = toastState,
+            modifier = Modifier
+                .align(Alignment.BottomCenter)
+                .navigationBarsPadding()
+                .padding(bottom = if (showBottomBar) 90.dp else 24.dp)
+        )
     }
 }
 

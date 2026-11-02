@@ -106,6 +106,7 @@ import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.shejan.acontinue.core.designsystem.components.HighContrastButton
+import com.shejan.acontinue.core.designsystem.components.LocalToastState
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
@@ -127,6 +128,7 @@ fun CalendarScreen(
     modifier: Modifier = Modifier
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    val toastState = LocalToastState.current
 
     val monthShortFormat = SimpleDateFormat("MMM", Locale.getDefault())
     val monthShortTitle = monthShortFormat.format(Date(uiState.currentMonthMillis)).uppercase()
@@ -510,7 +512,11 @@ fun CalendarScreen(
             UtilitarianEventDetailSheet(
                 activity = uiState.selectedActivityForDetail!!,
                 onDismiss = { viewModel.dismissActivityDetail() },
-                onDelete = { id -> viewModel.deleteActivity(id) },
+                onDelete = { id ->
+                    val typeName = if (uiState.selectedActivityForDetail?.entryType == com.shejan.acontinue.domain.model.EntryType.REMINDER) "Reminder" else "Event"
+                    viewModel.deleteActivity(id)
+                    toastState.show("$typeName deleted")
+                },
                 onToggleCompletion = { id, done ->
                     viewModel.toggleActivityCompletion(
                         id,
