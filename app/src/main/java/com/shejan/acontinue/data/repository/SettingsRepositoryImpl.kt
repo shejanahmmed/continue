@@ -25,6 +25,8 @@ class SettingsRepositoryImpl(
     private val settingsFlow = _settings.asStateFlow()
     private val _pinnedNotesFlow = MutableStateFlow(loadPinnedNotes())
     private val pinnedNotesFlow = _pinnedNotesFlow.asStateFlow()
+    private val _isDiaryGridModeFlow = MutableStateFlow(loadDiaryGridMode())
+    private val isDiaryGridModeFlow = _isDiaryGridModeFlow.asStateFlow()
 
     override fun getUserSettings(): Flow<UserSettings> = settingsFlow
 
@@ -194,6 +196,17 @@ class SettingsRepositoryImpl(
         return raw.split(DELIMITER).map { it.trim() }.filter { it.isNotBlank() }.toSet()
     }
 
+    override fun isDiaryGridMode(): Flow<Boolean> = isDiaryGridModeFlow
+
+    override suspend fun setDiaryGridMode(isGrid: Boolean) {
+        prefs.edit().putBoolean(KEY_DIARY_GRID_MODE, isGrid).commit()
+        _isDiaryGridModeFlow.value = isGrid
+    }
+
+    private fun loadDiaryGridMode(): Boolean {
+        return prefs.getBoolean(KEY_DIARY_GRID_MODE, false)
+    }
+
     private fun saveCustomAlerts(alerts: List<CustomAlert>) {
         val serialized = alerts.joinToString(DELIMITER) { "${it.id}:::${it.value}:::${it.unit}" }
         prefs.edit().putString(KEY_CUSTOM_ALERTS, serialized).apply()
@@ -308,6 +321,7 @@ class SettingsRepositoryImpl(
         private const val KEY_REMINDER_CATEGORIES = "reminder_categories"
         private const val KEY_NOTE_LABELS = "note_labels"
         private const val KEY_PINNED_NOTES = "pinned_notes"
+        private const val KEY_DIARY_GRID_MODE = "diary_grid_mode"
         private const val KEY_ONBOARDING_COMPLETED = "key_onboarding_completed"
         private const val DELIMITER = "|||"
     }

@@ -83,10 +83,13 @@ class DiaryViewModel(
     private val _sortOption = MutableStateFlow(DiarySortOption.DEFAULT)
     private val _selectedKeys = MutableStateFlow<Set<String>>(emptySet())
     private val _localPinnedKeys = MutableStateFlow<Set<String>>(emptySet())
-    private val _isGridMode = MutableStateFlow(false)
+    private val _localGridMode = MutableStateFlow(false)
 
     private val pinnedKeysFlow: Flow<Set<String>> =
         settingsRepository?.getPinnedNoteIds() ?: _localPinnedKeys.asStateFlow()
+
+    private val gridModeFlow: Flow<Boolean> =
+        settingsRepository?.isDiaryGridMode() ?: _localGridMode.asStateFlow()
 
     private val _uiState = MutableStateFlow(DiaryUiState(isLoading = true))
     val uiState: StateFlow<DiaryUiState> = _uiState.asStateFlow()
@@ -97,7 +100,7 @@ class DiaryViewModel(
             _sortOption,
             _selectedKeys,
             pinnedKeysFlow,
-            _isGridMode
+            gridModeFlow
         ) { query, sortOption, selectedKeys, pinnedKeys, isGridMode ->
             FilterParams(query, sortOption, selectedKeys, pinnedKeys, isGridMode)
         }
@@ -233,7 +236,14 @@ class DiaryViewModel(
     }
 
     fun toggleLayoutMode() {
-        _isGridMode.update { !it }
+        val nextMode = !_uiState.value.isGridMode
+        viewModelScope.launch {
+            if (settingsRepository != null) {
+                settingsRepository.setDiaryGridMode(nextMode)
+            } else {
+                _localGridMode.value = nextMode
+            }
+        }
     }
 
     fun archiveSelectedNotes() {

@@ -435,5 +435,13 @@ class FakeSettingsRepository : com.shejan.acontinue.domain.repository.SettingsRe
         val allPinned = ids.isNotEmpty() && ids.all { it in current }
         setNotesPinned(ids, !allPinned)
     }
+
+    val diaryGridModeFlow = MutableStateFlow(false)
+
+    override fun isDiaryGridMode(): Flow<Boolean> = diaryGridModeFlow
+
+    override suspend fun setDiaryGridMode(isGrid: Boolean) {
+        diaryGridModeFlow.value = isGrid
+    }
 }
 

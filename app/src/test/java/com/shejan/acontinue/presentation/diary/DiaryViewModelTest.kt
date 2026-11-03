@@ -700,13 +700,22 @@ class DiaryViewModelTest {
         testDispatcher.scheduler.advanceUntilIdle()
         assertFalse(viewModel.uiState.value.isGridMode)
 
+        // Toggle to two-column (grid)
         viewModel.toggleLayoutMode()
         testDispatcher.scheduler.advanceUntilIdle()
         assertTrue(viewModel.uiState.value.isGridMode)
+        assertTrue("SettingsRepository must store true for diary grid mode", settingsRepository.diaryGridModeFlow.value)
 
-        viewModel.toggleLayoutMode()
+        // Simulate navigating away and coming back / reopening app
+        val reloadedViewModel = DiaryViewModel(activityRepository, noteRepository, settingsRepository)
         testDispatcher.scheduler.advanceUntilIdle()
-        assertFalse(viewModel.uiState.value.isGridMode)
+        assertTrue("Reloaded ViewModel must retain two-column grid mode from SettingsRepository", reloadedViewModel.uiState.value.isGridMode)
+
+        // Toggle back to single-column (list)
+        reloadedViewModel.toggleLayoutMode()
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertFalse(reloadedViewModel.uiState.value.isGridMode)
+        assertFalse("SettingsRepository must store false after toggling back", settingsRepository.diaryGridModeFlow.value)
     }
 
     @Test

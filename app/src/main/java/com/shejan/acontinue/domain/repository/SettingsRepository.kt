@@ -28,4 +28,6 @@ interface SettingsRepository {
     fun getPinnedNoteIds(): Flow<Set<String>>
     suspend fun setNotesPinned(ids: Set<String>, pinned: Boolean)
     suspend fun toggleNotesPinned(ids: Set<String>)
+    fun isDiaryGridMode(): Flow<Boolean>
+    suspend fun setDiaryGridMode(isGrid: Boolean)
 }
