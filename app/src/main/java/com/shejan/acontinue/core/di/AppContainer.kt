@@ -165,7 +165,8 @@ class AppContainer(context: Context) {
             override fun <T : ViewModel> create(modelClass: Class<T>): T {
                 return com.shejan.acontinue.presentation.search.SearchViewModel(
                     activityRepository = activityRepository,
-                    noteRepository = noteRepository
+                    noteRepository = noteRepository,
+                    settingsRepository = settingsRepository
                 ) as T
             }
         }

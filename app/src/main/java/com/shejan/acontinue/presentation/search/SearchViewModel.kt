@@ -7,11 +7,13 @@ import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.repository.NoteRepository
+import com.shejan.acontinue.domain.repository.SettingsRepository
 import com.shejan.acontinue.presentation.diary.DiaryNoteItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 
@@ -21,12 +23,14 @@ private val PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
 data class SearchUiState(
     val searchQuery: String = "",
     val results: List<DiaryNoteItem> = emptyList(),
+    val availableLabels: List<String> = emptyList(),
     val isLoading: Boolean = false
 )
 
 class SearchViewModel(
     private val activityRepository: ActivityRepository,
-    private val noteRepository: NoteRepository
+    private val noteRepository: NoteRepository,
+    private val settingsRepository: SettingsRepository? = null
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
@@ -34,21 +38,41 @@ class SearchViewModel(
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
     init {
+        val savedLabelsFlow = settingsRepository?.getNoteLabels() ?: flowOf(emptyList())
+
         combine(
             _searchQuery,
             activityRepository.getAllActivities(),
-            noteRepository.searchNotes("")
-        ) { query, activities, notes ->
+            noteRepository.searchNotes(""),
+            savedLabelsFlow
+        ) { query, activities, notes, savedLabels ->
+            val allNoteItems = buildSearchNoteItems(activities, notes)
+            val labelsFromNotes = allNoteItems.flatMap { it.labels }
+            val combinedLabels = (savedLabels + labelsFromNotes)
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinctBy { it.lowercase() }
+                .sortedWith(String.CASE_INSENSITIVE_ORDER)
+
             if (query.isBlank()) {
-                SearchUiState(searchQuery = query, results = emptyList(), isLoading = false)
+                SearchUiState(
+                    searchQuery = query,
+                    results = emptyList(),
+                    availableLabels = combinedLabels,
+                    isLoading = false
+                )
             } else {
-                val allNoteItems = buildSearchNoteItems(activities, notes)
                 val filtered = allNoteItems.filter { note ->
                     note.title.contains(query, ignoreCase = true) ||
                     note.previewText.contains(query, ignoreCase = true) ||
                     note.labels.any { it.contains(query, ignoreCase = true) }
                 }
-                SearchUiState(searchQuery = query, results = filtered, isLoading = false)
+                SearchUiState(
+                    searchQuery = query,
+                    results = filtered,
+                    availableLabels = combinedLabels,
+                    isLoading = false
+                )
             }
         }.onEach { state ->
             _uiState.value = state

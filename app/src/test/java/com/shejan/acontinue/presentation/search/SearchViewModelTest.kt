@@ -169,4 +169,27 @@ class SearchViewModelTest {
         assertEquals("", viewModel.uiState.value.searchQuery)
         assertTrue(viewModel.uiState.value.results.isEmpty())
     }
+
+    @Test
+    fun `test available labels combines settings labels and note labels deduplicated`() = runTest(testDispatcher) {
+        val settingsRepo = com.shejan.acontinue.FakeSettingsRepository()
+        settingsRepo.addNoteLabel("Work")
+        settingsRepo.addNoteLabel("Ideas")
+
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 601L,
+                activityId = 0L,
+                title = "Brainstorm",
+                content = "Some ideas",
+                labels = listOf("ideas", "Hardware"),
+                updatedAtMillis = 2000L
+            )
+        )
+        val vmWithSettings = SearchViewModel(activityRepository, noteRepository, settingsRepo)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val labels = vmWithSettings.uiState.value.availableLabels
+        assertEquals(listOf("Hardware", "Ideas", "Work"), labels)
+    }
 }
