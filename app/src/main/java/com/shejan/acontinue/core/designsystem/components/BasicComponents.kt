@@ -75,6 +75,7 @@ fun DotMatrixHeader(
     title: String,
     modifier: Modifier = Modifier,
     leadingIcon: ImageVector? = null,
+    leadingContent: @Composable (() -> Unit)? = null,
     badgeText: String? = null,
     isAccentBadge: Boolean = false,
     badgeAtEnd: Boolean = false,
@@ -87,7 +88,10 @@ fun DotMatrixHeader(
             .padding(vertical = 8.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {
-        if (leadingIcon != null) {
+        if (leadingContent != null) {
+            leadingContent()
+            Spacer(modifier = Modifier.width(8.dp))
+        } else if (leadingIcon != null) {
             Icon(
                 imageVector = leadingIcon,
                 contentDescription = null,
