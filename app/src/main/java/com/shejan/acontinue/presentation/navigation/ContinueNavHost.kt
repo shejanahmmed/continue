@@ -227,12 +227,6 @@ fun ContinueNavHost(
                     onCreateNote = {
                         navController.navigate(Screen.NoteEditor.createRoute())
                     },
-                    onNavigateToArchive = {
-                        navController.navigate(Screen.Archive.route)
-                    },
-                    onNavigateToBin = {
-                        navController.navigate(Screen.Bin.route)
-                    },
                     onNavigateToSearch = {
                         navController.navigate(Screen.Search.route)
                     },

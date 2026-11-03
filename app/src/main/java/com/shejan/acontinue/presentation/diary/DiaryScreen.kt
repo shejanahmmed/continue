@@ -9,12 +9,8 @@ import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.animation.slideInHorizontally
-import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutHorizontally
-import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -23,7 +19,6 @@ import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -52,14 +47,12 @@ import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
-import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.GridView
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.ViewAgenda
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -79,9 +72,10 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalWindowInfo
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import androidx.compose.ui.text.font.FontFamily
@@ -94,11 +88,9 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.LocalToastState
-import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
 import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
-import com.shejan.acontinue.ui.theme.UtilitarianTextDisabled
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimaryMuted
 import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
@@ -109,9 +101,6 @@ fun DiaryScreen(
     onNoteClick: (Long) -> Unit,
     modifier: Modifier = Modifier,
     onCreateNote: (() -> Unit)? = null,
-    onActivityClick: ((Long) -> Unit)? = null,
-    onNavigateToArchive: (() -> Unit)? = null,
-    onNavigateToBin: (() -> Unit)? = null,
     onNavigateToSearch: (() -> Unit)? = null
 ) {
     val uiState by viewModel.uiState.collectAsState()
@@ -216,15 +205,14 @@ fun DiaryScreen(
                                 .border(1.dp, Color(0xFFFF453A), RoundedCornerShape(8.dp))
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    val deletedCount = count
                                     val keysToDelete = uiState.selectedKeys.toSet()
                                     showDeleteDialog = false
                                     animatingDismissKeys = keysToDelete
                                     coroutineScope.launch {
-                                        delay(230L)
+                                        delay(230.milliseconds)
                                         viewModel.deleteSelectedNotes()
                                         animatingDismissKeys = emptySet()
-                                        toastState.show(if (deletedCount == 1) "1 note moved to bin" else "$deletedCount notes moved to bin")
+                                        toastState.show(if (count == 1) "1 note moved to bin" else "$count notes moved to bin")
                                     }
                                 },
                             contentAlignment = Alignment.Center
@@ -390,7 +378,7 @@ fun DiaryScreen(
                                     val keysToArchive = uiState.selectedKeys.toSet()
                                     animatingDismissKeys = keysToArchive
                                     coroutineScope.launch {
-                                        delay(230L)
+                                        delay(230.milliseconds)
                                         viewModel.archiveSelectedNotes()
                                         animatingDismissKeys = emptySet()
                                         toastState.show(if (archiveCount == 1) "1 note archived" else "$archiveCount notes archived")
@@ -679,21 +667,19 @@ fun DiaryScreen(
     }
 }
 
-@OptIn(ExperimentalFoundationApi::class, ExperimentalLayoutApi::class)
 @Composable
 private fun DiaryNoteCard(
     note: DiaryNoteItem,
     isSelected: Boolean,
     isSelectionMode: Boolean,
+    modifier: Modifier = Modifier,
     isDismissing: Boolean = false,
     isGridMode: Boolean = false,
-    modifier: Modifier = Modifier,
     onClick: () -> Unit,
     onLongClick: () -> Unit
 ) {
-    val configuration = LocalConfiguration.current
-    val density = LocalDensity.current
-    val screenWidthPx = with(density) { configuration.screenWidthDp.dp.toPx() }
+    val windowInfo = LocalWindowInfo.current
+    val screenWidthPx = windowInfo.containerSize.width.toFloat()
 
     var isRightColumn by remember { mutableStateOf(false) }
     val exitAnim = remember { Animatable(0f) }
@@ -934,12 +920,12 @@ private fun FilterSpeedDialPills(
     val travelDistancePx = with(density) { 260.dp.toPx() }
 
     // 4 items: 3 pills + 1 cross button
-    val animatables = remember { List(4) { Animatable(1f) } }
+    val animations = remember { List(4) { Animatable(1f) } }
 
     LaunchedEffect(Unit) {
-        animatables.forEachIndexed { index, animatable ->
+        animations.forEachIndexed { index, animatable ->
             launch {
-                delay(index * 40L) // Staggered by 40ms (~20% progress of the preceding spring)
+                delay((index * 40).milliseconds) // Staggered by 40ms (~20% progress of the preceding spring)
                 animatable.animateTo(
                     targetValue = 0f,
                     animationSpec = spring(
@@ -962,7 +948,7 @@ private fun FilterSpeedDialPills(
                 DiarySortOption.DATE_CREATED -> Icons.Outlined.CalendarToday
                 DiarySortOption.DATE_MODIFIED -> Icons.Outlined.AccessTime
             }
-            val animValue = animatables[index].value
+            val animValue = animations[index].value
             Box(
                 modifier = Modifier.graphicsLayer {
                     translationX = animValue * travelDistancePx
@@ -979,7 +965,7 @@ private fun FilterSpeedDialPills(
         }
 
         // Dedicated Cross close button horizontally centered just below the last pill
-        val crossAnimValue = animatables[3].value
+        val crossAnimValue = animations[3].value
         Box(
             modifier = Modifier
                 .align(Alignment.CenterHorizontally)
