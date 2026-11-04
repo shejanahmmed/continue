@@ -212,120 +212,135 @@ fun SearchScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        val isSearchingByText = uiState.searchQuery.isNotBlank()
+
         // 3. Search Results List / Discovery Filter Sections
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 4.dp, bottom = 48.dp)
         ) {
-            // Section 1: TYPES
-            item(key = "search_section_types") {
-                Spacer(modifier = Modifier.height(8.dp))
-                SearchSectionHeader(title = "TYPES")
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    SearchFilterPill(
-                        label = "Lists",
-                        icon = Icons.Outlined.CheckBox,
-                        isSelected = uiState.selectedTypes.contains(SearchNoteType.LISTS),
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.toggleTypeFilter(SearchNoteType.LISTS)
-                            keyboardController?.hide()
-                        }
-                    )
-                    SearchFilterPill(
-                        label = "URLs",
-                        icon = Icons.Outlined.Link,
-                        isSelected = uiState.selectedTypes.contains(SearchNoteType.URLS),
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.toggleTypeFilter(SearchNoteType.URLS)
-                            keyboardController?.hide()
-                        }
-                    )
-                    SearchFilterPill(
-                        label = "Audio",
-                        icon = Icons.Outlined.Mic,
-                        isSelected = uiState.selectedTypes.contains(SearchNoteType.AUDIO),
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.toggleTypeFilter(SearchNoteType.AUDIO)
-                            keyboardController?.hide()
-                        }
-                    )
-                    SearchFilterPill(
-                        label = "Photos",
-                        icon = Icons.Outlined.Photo,
-                        isSelected = uiState.selectedTypes.contains(SearchNoteType.PHOTOS),
-                        onClick = {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            viewModel.toggleTypeFilter(SearchNoteType.PHOTOS)
-                            keyboardController?.hide()
-                        }
-                    )
-                }
-                Spacer(modifier = Modifier.height(20.dp))
-            }
-
-            // Section 2: LABELS
-            item(key = "search_section_labels") {
-                SearchSectionHeader(title = "LABELS")
-                if (uiState.availableLabels.isEmpty()) {
-                    Text(
-                        text = "No labels",
-                        color = colors.textDisabled,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(vertical = 4.dp)
-                    )
-                } else {
+            if (!isSearchingByText) {
+                // Section 1: TYPES
+                item(key = "search_section_types") {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    SearchSectionHeader(title = "TYPES")
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        uiState.availableLabels.forEach { labelName ->
-                            SearchFilterPill(
-                                label = labelName,
-                                icon = Icons.AutoMirrored.Outlined.Label,
-                                isSelected = uiState.selectedLabels.contains(labelName),
-                                onClick = {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    viewModel.toggleLabelFilter(labelName)
-                                    keyboardController?.hide()
-                                }
-                            )
-                        }
-                    }
-                }
-                Spacer(modifier = Modifier.height(20.dp))
-            }
-
-            // Section 3: COLORS
-            item(key = "search_section_colors") {
-                SearchSectionHeader(title = "COLORS")
-                FlowRow(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    NOTE_COLORS.forEach { colorHex ->
-                        val isSelected = uiState.selectedColors.contains(colorHex)
-                        SearchColorFilterPill(
-                            colorHex = colorHex,
-                            isSelected = isSelected,
+                        SearchFilterPill(
+                            label = "Lists",
+                            icon = Icons.Outlined.CheckBox,
+                            isSelected = uiState.selectedTypes.contains(SearchNoteType.LISTS),
                             onClick = {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                viewModel.toggleColorFilter(colorHex)
+                                viewModel.toggleTypeFilter(SearchNoteType.LISTS)
+                                keyboardController?.hide()
+                            }
+                        )
+                        SearchFilterPill(
+                            label = "URLs",
+                            icon = Icons.Outlined.Link,
+                            isSelected = uiState.selectedTypes.contains(SearchNoteType.URLS),
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.toggleTypeFilter(SearchNoteType.URLS)
+                                keyboardController?.hide()
+                            }
+                        )
+                        SearchFilterPill(
+                            label = "Audio",
+                            icon = Icons.Outlined.Mic,
+                            isSelected = uiState.selectedTypes.contains(SearchNoteType.AUDIO),
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.toggleTypeFilter(SearchNoteType.AUDIO)
+                                keyboardController?.hide()
+                            }
+                        )
+                        SearchFilterPill(
+                            label = "Photos",
+                            icon = Icons.Outlined.Photo,
+                            isSelected = uiState.selectedTypes.contains(SearchNoteType.PHOTOS),
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.toggleTypeFilter(SearchNoteType.PHOTOS)
                                 keyboardController?.hide()
                             }
                         )
                     }
+                    Spacer(modifier = Modifier.height(20.dp))
                 }
-                Spacer(modifier = Modifier.height(20.dp))
+
+                // Section 2: LABELS
+                item(key = "search_section_labels") {
+                    SearchSectionHeader(title = "LABELS")
+                    if (uiState.availableLabels.isEmpty()) {
+                        Text(
+                            text = "No labels",
+                            color = colors.textDisabled,
+                            fontFamily = FontFamily.Monospace,
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(vertical = 4.dp)
+                        )
+                    } else {
+                        FlowRow(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            uiState.availableLabels.forEach { labelName ->
+                                SearchFilterPill(
+                                    label = labelName,
+                                    icon = Icons.AutoMirrored.Outlined.Label,
+                                    isSelected = uiState.selectedLabels.contains(labelName),
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.toggleLabelFilter(labelName)
+                                        keyboardController?.hide()
+                                    }
+                                )
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
+
+                // Section 3: COLORS
+                item(key = "search_section_colors") {
+                    SearchSectionHeader(title = "COLORS")
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        val colorRows = remember { NOTE_COLORS.chunked(5) }
+                        colorRows.forEach { rowColors ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                rowColors.forEach { colorHex ->
+                                    val isSelected = uiState.selectedColors.contains(colorHex)
+                                    SearchColorFilterPill(
+                                        colorHex = colorHex,
+                                        isSelected = isSelected,
+                                        modifier = Modifier.weight(1f),
+                                        onClick = {
+                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                            viewModel.toggleColorFilter(colorHex)
+                                            keyboardController?.hide()
+                                        }
+                                    )
+                                }
+                                repeat(5 - rowColors.size) {
+                                    Spacer(modifier = Modifier.weight(1f))
+                                }
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(20.dp))
+                }
             }
 
             if (isFilterOrSearchActive) {
@@ -428,6 +443,7 @@ private fun SearchFilterPill(
 private fun SearchColorFilterPill(
     colorHex: Long,
     isSelected: Boolean = false,
+    modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
     val colors = LocalUtilitarianColors.current
@@ -442,8 +458,8 @@ private fun SearchColorFilterPill(
     }
 
     Surface(
-        modifier = Modifier
-            .size(width = 48.dp, height = 30.dp)
+        modifier = modifier
+            .height(32.dp)
             .clip(RoundedCornerShape(percent = 50))
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(percent = 50),
