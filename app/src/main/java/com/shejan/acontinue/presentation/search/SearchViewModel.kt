@@ -2,6 +2,7 @@ package com.shejan.acontinue.presentation.search
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.shejan.acontinue.core.util.LinkHelper
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.EntryType
@@ -16,12 +17,22 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
+import kotlinx.coroutines.flow.update
 
 private val AUDIO_TAG_REGEX = Regex("""!\[audio\]\(([^)]+)\)""")
 private val PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
+private val LIST_LINE_REGEX = Regex("""^\s*(\[[\sxX]\]|[-*•]|\d+[\.\)])\s+""")
+
+enum class SearchNoteType {
+    LISTS,
+    URLS,
+    AUDIO,
+    PHOTOS
+}
 
 data class SearchUiState(
     val searchQuery: String = "",
+    val selectedTypes: Set<SearchNoteType> = emptySet(),
     val results: List<DiaryNoteItem> = emptyList(),
     val availableLabels: List<String> = emptyList(),
     val isLoading: Boolean = false
@@ -34,6 +45,7 @@ class SearchViewModel(
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
+    private val _selectedTypes = MutableStateFlow<Set<SearchNoteType>>(emptySet())
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
@@ -42,10 +54,11 @@ class SearchViewModel(
 
         combine(
             _searchQuery,
+            _selectedTypes,
             activityRepository.getAllActivities(),
             noteRepository.searchNotes(""),
             savedLabelsFlow
-        ) { query, activities, notes, savedLabels ->
+        ) { query, selectedTypes, activities, notes, savedLabels ->
             val allNoteItems = buildSearchNoteItems(activities, notes)
             val labelsFromNotes = allNoteItems.flatMap { it.labels }
             val combinedLabels = (savedLabels + labelsFromNotes)
@@ -54,21 +67,45 @@ class SearchViewModel(
                 .distinctBy { it.lowercase() }
                 .sortedWith(String.CASE_INSENSITIVE_ORDER)
 
-            if (query.isBlank()) {
+            val isFilterOrQueryActive = query.isNotBlank() || selectedTypes.isNotEmpty()
+
+            if (!isFilterOrQueryActive) {
                 SearchUiState(
                     searchQuery = query,
+                    selectedTypes = selectedTypes,
                     results = emptyList(),
                     availableLabels = combinedLabels,
                     isLoading = false
                 )
             } else {
                 val filtered = allNoteItems.filter { note ->
-                    note.title.contains(query, ignoreCase = true) ||
-                    note.previewText.contains(query, ignoreCase = true) ||
-                    note.labels.any { it.contains(query, ignoreCase = true) }
+                    val matchesQuery = if (query.isBlank()) {
+                        true
+                    } else {
+                        note.title.contains(query, ignoreCase = true) ||
+                        note.previewText.contains(query, ignoreCase = true) ||
+                        note.labels.any { it.contains(query, ignoreCase = true) }
+                    }
+
+                    val matchesTypes = if (selectedTypes.isEmpty()) {
+                        true
+                    } else {
+                        selectedTypes.all { type ->
+                            when (type) {
+                                SearchNoteType.LISTS -> note.isChecklist || hasListSyntax(note.content)
+                                SearchNoteType.URLS -> LinkHelper.extractUrls(note.title).isNotEmpty() ||
+                                    LinkHelper.extractUrls(note.content).isNotEmpty()
+                                SearchNoteType.AUDIO -> note.audioCount > 0
+                                SearchNoteType.PHOTOS -> note.photoCount > 0
+                            }
+                        }
+                    }
+
+                    matchesQuery && matchesTypes
                 }
                 SearchUiState(
                     searchQuery = query,
+                    selectedTypes = selectedTypes,
                     results = filtered,
                     availableLabels = combinedLabels,
                     isLoading = false
@@ -81,6 +118,29 @@ class SearchViewModel(
 
     fun onSearchQueryChange(query: String) {
         _searchQuery.value = query
+    }
+
+    fun toggleTypeFilter(type: SearchNoteType) {
+        _selectedTypes.update { current ->
+            if (current.contains(type)) current - type else current + type
+        }
+    }
+
+    fun clearTypeFilters() {
+        _selectedTypes.value = emptySet()
+    }
+
+    private fun hasListSyntax(text: String): Boolean {
+        return text.lines().any { line ->
+            val trimmed = line.trimStart()
+            trimmed.startsWith("[ ] ") ||
+            trimmed.startsWith("[x] ") ||
+            trimmed.startsWith("[X] ") ||
+            trimmed.startsWith("- ") ||
+            trimmed.startsWith("* ") ||
+            trimmed.startsWith("• ") ||
+            LIST_LINE_REGEX.containsMatchIn(line)
+        }
     }
 
     private fun buildSearchNoteItems(

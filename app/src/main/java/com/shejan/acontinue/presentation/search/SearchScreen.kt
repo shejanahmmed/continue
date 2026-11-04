@@ -120,7 +120,7 @@ fun SearchScreen(
                     )
                 }
             },
-            badgeText = if (uiState.searchQuery.isNotBlank() && uiState.results.isNotEmpty()) {
+            badgeText = if ((uiState.searchQuery.isNotBlank() || uiState.selectedTypes.isNotEmpty()) && uiState.results.isNotEmpty()) {
                 "${uiState.results.size} FOUND"
             } else null
         )
@@ -205,31 +205,69 @@ fun SearchScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
+        val isFilterOrSearchActive = uiState.searchQuery.isNotBlank() || uiState.selectedTypes.isNotEmpty()
+
         // 3. Search Results List / Discovery Filter Sections
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
             contentPadding = PaddingValues(top = 4.dp, bottom = 48.dp)
         ) {
-            if (uiState.searchQuery.isBlank()) {
-                // Section 1: TYPES
-                item {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    SearchSectionHeader(title = "TYPES")
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        SearchFilterPill(label = "Lists", icon = Icons.Outlined.CheckBox)
-                        SearchFilterPill(label = "URLs", icon = Icons.Outlined.Link)
-                        SearchFilterPill(label = "Audio", icon = Icons.Outlined.Mic)
-                        SearchFilterPill(label = "Photos", icon = Icons.Outlined.Photo)
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
+            // Section 1: TYPES
+            item(key = "search_section_types") {
+                Spacer(modifier = Modifier.height(8.dp))
+                SearchSectionHeader(title = "TYPES")
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    SearchFilterPill(
+                        label = "Lists",
+                        icon = Icons.Outlined.CheckBox,
+                        isSelected = uiState.selectedTypes.contains(SearchNoteType.LISTS),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.toggleTypeFilter(SearchNoteType.LISTS)
+                            keyboardController?.hide()
+                        }
+                    )
+                    SearchFilterPill(
+                        label = "URLs",
+                        icon = Icons.Outlined.Link,
+                        isSelected = uiState.selectedTypes.contains(SearchNoteType.URLS),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.toggleTypeFilter(SearchNoteType.URLS)
+                            keyboardController?.hide()
+                        }
+                    )
+                    SearchFilterPill(
+                        label = "Audio",
+                        icon = Icons.Outlined.Mic,
+                        isSelected = uiState.selectedTypes.contains(SearchNoteType.AUDIO),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.toggleTypeFilter(SearchNoteType.AUDIO)
+                            keyboardController?.hide()
+                        }
+                    )
+                    SearchFilterPill(
+                        label = "Photos",
+                        icon = Icons.Outlined.Photo,
+                        isSelected = uiState.selectedTypes.contains(SearchNoteType.PHOTOS),
+                        onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            viewModel.toggleTypeFilter(SearchNoteType.PHOTOS)
+                            keyboardController?.hide()
+                        }
+                    )
                 }
+                Spacer(modifier = Modifier.height(20.dp))
+            }
 
+            if (!isFilterOrSearchActive) {
                 // Section 2: LABELS
-                item {
+                item(key = "search_section_labels") {
                     SearchSectionHeader(title = "LABELS")
                     if (uiState.availableLabels.isEmpty()) {
                         Text(
@@ -246,7 +284,15 @@ fun SearchScreen(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
                             uiState.availableLabels.forEach { labelName ->
-                                SearchFilterPill(label = labelName, icon = Icons.AutoMirrored.Outlined.Label)
+                                SearchFilterPill(
+                                    label = labelName,
+                                    icon = Icons.AutoMirrored.Outlined.Label,
+                                    isSelected = false,
+                                    onClick = {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        viewModel.onSearchQueryChange(labelName)
+                                    }
+                                )
                             }
                         }
                     }
@@ -254,7 +300,7 @@ fun SearchScreen(
                 }
 
                 // Section 3: COLORS
-                item {
+                item(key = "search_section_colors") {
                     SearchSectionHeader(title = "COLORS")
                     FlowRow(
                         modifier = Modifier.fillMaxWidth(),
@@ -269,7 +315,7 @@ fun SearchScreen(
                     Spacer(modifier = Modifier.height(24.dp))
                 }
             } else if (uiState.results.isEmpty() && !uiState.isLoading) {
-                item {
+                item(key = "search_no_results") {
                     MonochromeCard {
                         Column(
                             modifier = Modifier
@@ -285,7 +331,7 @@ fun SearchScreen(
                             )
                             Spacer(modifier = Modifier.height(4.dp))
                             Text(
-                                text = "Try searching with different keywords.",
+                                text = "Try selecting different filters or keywords.",
                                 color = colors.textSecondary,
                                 fontSize = 12.sp
                             )
@@ -325,6 +371,7 @@ private fun SearchSectionHeader(title: String) {
 private fun SearchFilterPill(
     label: String,
     icon: ImageVector,
+    isSelected: Boolean = false,
     onClick: () -> Unit = {}
 ) {
     val colors = LocalUtilitarianColors.current
@@ -334,7 +381,10 @@ private fun SearchFilterPill(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(percent = 50),
         color = Color(0xFF161616),
-        border = BorderStroke(1.dp, colors.borderStroke)
+        border = BorderStroke(
+            width = 1.dp,
+            color = if (isSelected) colors.textPrimary else colors.borderStroke
+        )
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
@@ -343,7 +393,7 @@ private fun SearchFilterPill(
             Icon(
                 imageVector = icon,
                 contentDescription = null,
-                tint = colors.textPrimaryMuted,
+                tint = if (isSelected) colors.textPrimary else colors.textPrimaryMuted,
                 modifier = Modifier.size(16.dp)
             )
             Spacer(modifier = Modifier.width(8.dp))
@@ -352,7 +402,7 @@ private fun SearchFilterPill(
                 color = colors.textPrimary,
                 fontFamily = FontFamily.Monospace,
                 fontSize = 12.sp,
-                fontWeight = FontWeight.Medium
+                fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Medium
             )
         }
     }

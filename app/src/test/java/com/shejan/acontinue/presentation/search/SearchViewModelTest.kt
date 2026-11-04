@@ -192,4 +192,225 @@ class SearchViewModelTest {
         val labels = vmWithSettings.uiState.value.availableLabels
         assertEquals(listOf("Hardware", "Ideas", "Work"), labels)
     }
+
+    @Test
+    fun `test toggle LISTS type filter returns only notes with lists or checklists`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 701L,
+                activityId = 0L,
+                title = "Shopping",
+                content = "[ ] Apples\n[x] Milk",
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 702L,
+                activityId = 0L,
+                title = "Regular Note",
+                content = "Just plain narrative text without any checklist items",
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleTypeFilter(SearchNoteType.LISTS)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.selectedTypes.contains(SearchNoteType.LISTS))
+        assertEquals(1, state.results.size)
+        assertEquals("Shopping", state.results[0].title)
+    }
+
+    @Test
+    fun `test toggle URLS type filter returns only notes with web links`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 801L,
+                activityId = 0L,
+                title = "Reference Link",
+                content = "Docs located at https://developer.android.com/compose",
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 802L,
+                activityId = 0L,
+                title = "Plain Notes",
+                content = "Standard notes text without links",
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleTypeFilter(SearchNoteType.URLS)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.results.size)
+        assertEquals("Reference Link", state.results[0].title)
+    }
+
+    @Test
+    fun `test toggle AUDIO type filter returns only notes with audio attachments`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 901L,
+                activityId = 0L,
+                title = "Meeting Recording",
+                content = "Audio attached below:\n![audio](content://media/audio1.m4a)",
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 902L,
+                activityId = 0L,
+                title = "Written Summary",
+                content = "Standard text transcript without audio",
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleTypeFilter(SearchNoteType.AUDIO)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.results.size)
+        assertEquals("Meeting Recording", state.results[0].title)
+    }
+
+    @Test
+    fun `test toggle PHOTOS type filter returns only notes with photo attachments`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1001L,
+                activityId = 0L,
+                title = "Whiteboard Photo",
+                content = "Architecture diagram:\n![photo](content://media/photo1.jpg)",
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1002L,
+                activityId = 0L,
+                title = "Diagram Description",
+                content = "Blocks connected via local bus",
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleTypeFilter(SearchNoteType.PHOTOS)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.results.size)
+        assertEquals("Whiteboard Photo", state.results[0].title)
+    }
+
+    @Test
+    fun `test multi-selection filter returns only notes satisfying all active types`() = runTest(testDispatcher) {
+        // Note with list only
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1101L,
+                activityId = 0L,
+                title = "List Only",
+                content = "[ ] Task 1\n[ ] Task 2",
+                updatedAtMillis = 2000L
+            )
+        )
+        // Note with photo only
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1102L,
+                activityId = 0L,
+                title = "Photo Only",
+                content = "Photo attached:\n![photo](content://media/photo2.jpg)",
+                updatedAtMillis = 2000L
+            )
+        )
+        // Note with both list and photo
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1103L,
+                activityId = 0L,
+                title = "List And Photo",
+                content = "[ ] Inspect board\n![photo](content://media/photo3.jpg)",
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleTypeFilter(SearchNoteType.LISTS)
+        viewModel.toggleTypeFilter(SearchNoteType.PHOTOS)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(setOf(SearchNoteType.LISTS, SearchNoteType.PHOTOS), state.selectedTypes)
+        assertEquals(1, state.results.size)
+        assertEquals("List And Photo", state.results[0].title)
+    }
+
+    @Test
+    fun `test query combined with type filter filters by both query and type`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1201L,
+                activityId = 0L,
+                title = "Grocery Shopping",
+                content = "[ ] Milk\n[ ] Bread",
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1202L,
+                activityId = 0L,
+                title = "Workout Checklist",
+                content = "[ ] Bench press\n[ ] Squats",
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSearchQueryChange("Grocery")
+        viewModel.toggleTypeFilter(SearchNoteType.LISTS)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.results.size)
+        assertEquals("Grocery Shopping", state.results[0].title)
+    }
+
+    @Test
+    fun `test toggling active filter off deselects and restores state`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1301L,
+                activityId = 0L,
+                title = "Checklist Note",
+                content = "[ ] Task item",
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        // Toggle on
+        viewModel.toggleTypeFilter(SearchNoteType.LISTS)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.results.size)
+
+        // Toggle off
+        viewModel.toggleTypeFilter(SearchNoteType.LISTS)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.selectedTypes.isEmpty())
+        assertTrue(viewModel.uiState.value.results.isEmpty())
+    }
 }
