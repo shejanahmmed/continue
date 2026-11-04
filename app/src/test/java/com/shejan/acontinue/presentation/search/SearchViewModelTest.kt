@@ -591,4 +591,198 @@ class SearchViewModelTest {
         assertTrue(viewModel.uiState.value.selectedLabels.isEmpty())
         assertTrue(viewModel.uiState.value.results.isEmpty())
     }
+
+    @Test
+    fun `test toggle single color filter returns notes with that exact color`() = runTest(testDispatcher) {
+        val crimsonColor = 0xFF5C1324L
+        val forestGreenColor = 0xFF1C4635L
+
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1901L,
+                activityId = 0L,
+                title = "Crimson Note",
+                content = "Tagged with crimson color",
+                colorHex = crimsonColor,
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1902L,
+                activityId = 0L,
+                title = "Forest Green Note",
+                content = "Tagged with forest green color",
+                colorHex = forestGreenColor,
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleColorFilter(crimsonColor)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.selectedColors.contains(crimsonColor))
+        assertEquals(1, state.results.size)
+        assertEquals("Crimson Note", state.results[0].title)
+    }
+
+    @Test
+    fun `test toggle default color filter returns default uncolored notes`() = runTest(testDispatcher) {
+        val defaultColor = 0xFF000000L
+        val amberColor = 0xFF6B4407L
+
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 2001L,
+                activityId = 0L,
+                title = "Default Color Note",
+                content = "Standard background note",
+                colorHex = 0L, // 0L represents default
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 2002L,
+                activityId = 0L,
+                title = "Amber Note",
+                content = "Colored note",
+                colorHex = amberColor,
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleColorFilter(defaultColor)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.results.size)
+        assertEquals("Default Color Note", state.results[0].title)
+    }
+
+    @Test
+    fun `test multi-color filter returns notes matching any selected color`() = runTest(testDispatcher) {
+        val crimsonColor = 0xFF5C1324L
+        val navyColor = 0xFF283556L
+        val purpleColor = 0xFF3E2055L
+
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 2101L,
+                activityId = 0L,
+                title = "Crimson Item",
+                content = "First color",
+                colorHex = crimsonColor,
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 2102L,
+                activityId = 0L,
+                title = "Navy Item",
+                content = "Second color",
+                colorHex = navyColor,
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 2103L,
+                activityId = 0L,
+                title = "Purple Item",
+                content = "Third color",
+                colorHex = purpleColor,
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleColorFilter(crimsonColor)
+        viewModel.toggleColorFilter(navyColor)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(setOf(crimsonColor, navyColor), state.selectedColors)
+        assertEquals(2, state.results.size)
+        val titles = state.results.map { it.title }.toSet()
+        assertEquals(setOf("Crimson Item", "Navy Item"), titles)
+    }
+
+    @Test
+    fun `test combining color filter with type filter`() = runTest(testDispatcher) {
+        val forestGreenColor = 0xFF1C4635L
+
+        // Green note with checklist
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 2201L,
+                activityId = 0L,
+                title = "Green Checklist",
+                content = "[ ] First step\n[ ] Second step",
+                colorHex = forestGreenColor,
+                updatedAtMillis = 2000L
+            )
+        )
+        // Green note without checklist
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 2202L,
+                activityId = 0L,
+                title = "Green Narrative",
+                content = "Paragraph text only",
+                colorHex = forestGreenColor,
+                updatedAtMillis = 2000L
+            )
+        )
+        // Default note with checklist
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 2203L,
+                activityId = 0L,
+                title = "Default Checklist",
+                content = "[ ] Other checklist",
+                colorHex = 0L,
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleColorFilter(forestGreenColor)
+        viewModel.toggleTypeFilter(SearchNoteType.LISTS)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.results.size)
+        assertEquals("Green Checklist", state.results[0].title)
+    }
+
+    @Test
+    fun `test toggling active color filter off restores previous state`() = runTest(testDispatcher) {
+        val tealColor = 0xFF144A56L
+
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 2301L,
+                activityId = 0L,
+                title = "Teal Note",
+                content = "Testing toggle off",
+                colorHex = tealColor,
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleColorFilter(tealColor)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.results.size)
+
+        viewModel.toggleColorFilter(tealColor)
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.selectedColors.isEmpty())
+        assertTrue(viewModel.uiState.value.results.isEmpty())
+    }
 }

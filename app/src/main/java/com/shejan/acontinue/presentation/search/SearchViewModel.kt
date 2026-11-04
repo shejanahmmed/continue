@@ -9,6 +9,8 @@ import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.repository.NoteRepository
 import com.shejan.acontinue.domain.repository.SettingsRepository
+import com.shejan.acontinue.presentation.create.DEFAULT_NOTE_COLOR_HEX
+import com.shejan.acontinue.presentation.create.isDefaultNoteColor
 import com.shejan.acontinue.presentation.diary.DiaryNoteItem
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +36,7 @@ data class SearchUiState(
     val searchQuery: String = "",
     val selectedTypes: Set<SearchNoteType> = emptySet(),
     val selectedLabels: Set<String> = emptySet(),
+    val selectedColors: Set<Long> = emptySet(),
     val results: List<DiaryNoteItem> = emptyList(),
     val availableLabels: List<String> = emptyList(),
     val isLoading: Boolean = false
@@ -42,7 +45,8 @@ data class SearchUiState(
 private data class SearchFilterParams(
     val query: String,
     val selectedTypes: Set<SearchNoteType>,
-    val selectedLabels: Set<String>
+    val selectedLabels: Set<String>,
+    val selectedColors: Set<Long>
 )
 
 class SearchViewModel(
@@ -54,14 +58,20 @@ class SearchViewModel(
     private val _searchQuery = MutableStateFlow("")
     private val _selectedTypes = MutableStateFlow<Set<SearchNoteType>>(emptySet())
     private val _selectedLabels = MutableStateFlow<Set<String>>(emptySet())
+    private val _selectedColors = MutableStateFlow<Set<Long>>(emptySet())
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
     init {
         val savedLabelsFlow = settingsRepository?.getNoteLabels() ?: flowOf(emptyList())
 
-        val filterParamsFlow = combine(_searchQuery, _selectedTypes, _selectedLabels) { query, selectedTypes, selectedLabels ->
-            SearchFilterParams(query, selectedTypes, selectedLabels)
+        val filterParamsFlow = combine(
+            _searchQuery,
+            _selectedTypes,
+            _selectedLabels,
+            _selectedColors
+        ) { query, selectedTypes, selectedLabels, selectedColors ->
+            SearchFilterParams(query, selectedTypes, selectedLabels, selectedColors)
         }
 
         combine(
@@ -73,6 +83,7 @@ class SearchViewModel(
             val query = params.query
             val selectedTypes = params.selectedTypes
             val selectedLabels = params.selectedLabels
+            val selectedColors = params.selectedColors
 
             val allNoteItems = buildSearchNoteItems(activities, notes)
             val labelsFromNotes = allNoteItems.flatMap { it.labels }
@@ -82,13 +93,17 @@ class SearchViewModel(
                 .distinctBy { it.lowercase() }
                 .sortedWith(String.CASE_INSENSITIVE_ORDER)
 
-            val isFilterOrQueryActive = query.isNotBlank() || selectedTypes.isNotEmpty() || selectedLabels.isNotEmpty()
+            val isFilterOrQueryActive = query.isNotBlank() ||
+                selectedTypes.isNotEmpty() ||
+                selectedLabels.isNotEmpty() ||
+                selectedColors.isNotEmpty()
 
             if (!isFilterOrQueryActive) {
                 SearchUiState(
                     searchQuery = query,
                     selectedTypes = selectedTypes,
                     selectedLabels = selectedLabels,
+                    selectedColors = selectedColors,
                     results = emptyList(),
                     availableLabels = combinedLabels,
                     isLoading = false
@@ -125,12 +140,20 @@ class SearchViewModel(
                         }
                     }
 
-                    matchesQuery && matchesTypes && matchesLabels
+                    val matchesColors = if (selectedColors.isEmpty()) {
+                        true
+                    } else {
+                        val normalized = normalizeColor(note.colorHex)
+                        selectedColors.contains(normalized)
+                    }
+
+                    matchesQuery && matchesTypes && matchesLabels && matchesColors
                 }
                 SearchUiState(
                     searchQuery = query,
                     selectedTypes = selectedTypes,
                     selectedLabels = selectedLabels,
+                    selectedColors = selectedColors,
                     results = filtered,
                     availableLabels = combinedLabels,
                     isLoading = false
@@ -163,6 +186,21 @@ class SearchViewModel(
 
     fun clearLabelFilters() {
         _selectedLabels.value = emptySet()
+    }
+
+    fun toggleColorFilter(colorHex: Long) {
+        val normalized = normalizeColor(colorHex)
+        _selectedColors.update { current ->
+            if (current.contains(normalized)) current - normalized else current + normalized
+        }
+    }
+
+    fun clearColorFilters() {
+        _selectedColors.value = emptySet()
+    }
+
+    private fun normalizeColor(colorHex: Long): Long {
+        return if (isDefaultNoteColor(colorHex)) DEFAULT_NOTE_COLOR_HEX else colorHex
     }
 
     private fun hasListSyntax(text: String): Boolean {

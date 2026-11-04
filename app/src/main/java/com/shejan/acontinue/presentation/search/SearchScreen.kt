@@ -28,6 +28,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Label
+import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckBox
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FormatColorReset
@@ -65,6 +66,7 @@ import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.presentation.create.DEFAULT_NOTE_COLOR_HEX
 import com.shejan.acontinue.presentation.create.NOTE_COLORS
+import com.shejan.acontinue.presentation.create.isDefaultNoteColor
 import com.shejan.acontinue.presentation.diary.DiaryNoteItem
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
@@ -100,7 +102,8 @@ fun SearchScreen(
 
         val isFilterOrSearchActive = uiState.searchQuery.isNotBlank() ||
             uiState.selectedTypes.isNotEmpty() ||
-            uiState.selectedLabels.isNotEmpty()
+            uiState.selectedLabels.isNotEmpty() ||
+            uiState.selectedColors.isNotEmpty()
 
         // 1. DotMatrix Title Header with Note-Page Styled Left Back Button
         DotMatrixHeader(
@@ -301,55 +304,65 @@ fun SearchScreen(
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
-            if (!isFilterOrSearchActive) {
-                // Section 3: COLORS
-                item(key = "search_section_colors") {
-                    SearchSectionHeader(title = "COLORS")
-                    FlowRow(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalArrangement = Arrangement.spacedBy(10.dp)
-                    ) {
-                        SearchColorFilterPill(colorHex = null)
-                        NOTE_COLORS.filter { it != DEFAULT_NOTE_COLOR_HEX }.forEach { colorHex ->
-                            SearchColorFilterPill(colorHex = colorHex)
-                        }
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
-                }
-            } else if (uiState.results.isEmpty() && !uiState.isLoading) {
-                item(key = "search_no_results") {
-                    MonochromeCard {
-                        Column(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(vertical = 16.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally
-                        ) {
-                            Text(
-                                text = "No matching notes found.",
-                                color = colors.textPrimary,
-                                fontWeight = FontWeight.SemiBold,
-                                fontSize = 14.sp
-                            )
-                            Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = "Try selecting different filters or keywords.",
-                                color = colors.textSecondary,
-                                fontSize = 12.sp
-                            )
-                        }
+            // Section 3: COLORS
+            item(key = "search_section_colors") {
+                SearchSectionHeader(title = "COLORS")
+                FlowRow(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalArrangement = Arrangement.spacedBy(10.dp)
+                ) {
+                    NOTE_COLORS.forEach { colorHex ->
+                        val isSelected = uiState.selectedColors.contains(colorHex)
+                        SearchColorFilterPill(
+                            colorHex = colorHex,
+                            isSelected = isSelected,
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                viewModel.toggleColorFilter(colorHex)
+                                keyboardController?.hide()
+                            }
+                        )
                     }
                 }
-            } else {
-                items(uiState.results, key = { "search_note_${it.activityId}_${it.noteId}" }) { note ->
-                    SearchNoteItemCard(
-                        note = note,
-                        onClick = {
-                            onNoteClick(note.activityId, note.noteId)
+                Spacer(modifier = Modifier.height(20.dp))
+            }
+
+            if (isFilterOrSearchActive) {
+                if (uiState.results.isEmpty() && !uiState.isLoading) {
+                    item(key = "search_no_results") {
+                        MonochromeCard {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 16.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "No matching notes found.",
+                                    color = colors.textPrimary,
+                                    fontWeight = FontWeight.SemiBold,
+                                    fontSize = 14.sp
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = "Try selecting different filters or keywords.",
+                                    color = colors.textSecondary,
+                                    fontSize = 12.sp
+                                )
+                            }
                         }
-                    )
-                    Spacer(modifier = Modifier.height(10.dp))
+                    }
+                } else {
+                    items(uiState.results, key = { "search_note_${it.activityId}_${it.noteId}" }) { note ->
+                        SearchNoteItemCard(
+                            note = note,
+                            onClick = {
+                                onNoteClick(note.activityId, note.noteId)
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(10.dp))
+                    }
                 }
             }
         }
@@ -413,12 +426,21 @@ private fun SearchFilterPill(
 
 @Composable
 private fun SearchColorFilterPill(
-    colorHex: Long?,
+    colorHex: Long,
+    isSelected: Boolean = false,
     onClick: () -> Unit = {}
 ) {
     val colors = LocalUtilitarianColors.current
-    val isDefault = colorHex == null || colorHex == 0L || colorHex == 0xFF000000L || colorHex == 0xFF121212L
+    val isDefault = isDefaultNoteColor(colorHex)
     val bgColor = if (isDefault) Color(0xFF161616) else Color(colorHex)
+    val borderColor = if (isSelected) {
+        colors.textPrimary
+    } else if (isDefault) {
+        colors.borderStroke
+    } else {
+        Color.White.copy(alpha = 0.25f)
+    }
+
     Surface(
         modifier = Modifier
             .size(width = 48.dp, height = 30.dp)
@@ -426,14 +448,21 @@ private fun SearchColorFilterPill(
             .clickable(onClick = onClick),
         shape = RoundedCornerShape(percent = 50),
         color = bgColor,
-        border = BorderStroke(1.dp, if (isDefault) colors.borderStroke else Color.White.copy(alpha = 0.25f))
+        border = BorderStroke(1.dp, borderColor)
     ) {
-        if (isDefault) {
-            Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+        Box(contentAlignment = Alignment.Center, modifier = Modifier.fillMaxSize()) {
+            if (isDefault) {
                 Icon(
                     imageVector = Icons.Outlined.FormatColorReset,
                     contentDescription = "Default / No color",
-                    tint = colors.textPrimaryMuted,
+                    tint = if (isSelected) colors.textPrimary else colors.textPrimaryMuted,
+                    modifier = Modifier.size(16.dp)
+                )
+            } else if (isSelected) {
+                Icon(
+                    imageVector = Icons.Outlined.Check,
+                    contentDescription = "Selected color",
+                    tint = Color.White,
                     modifier = Modifier.size(16.dp)
                 )
             }
