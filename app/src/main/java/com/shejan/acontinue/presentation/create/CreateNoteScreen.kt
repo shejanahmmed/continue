@@ -644,10 +644,17 @@ fun CreateNoteScreen(
     }
 
     var scrollContainerCoordinates by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var singleFieldCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
+    var singleLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
     var autoScrollJob by remember { mutableStateOf<Job?>(null) }
+    var lastCursorFieldTop by remember { mutableStateOf<Float?>(null) }
 
-    val smoothScrollCursorIntoView: (LayoutCoordinates, TextLayoutResult, Int) -> Unit = remember(scrollState) {
-        { fieldCoordinates, textLayoutResult, cursorOffset ->
+    LaunchedEffect(editingActivityId) {
+        lastCursorFieldTop = null
+    }
+
+    val smoothScrollCursorIntoView: (LayoutCoordinates, TextLayoutResult, Int, Boolean) -> Unit = remember(scrollState) {
+        { fieldCoordinates, textLayoutResult, cursorOffset, isDeletion ->
             autoScrollJob?.cancel()
             autoScrollJob = coroutineScope.launch {
                 // Delay 20ms to allow layout pass and scrollState.maxValue to update
@@ -656,30 +663,61 @@ fun CreateNoteScreen(
                 val containerCoords = scrollContainerCoordinates ?: return@launch
                 if (!containerCoords.isAttached || !fieldCoordinates.isAttached) return@launch
 
-                val safeOffset = cursorOffset.coerceIn(0, textLayoutResult.layoutInput.text.length)
-                val cursorRect = textLayoutResult.getCursorRect(safeOffset)
+                val activeLayout = if (fieldCoordinates == singleFieldCoords) {
+                    singleLayoutResult ?: textLayoutResult
+                } else {
+                    textLayoutResult
+                }
+
+                val safeOffset = cursorOffset.coerceIn(0, activeLayout.layoutInput.text.length)
+                val cursorRect = activeLayout.getCursorRect(safeOffset)
 
                 val cursorInViewport = containerCoords.localPositionOf(
                     sourceCoordinates = fieldCoordinates,
                     relativeToSource = Offset(cursorRect.left, cursorRect.bottom)
                 )
+                val cursorTopInViewport = containerCoords.localPositionOf(
+                    sourceCoordinates = fieldCoordinates,
+                    relativeToSource = Offset(cursorRect.left, cursorRect.top)
+                ).y
+                val cursorBottomInViewport = cursorInViewport.y
 
                 val viewportHeight = containerCoords.size.height.toFloat()
                 if (viewportHeight > 0f) {
                     // Comfort threshold: keep cursor at or above ~55% of visible viewport height (above the keyboard)
-                    val comfortThreshold = (viewportHeight * 0.55f).coerceAtLeast(140f)
-                    if (cursorInViewport.y > comfortThreshold) {
-                        val excessPixels = (cursorInViewport.y - comfortThreshold).roundToInt()
-                        val targetScroll = (scrollState.value + excessPixels).coerceAtMost(scrollState.maxValue)
-                        if (targetScroll > scrollState.value) {
-                            scrollState.animateScrollTo(
-                                value = targetScroll,
-                                animationSpec = tween(
-                                    durationMillis = 140,
-                                    easing = LinearOutSlowInEasing
-                                )
+                    val bottomComfortThreshold = (viewportHeight * 0.55f).coerceAtLeast(140f)
+                    val topComfortThreshold = (viewportHeight * 0.12f).coerceIn(40f, 120f)
+
+                    val currentFieldTop = cursorRect.top
+                    val prevFieldTop = lastCursorFieldTop
+                    lastCursorFieldTop = currentFieldTop
+
+                    var targetScroll = scrollState.value
+
+                    if (cursorBottomInViewport > bottomComfortThreshold) {
+                        // Scrolling DOWN: cursor advanced below comfort threshold (e.g. typing new lines)
+                        val excessPixels = (cursorBottomInViewport - bottomComfortThreshold).roundToInt()
+                        targetScroll = (scrollState.value + excessPixels).coerceAtMost(scrollState.maxValue)
+                    } else if (cursorTopInViewport < topComfortThreshold) {
+                        // Scrolling UP: cursor moved above top comfort threshold (e.g. backspacing near top)
+                        val deficitPixels = (topComfortThreshold - cursorTopInViewport).roundToInt()
+                        targetScroll = (scrollState.value - deficitPixels).coerceAtLeast(0)
+                    } else if (isDeletion && prevFieldTop != null && prevFieldTop > currentFieldTop + 15f && scrollState.value > 0) {
+                        // Scrolling UP: cursor jumped up across lines due to line deletion / backspacing while scrolled
+                        val lineDelta = (prevFieldTop - currentFieldTop).roundToInt()
+                        targetScroll = (scrollState.value - lineDelta).coerceAtLeast(0)
+                    }
+
+                    targetScroll = targetScroll.coerceIn(0, scrollState.maxValue)
+
+                    if (targetScroll != scrollState.value) {
+                        scrollState.animateScrollTo(
+                            value = targetScroll,
+                            animationSpec = tween(
+                                durationMillis = 140,
+                                easing = LinearOutSlowInEasing
                             )
-                        }
+                        )
                     }
                 }
             }
@@ -1147,9 +1185,6 @@ fun CreateNoteScreen(
                 }
 
                 if (photoMatches.isEmpty()) {
-                    var singleFieldCoords by remember { mutableStateOf<LayoutCoordinates?>(null) }
-                    var singleLayoutResult by remember { mutableStateOf<TextLayoutResult?>(null) }
-
                     Box(
                         modifier = Modifier
                             .fillMaxWidth()
@@ -1174,6 +1209,7 @@ fun CreateNoteScreen(
                             enabled = isEditMode,
                             onValueChange = { incomingTfv ->
                                 if (isEditMode) {
+                                    val isDeletion = incomingTfv.text.length < noteTextState.text.length
                                     val newTfv = NoteAutoNumbering.handleAutoNumbering(noteTextState, incomingTfv)
                                     if (newTfv.text != noteTextState.text) {
                                         val newFormatState = NoteTextFormatter.onTextChange(
@@ -1188,7 +1224,7 @@ fun CreateNoteScreen(
                                         undoManager.recordTyping(takeSnapshot(newNoteTextState = newTfv, newFormatState = newFormatState))
                                         singleFieldCoords?.let { coords ->
                                             singleLayoutResult?.let { layout ->
-                                                smoothScrollCursorIntoView(coords, layout, newTfv.selection.end)
+                                                smoothScrollCursorIntoView(coords, layout, newTfv.selection.end, isDeletion)
                                             }
                                         }
                                     } else if (newTfv.selection != noteTextState.selection) {
@@ -1552,9 +1588,10 @@ fun CreateNoteScreen(
                                                 checklistItems = updated
                                                 undoManager.recordTyping(takeSnapshot(newChecklistItems = updated))
                                             }
+                                            val isDeletion = newText.length < item.text.length
                                             itemCoords?.let { coords ->
                                                 itemLayoutResult?.let { layout ->
-                                                    smoothScrollCursorIntoView(coords, layout, newText.length)
+                                                    smoothScrollCursorIntoView(coords, layout, newText.length, isDeletion)
                                                 }
                                             }
                                         }
@@ -2766,7 +2803,7 @@ private fun NoteTextSegmentField(
     onTextChange: (newText: String, localCursor: Int) -> Unit,
     onSelectionChange: ((localSelection: TextRange) -> Unit)? = null,
     onFocused: () -> Unit,
-    onCursorPositionChanged: ((LayoutCoordinates, TextLayoutResult, Int) -> Unit)? = null
+    onCursorPositionChanged: ((LayoutCoordinates, TextLayoutResult, Int, Boolean) -> Unit)? = null
 ) {
     val colors = LocalUtilitarianColors.current
     val keyboardController = LocalSoftwareKeyboardController.current
@@ -2813,6 +2850,7 @@ private fun NoteTextSegmentField(
             enabled = enabled,
             onValueChange = { incomingTfv ->
                 if (enabled) {
+                    val isDeletion = incomingTfv.text.length < tfv.text.length
                     val newTfv = NoteAutoNumbering.handleAutoNumbering(tfv, incomingTfv)
                     val textChanged = newTfv.text != tfv.text
                     tfv = newTfv
@@ -2823,7 +2861,7 @@ private fun NoteTextSegmentField(
                     }
                     segmentCoords?.let { coords ->
                         segmentLayoutResult?.let { layout ->
-                            onCursorPositionChanged?.invoke(coords, layout, newTfv.selection.end)
+                            onCursorPositionChanged?.invoke(coords, layout, newTfv.selection.end, isDeletion)
                         }
                     }
                 }
