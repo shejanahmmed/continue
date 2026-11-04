@@ -413,4 +413,182 @@ class SearchViewModelTest {
         assertTrue(viewModel.uiState.value.selectedTypes.isEmpty())
         assertTrue(viewModel.uiState.value.results.isEmpty())
     }
+
+    @Test
+    fun `test toggle single label filter returns only notes with that label`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1401L,
+                activityId = 0L,
+                title = "Work Task",
+                content = "Prepare quarterly review",
+                labels = listOf("Work"),
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1402L,
+                activityId = 0L,
+                title = "Personal Errand",
+                content = "Buy groceries",
+                labels = listOf("Personal"),
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleLabelFilter("Work")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertTrue(state.selectedLabels.contains("Work"))
+        assertEquals(1, state.results.size)
+        assertEquals("Work Task", state.results[0].title)
+    }
+
+    @Test
+    fun `test multi-selection label filter returns only notes having all selected labels`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1501L,
+                activityId = 0L,
+                title = "Urgent Work",
+                content = "Server outage report",
+                labels = listOf("Work", "Urgent"),
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1502L,
+                activityId = 0L,
+                title = "General Work",
+                content = "Weekly sprint planning",
+                labels = listOf("Work"),
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1503L,
+                activityId = 0L,
+                title = "Personal Urgent",
+                content = "Call plumber",
+                labels = listOf("Urgent"),
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleLabelFilter("Work")
+        viewModel.toggleLabelFilter("Urgent")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(setOf("Work", "Urgent"), state.selectedLabels)
+        assertEquals(1, state.results.size)
+        assertEquals("Urgent Work", state.results[0].title)
+    }
+
+    @Test
+    fun `test combining type filter and label filter returns notes with both`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1601L,
+                activityId = 0L,
+                title = "Project Checklist",
+                content = "[ ] Deploy to staging\n[x] Run smoke tests",
+                labels = listOf("DevOps"),
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1602L,
+                activityId = 0L,
+                title = "General DevOps Guide",
+                content = "Architecture setup instructions without checklist items",
+                labels = listOf("DevOps"),
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1603L,
+                activityId = 0L,
+                title = "Other Checklist",
+                content = "[ ] Grocery shopping",
+                labels = listOf("Personal"),
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleTypeFilter(SearchNoteType.LISTS)
+        viewModel.toggleLabelFilter("DevOps")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.results.size)
+        assertEquals("Project Checklist", state.results[0].title)
+    }
+
+    @Test
+    fun `test combining search query, type filter, and label filter`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1701L,
+                activityId = 0L,
+                title = "Critical Security Checklist",
+                content = "[ ] Audit open ports\n[ ] Rotate secrets",
+                labels = listOf("Security"),
+                updatedAtMillis = 2000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1702L,
+                activityId = 0L,
+                title = "Routine Security Guidelines",
+                content = "Standard security best practices documentation",
+                labels = listOf("Security"),
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSearchQueryChange("Critical")
+        viewModel.toggleTypeFilter(SearchNoteType.LISTS)
+        viewModel.toggleLabelFilter("Security")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.results.size)
+        assertEquals("Critical Security Checklist", state.results[0].title)
+    }
+
+    @Test
+    fun `test toggling active label filter off restores unselected state`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 1801L,
+                activityId = 0L,
+                title = "Draft Note",
+                content = "Early draft concept",
+                labels = listOf("Draft"),
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleLabelFilter("Draft")
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertEquals(1, viewModel.uiState.value.results.size)
+
+        viewModel.toggleLabelFilter("Draft")
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.selectedLabels.isEmpty())
+        assertTrue(viewModel.uiState.value.results.isEmpty())
+    }
 }

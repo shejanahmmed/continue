@@ -33,9 +33,16 @@ enum class SearchNoteType {
 data class SearchUiState(
     val searchQuery: String = "",
     val selectedTypes: Set<SearchNoteType> = emptySet(),
+    val selectedLabels: Set<String> = emptySet(),
     val results: List<DiaryNoteItem> = emptyList(),
     val availableLabels: List<String> = emptyList(),
     val isLoading: Boolean = false
+)
+
+private data class SearchFilterParams(
+    val query: String,
+    val selectedTypes: Set<SearchNoteType>,
+    val selectedLabels: Set<String>
 )
 
 class SearchViewModel(
@@ -46,19 +53,27 @@ class SearchViewModel(
 
     private val _searchQuery = MutableStateFlow("")
     private val _selectedTypes = MutableStateFlow<Set<SearchNoteType>>(emptySet())
+    private val _selectedLabels = MutableStateFlow<Set<String>>(emptySet())
     private val _uiState = MutableStateFlow(SearchUiState())
     val uiState: StateFlow<SearchUiState> = _uiState.asStateFlow()
 
     init {
         val savedLabelsFlow = settingsRepository?.getNoteLabels() ?: flowOf(emptyList())
 
+        val filterParamsFlow = combine(_searchQuery, _selectedTypes, _selectedLabels) { query, selectedTypes, selectedLabels ->
+            SearchFilterParams(query, selectedTypes, selectedLabels)
+        }
+
         combine(
-            _searchQuery,
-            _selectedTypes,
+            filterParamsFlow,
             activityRepository.getAllActivities(),
             noteRepository.searchNotes(""),
             savedLabelsFlow
-        ) { query, selectedTypes, activities, notes, savedLabels ->
+        ) { params, activities, notes, savedLabels ->
+            val query = params.query
+            val selectedTypes = params.selectedTypes
+            val selectedLabels = params.selectedLabels
+
             val allNoteItems = buildSearchNoteItems(activities, notes)
             val labelsFromNotes = allNoteItems.flatMap { it.labels }
             val combinedLabels = (savedLabels + labelsFromNotes)
@@ -67,12 +82,13 @@ class SearchViewModel(
                 .distinctBy { it.lowercase() }
                 .sortedWith(String.CASE_INSENSITIVE_ORDER)
 
-            val isFilterOrQueryActive = query.isNotBlank() || selectedTypes.isNotEmpty()
+            val isFilterOrQueryActive = query.isNotBlank() || selectedTypes.isNotEmpty() || selectedLabels.isNotEmpty()
 
             if (!isFilterOrQueryActive) {
                 SearchUiState(
                     searchQuery = query,
                     selectedTypes = selectedTypes,
+                    selectedLabels = selectedLabels,
                     results = emptyList(),
                     availableLabels = combinedLabels,
                     isLoading = false
@@ -101,11 +117,20 @@ class SearchViewModel(
                         }
                     }
 
-                    matchesQuery && matchesTypes
+                    val matchesLabels = if (selectedLabels.isEmpty()) {
+                        true
+                    } else {
+                        selectedLabels.all { selected ->
+                            note.labels.any { it.equals(selected, ignoreCase = true) }
+                        }
+                    }
+
+                    matchesQuery && matchesTypes && matchesLabels
                 }
                 SearchUiState(
                     searchQuery = query,
                     selectedTypes = selectedTypes,
+                    selectedLabels = selectedLabels,
                     results = filtered,
                     availableLabels = combinedLabels,
                     isLoading = false
@@ -128,6 +153,16 @@ class SearchViewModel(
 
     fun clearTypeFilters() {
         _selectedTypes.value = emptySet()
+    }
+
+    fun toggleLabelFilter(label: String) {
+        _selectedLabels.update { current ->
+            if (current.contains(label)) current - label else current + label
+        }
+    }
+
+    fun clearLabelFilters() {
+        _selectedLabels.value = emptySet()
     }
 
     private fun hasListSyntax(text: String): Boolean {

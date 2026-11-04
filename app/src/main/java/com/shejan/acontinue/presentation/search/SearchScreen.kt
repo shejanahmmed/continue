@@ -98,6 +98,10 @@ fun SearchScreen(
     ) {
         Spacer(modifier = Modifier.height(16.dp))
 
+        val isFilterOrSearchActive = uiState.searchQuery.isNotBlank() ||
+            uiState.selectedTypes.isNotEmpty() ||
+            uiState.selectedLabels.isNotEmpty()
+
         // 1. DotMatrix Title Header with Note-Page Styled Left Back Button
         DotMatrixHeader(
             title = "SEARCH",
@@ -120,7 +124,7 @@ fun SearchScreen(
                     )
                 }
             },
-            badgeText = if ((uiState.searchQuery.isNotBlank() || uiState.selectedTypes.isNotEmpty()) && uiState.results.isNotEmpty()) {
+            badgeText = if (isFilterOrSearchActive && uiState.results.isNotEmpty()) {
                 "${uiState.results.size} FOUND"
             } else null
         )
@@ -205,8 +209,6 @@ fun SearchScreen(
 
         Spacer(modifier = Modifier.height(14.dp))
 
-        val isFilterOrSearchActive = uiState.searchQuery.isNotBlank() || uiState.selectedTypes.isNotEmpty()
-
         // 3. Search Results List / Discovery Filter Sections
         LazyColumn(
             modifier = Modifier.fillMaxSize(),
@@ -265,40 +267,41 @@ fun SearchScreen(
                 Spacer(modifier = Modifier.height(20.dp))
             }
 
-            if (!isFilterOrSearchActive) {
-                // Section 2: LABELS
-                item(key = "search_section_labels") {
-                    SearchSectionHeader(title = "LABELS")
-                    if (uiState.availableLabels.isEmpty()) {
-                        Text(
-                            text = "No labels",
-                            color = colors.textDisabled,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(vertical = 4.dp)
-                        )
-                    } else {
-                        FlowRow(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            uiState.availableLabels.forEach { labelName ->
-                                SearchFilterPill(
-                                    label = labelName,
-                                    icon = Icons.AutoMirrored.Outlined.Label,
-                                    isSelected = false,
-                                    onClick = {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        viewModel.onSearchQueryChange(labelName)
-                                    }
-                                )
-                            }
+            // Section 2: LABELS
+            item(key = "search_section_labels") {
+                SearchSectionHeader(title = "LABELS")
+                if (uiState.availableLabels.isEmpty()) {
+                    Text(
+                        text = "No labels",
+                        color = colors.textDisabled,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(vertical = 4.dp)
+                    )
+                } else {
+                    FlowRow(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        uiState.availableLabels.forEach { labelName ->
+                            SearchFilterPill(
+                                label = labelName,
+                                icon = Icons.AutoMirrored.Outlined.Label,
+                                isSelected = uiState.selectedLabels.contains(labelName),
+                                onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    viewModel.toggleLabelFilter(labelName)
+                                    keyboardController?.hide()
+                                }
+                            )
                         }
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
                 }
+                Spacer(modifier = Modifier.height(20.dp))
+            }
 
+            if (!isFilterOrSearchActive) {
                 // Section 3: COLORS
                 item(key = "search_section_colors") {
                     SearchSectionHeader(title = "COLORS")
