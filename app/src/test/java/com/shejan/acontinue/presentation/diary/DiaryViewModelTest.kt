@@ -754,5 +754,41 @@ class DiaryViewModelTest {
         assertTrue(activityRepository.activitiesFlow.value.first { it.id == 301L }.isArchived)
         assertTrue(noteRepository.notesFlow.value.first { it.id == 601L }.isArchived)
     }
+
+    @Test
+    fun `test diary preserves palette custom colorHex for note items`() = runTest(testDispatcher) {
+        val customColor = 0xFF5C1324L // Crimson / Burgundy from NOTE_COLORS
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 401L,
+                title = "Colored Note Activity",
+                description = "Note with palette color",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                reminderCategory = "Notes",
+                reminderCategoryColorHex = customColor,
+                createdAtMillis = 1000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 701L,
+                activityId = 401L,
+                title = "Colored Note Activity",
+                content = "Note with palette color",
+                colorHex = customColor,
+                updatedAtMillis = 1000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val noteItem = state.notes.firstOrNull { it.activityId == 401L }
+            org.junit.Assert.assertNotNull(noteItem)
+            org.junit.Assert.assertEquals(customColor, noteItem?.colorHex)
+        }
+    }
 }
 

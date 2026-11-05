@@ -88,6 +88,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.LocalToastState
+import com.shejan.acontinue.presentation.create.isDefaultNoteColor
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
 import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
@@ -709,9 +710,9 @@ private fun DiaryNoteCard(
         }
     }
 
-    val hasCustomColor = note.colorHex != 0L && note.colorHex != 0xFF000000L && note.colorHex != 0xFF121212L
+    val hasCustomColor = !isDefaultNoteColor(note.colorHex)
     val baseBorderColor = if (hasCustomColor) {
-        Color(note.colorHex).copy(alpha = 0.6f)
+        Color.White.copy(alpha = 0.15f)
     } else {
         UtilitarianBorderStroke
     }
@@ -719,7 +720,11 @@ private fun DiaryNoteCard(
     val cardShape = RoundedCornerShape(12.dp)
     val cardBorderColor = if (isSelected) Color.White else baseBorderColor
     val cardBorderWidth = if (isSelected) 2.dp else 1.dp
-    val cardBackgroundColor = if (isSelected) Color(0xFF1E1E1E) else UtilitarianCardBackground
+    val cardBackgroundColor = if (hasCustomColor) {
+        Color(note.colorHex)
+    } else {
+        if (isSelected) Color(0xFF1E1E1E) else UtilitarianCardBackground
+    }
 
     Surface(
         modifier = modifier
@@ -760,7 +765,7 @@ private fun DiaryNoteCard(
                             Icon(
                                 imageVector = Icons.Filled.PushPin,
                                 contentDescription = "Pinned note",
-                                tint = UtilitarianTextSecondary,
+                                tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
                                 modifier = Modifier.size(16.dp)
                             )
                             if (isSelectionMode) Spacer(modifier = Modifier.width(6.dp))
@@ -773,7 +778,7 @@ private fun DiaryNoteCard(
                                     .background(if (isSelected) Color.White else Color.Transparent)
                                     .border(
                                         1.dp,
-                                        if (isSelected) Color.White else UtilitarianBorderStroke,
+                                        if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
                                         RoundedCornerShape(4.dp)
                                     ),
                                 contentAlignment = Alignment.Center
@@ -819,7 +824,7 @@ private fun DiaryNoteCard(
                                     Icon(
                                         imageVector = Icons.Filled.PushPin,
                                         contentDescription = "Pinned note",
-                                        tint = UtilitarianTextSecondary,
+                                        tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
                                         modifier = Modifier.size(16.dp)
                                     )
                                 }
@@ -831,7 +836,7 @@ private fun DiaryNoteCard(
                                             .background(if (isSelected) Color.White else Color.Transparent)
                                             .border(
                                                 1.dp,
-                                                if (isSelected) Color.White else UtilitarianBorderStroke,
+                                                if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
                                                 RoundedCornerShape(4.dp)
                                             ),
                                         contentAlignment = Alignment.Center
@@ -886,15 +891,18 @@ private fun DiaryNoteCard(
                                 modifier = Modifier
                                     .border(
                                         width = 1.dp,
-                                        color = UtilitarianBorderStroke,
+                                        color = if (hasCustomColor) Color.White.copy(alpha = 0.2f) else UtilitarianBorderStroke,
                                         shape = RoundedCornerShape(4.dp)
                                     )
-                                    .background(Color(0xFF161616), RoundedCornerShape(4.dp))
+                                    .background(
+                                        if (hasCustomColor) Color.Black.copy(alpha = 0.25f) else Color(0xFF161616),
+                                        RoundedCornerShape(4.dp)
+                                    )
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
                                 Text(
                                     text = "#$label",
-                                    color = UtilitarianTextSecondary,
+                                    color = if (hasCustomColor) Color.White.copy(alpha = 0.9f) else UtilitarianTextSecondary,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Medium

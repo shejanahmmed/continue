@@ -99,6 +99,7 @@ import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.ActivityTask
 import com.shejan.acontinue.domain.model.ActivityWorkspaceAggregate
 import com.shejan.acontinue.presentation.create.NoteTextFormatter
+import com.shejan.acontinue.presentation.create.isDefaultNoteColor
 import com.shejan.acontinue.ui.theme.UtilitarianAccentRed
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
 import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
@@ -1091,9 +1092,9 @@ private fun WorkspaceNoteCard(
 
     val hasContent = cleanPreview.isNotBlank()
     val hasBadges = audioCount > 0 || photoCount > 0 || note.labels.isNotEmpty()
-    val hasCustomColor = note.colorHex != 0L && note.colorHex != 0xFF000000L && note.colorHex != 0xFF121212L
+    val hasCustomColor = !isDefaultNoteColor(note.colorHex)
     val borderColor = if (hasCustomColor) {
-        Color(note.colorHex).copy(alpha = 0.6f)
+        Color.White.copy(alpha = 0.15f)
     } else {
         UtilitarianBorderStroke
     }
@@ -1104,7 +1105,7 @@ private fun WorkspaceNoteCard(
             .clip(RoundedCornerShape(12.dp))
             .clickable { onClick() },
         shape = RoundedCornerShape(12.dp),
-        color = UtilitarianCardBackground,
+        color = if (hasCustomColor) Color(note.colorHex) else UtilitarianCardBackground,
         border = BorderStroke(1.dp, borderColor)
     ) {
         Box(modifier = Modifier.padding(16.dp)) {

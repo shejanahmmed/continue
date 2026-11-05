@@ -633,9 +633,9 @@ private fun SearchNoteItemCard(
         }
     }
 
-    val hasCustomColor = note.colorHex != 0L && note.colorHex != 0xFF000000L && note.colorHex != 0xFF121212L
+    val hasCustomColor = !isDefaultNoteColor(note.colorHex)
     val baseBorderColor = if (hasCustomColor) {
-        Color(note.colorHex).copy(alpha = 0.6f)
+        Color.White.copy(alpha = 0.15f)
     } else {
         UtilitarianBorderStroke
     }
@@ -648,7 +648,7 @@ private fun SearchNoteItemCard(
             .clip(cardShape)
             .clickable(onClick = onClick),
         shape = cardShape,
-        color = UtilitarianCardBackground,
+        color = if (hasCustomColor) Color(note.colorHex) else UtilitarianCardBackground,
         border = BorderStroke(1.dp, baseBorderColor)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
@@ -694,14 +694,18 @@ private fun SearchNoteItemCard(
                             modifier = Modifier
                                 .border(
                                     width = 1.dp,
-                                    color = UtilitarianBorderStroke,
+                                    color = if (hasCustomColor) Color.White.copy(alpha = 0.2f) else UtilitarianBorderStroke,
                                     shape = RoundedCornerShape(4.dp)
+                                )
+                                .background(
+                                    if (hasCustomColor) Color.Black.copy(alpha = 0.25f) else Color(0xFF161616),
+                                    RoundedCornerShape(4.dp)
                                 )
                                 .padding(horizontal = 6.dp, vertical = 2.dp)
                         ) {
                             Text(
                                 text = label,
-                                color = UtilitarianTextSecondary,
+                                color = if (hasCustomColor) Color.White.copy(alpha = 0.9f) else UtilitarianTextSecondary,
                                 fontSize = 11.sp,
                                 fontFamily = FontFamily.Monospace
                             )
