@@ -202,8 +202,8 @@ fun DiaryScreen(
                                 .weight(1f)
                                 .height(42.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF202020))
-                                .border(1.dp, Color(0xFF383838), RoundedCornerShape(8.dp))
+                                .background(Color(0xFF2C3136))
+                                .border(1.dp, Color(0xFF3F454C), RoundedCornerShape(8.dp))
                                 .clickable {
                                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     showDeleteDialog = false
@@ -212,7 +212,7 @@ fun DiaryScreen(
                         ) {
                             Text(
                                 text = "CANCEL",
-                                color = UtilitarianTextPrimary,
+                                color = Color.White,
                                 fontFamily = FontFamily.Monospace,
                                 fontWeight = FontWeight.Bold,
                                 fontSize = 13.sp,
@@ -226,38 +226,38 @@ fun DiaryScreen(
                                 .weight(1f)
                                 .height(42.dp)
                                 .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFFF453A).copy(alpha = 0.16f))
-                                .border(1.dp, Color(0xFFFF453A), RoundedCornerShape(8.dp))
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    val keysToDelete = uiState.selectedKeys.toSet()
-                                    showDeleteDialog = false
-                                    animatingDismissKeys = keysToDelete
-                                    coroutineScope.launch {
-                                        delay(230.milliseconds)
-                                        val deleted = viewModel.deleteSelectedNotes()
-                                        animatingDismissKeys = emptySet()
-                                        val deletedCount = if (deleted.isNotEmpty()) deleted.size else count
-                                        toastState.show(
-                                            msg = if (deletedCount == 1) "1 note moved to bin" else "$deletedCount notes moved to bin",
-                                            actionLabel = "UNDO",
-                                            onAction = {
-                                                viewModel.undoDeleteNotes(deleted)
-                                            }
-                                        )
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "DELETE",
-                                color = Color(0xFFFF453A),
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                textAlign = TextAlign.Center
-                            )
-                        }
+                                .background(Color(0xFFD71921))
+                                .border(1.dp, Color(0xFFD71921), RoundedCornerShape(8.dp))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                val keysToDelete = uiState.selectedKeys.toSet()
+                                showDeleteDialog = false
+                                animatingDismissKeys = keysToDelete
+                                coroutineScope.launch {
+                                    delay(230.milliseconds)
+                                    val deleted = viewModel.deleteSelectedNotes()
+                                    animatingDismissKeys = emptySet()
+                                    val deletedCount = if (deleted.isNotEmpty()) deleted.size else count
+                                    toastState.show(
+                                        msg = if (deletedCount == 1) "1 note moved to bin" else "$deletedCount notes moved to bin",
+                                        actionLabel = "UNDO",
+                                        onAction = {
+                                            viewModel.undoDeleteNotes(deleted)
+                                        }
+                                    )
+                                }
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "DELETE",
+                            color = Color.White,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
                     }
                 }
             }

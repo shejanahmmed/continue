@@ -394,7 +394,8 @@ fun CategorySelectionScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(20.dp))
-                                    .border(1.dp, colors.borderStroke, RoundedCornerShape(20.dp))
+                                    .background(Color(0xFF2C3136), RoundedCornerShape(20.dp))
+                                    .border(1.dp, Color(0xFF3F454C), RoundedCornerShape(20.dp))
                                     .clickable {
                                         showDeleteConfirmation = false
                                     }
@@ -403,7 +404,7 @@ fun CategorySelectionScreen(
                             ) {
                                 Text(
                                     text = "Cancel",
-                                    color = colors.textPrimary,
+                                    color = Color.White,
                                     fontSize = 15.sp,
                                     fontWeight = FontWeight.SemiBold
                                 )
@@ -414,7 +415,7 @@ fun CategorySelectionScreen(
                                 modifier = Modifier
                                     .weight(1f)
                                     .clip(RoundedCornerShape(20.dp))
-                                    .background(Color(0xFFEF5350), RoundedCornerShape(20.dp))
+                                    .background(Color(0xFFD71921), RoundedCornerShape(20.dp))
                                     .clickable {
                                         val catToDelete = targetCat
                                         actionCategory = null
