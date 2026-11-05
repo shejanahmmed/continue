@@ -54,6 +54,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.runtime.snapshotFlow
@@ -79,6 +80,8 @@ import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import com.shejan.acontinue.core.util.ImageUtils
 import androidx.compose.ui.text.TextRange
@@ -117,40 +120,64 @@ fun SearchScreen(
     val colors = LocalUtilitarianColors.current
     val haptic = LocalHapticFeedback.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val coroutineScope = rememberCoroutineScope()
     val focusRequester = remember { FocusRequester() }
     val lazyListState = rememberLazyListState()
+    var titleHeightPx by remember { mutableFloatStateOf(0f) }
     var headerHeightPx by remember { mutableFloatStateOf(0f) }
     var headerOffsetPx by rememberSaveable { mutableFloatStateOf(0f) }
+    var animationJob by remember { mutableStateOf<Job?>(null) }
 
     val nestedScrollConnection = remember {
         object : NestedScrollConnection {
             override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
                 if (headerHeightPx <= 0f) return Offset.Zero
 
+                animationJob?.cancel()
+                animationJob = null
+
+                val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset <= 2
+                val maxAllowedOffset = if (titleHeightPx > 0f && !isAtTop) {
+                    -titleHeightPx
+                } else {
+                    0f
+                }
+
                 val delta = available.y
                 val prevOffset = headerOffsetPx
-                headerOffsetPx = (headerOffsetPx + delta).coerceIn(-headerHeightPx, 0f)
+                headerOffsetPx = (headerOffsetPx + delta).coerceIn(-headerHeightPx, maxAllowedOffset)
                 val consumedY = headerOffsetPx - prevOffset
                 return Offset(0f, consumedY)
             }
 
             override suspend fun onPreFling(available: Velocity): Velocity {
-                if (headerHeightPx > 0f && headerOffsetPx < 0f && headerOffsetPx > -headerHeightPx) {
-                    val targetOffset = if (available.y < -300f) {
-                        -headerHeightPx
-                    } else if (available.y > 300f) {
-                        0f
-                    } else if (headerOffsetPx > -headerHeightPx / 2f) {
-                        0f
-                    } else {
-                        -headerHeightPx
-                    }
-                    animate(
-                        initialValue = headerOffsetPx,
-                        targetValue = targetOffset,
-                        animationSpec = tween(durationMillis = 150, easing = LinearOutSlowInEasing)
-                    ) { value, _ ->
-                        headerOffsetPx = value
+                if (headerHeightPx > 0f) {
+                    val isAtTop = lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset <= 2
+                    val minOffset = -headerHeightPx
+                    val maxOffset = if (titleHeightPx > 0f && !isAtTop) -titleHeightPx else 0f
+
+                    if (headerOffsetPx > minOffset && headerOffsetPx < maxOffset) {
+                        val midPoint = (minOffset + maxOffset) / 2f
+                        val targetOffset = if (available.y < -300f) {
+                            minOffset
+                        } else if (available.y > 300f) {
+                            maxOffset
+                        } else if (headerOffsetPx > midPoint) {
+                            maxOffset
+                        } else {
+                            minOffset
+                        }
+
+                        animationJob?.cancel()
+                        animationJob = coroutineScope.launch {
+                            animate(
+                                initialValue = headerOffsetPx,
+                                targetValue = targetOffset,
+                                animationSpec = tween(durationMillis = 150, easing = LinearOutSlowInEasing)
+                            ) { value, _ ->
+                                headerOffsetPx = value
+                            }
+                        }
                     }
                 }
                 return Velocity.Zero
@@ -161,8 +188,18 @@ fun SearchScreen(
     LaunchedEffect(lazyListState) {
         snapshotFlow { lazyListState.firstVisibleItemIndex to lazyListState.firstVisibleItemScrollOffset }
             .collect { (index, offset) ->
-                if (index == 0 && offset <= 5 && headerOffsetPx != 0f) {
-                    headerOffsetPx = 0f
+                if (index == 0 && offset <= 2) {
+                    if (headerOffsetPx < 0f && animationJob?.isActive != true) {
+                        animationJob = launch {
+                            animate(
+                                initialValue = headerOffsetPx,
+                                targetValue = 0f,
+                                animationSpec = tween(durationMillis = 200, easing = LinearOutSlowInEasing)
+                            ) { value, _ ->
+                                headerOffsetPx = value
+                            }
+                        }
+                    }
                 }
             }
     }
@@ -182,6 +219,8 @@ fun SearchScreen(
                 text = uiState.searchQuery,
                 selection = TextRange(uiState.searchQuery.length)
             )
+            animationJob?.cancel()
+            animationJob = null
             headerOffsetPx = 0f
         }
     }
@@ -226,36 +265,47 @@ fun SearchScreen(
                 }
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                Spacer(modifier = Modifier.height(16.dp))
-
-                // 1. DotMatrix Title Header with Note-Page Styled Left Back Button
-                DotMatrixHeader(
-                    title = "SEARCH",
-                    leadingContent = {
-                        Box(
-                            modifier = Modifier
-                                .size(40.dp)
-                                .clip(CircleShape)
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onNavigateBack()
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                                contentDescription = "Back",
-                                tint = colors.textPrimaryMuted,
-                                modifier = Modifier.size(24.dp)
-                            )
+                // Title portion container (measured so search bar can align at top when title is collapsed)
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .onSizeChanged { size ->
+                            if (size.height > 0) {
+                                titleHeightPx = size.height.toFloat()
+                            }
                         }
-                    },
-                    badgeText = if (isFilterOrSearchActive && uiState.results.isNotEmpty()) {
-                        "${uiState.results.size} FOUND"
-                    } else null
-                )
+                ) {
+                    Spacer(modifier = Modifier.height(16.dp))
 
-                Spacer(modifier = Modifier.height(12.dp))
+                    // 1. DotMatrix Title Header with Note-Page Styled Left Back Button
+                    DotMatrixHeader(
+                        title = "SEARCH",
+                        leadingContent = {
+                            Box(
+                                modifier = Modifier
+                                    .size(40.dp)
+                                    .clip(CircleShape)
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        onNavigateBack()
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                    contentDescription = "Back",
+                                    tint = colors.textPrimaryMuted,
+                                    modifier = Modifier.size(24.dp)
+                                )
+                            }
+                        },
+                        badgeText = if (isFilterOrSearchActive && uiState.results.isNotEmpty()) {
+                            "${uiState.results.size} FOUND"
+                        } else null
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                }
 
                 // 2. Utilitarian Search Bar Container with Crisp 1dp Border
                 Box(
@@ -296,6 +346,8 @@ fun SearchScreen(
                                 value = textFieldValue,
                                 onValueChange = { newTfv ->
                                     textFieldValue = newTfv
+                                    animationJob?.cancel()
+                                    animationJob = null
                                     headerOffsetPx = 0f
                                     if (newTfv.text != uiState.searchQuery) {
                                         viewModel.onSearchQueryChange(newTfv.text)
@@ -325,6 +377,8 @@ fun SearchScreen(
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         textFieldValue = TextFieldValue("", TextRange.Zero)
+                                        animationJob?.cancel()
+                                        animationJob = null
                                         headerOffsetPx = 0f
                                         viewModel.onSearchQueryChange("")
                                     },
