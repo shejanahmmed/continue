@@ -181,9 +181,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalView
+import androidx.compose.foundation.layout.ime
+import android.view.inputmethod.InputMethodManager
+import androidx.core.view.WindowInsetsCompat
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
@@ -264,6 +268,21 @@ fun CreateNoteScreen(
     val activity = remember(context) { context.findActivity() }
     val haptic = LocalHapticFeedback.current
     val keyboardController = LocalSoftwareKeyboardController.current
+    val focusManager = LocalFocusManager.current
+    val density = LocalDensity.current
+    val isImeVisible = WindowInsets.ime.getBottom(density) > 0
+    var isExiting by remember { mutableStateOf(false) }
+
+    val dismissKeyboardSynchronously: () -> Unit = {
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
+        val imm = context.getSystemService(Context.INPUT_METHOD_SERVICE) as? InputMethodManager
+        imm?.hideSoftInputFromWindow(view.windowToken, 0)
+        activity?.window?.let { win ->
+            WindowCompat.getInsetsController(win, view).hide(WindowInsetsCompat.Type.ime())
+        }
+    }
+
     val coroutineScope = rememberCoroutineScope()
     val scrollState = rememberScrollState()
 
@@ -325,7 +344,9 @@ fun CreateNoteScreen(
 
     LaunchedEffect(targetFocusChecklistId) {
         targetFocusChecklistId?.let { id ->
+            if (isExiting) return@let
             kotlinx.coroutines.delay(60)
+            if (isExiting) return@let
             checklistFocusRequesters[id]?.requestFocus()
             keyboardController?.show()
             targetFocusChecklistId = null
@@ -397,13 +418,14 @@ fun CreateNoteScreen(
     }
 
     val enterEditMode: () -> Unit = {
-        if (!isEditMode) {
+        if (!isEditMode && !isExiting) {
             isEditMode = true
             val now = System.currentTimeMillis()
             lastEditedMillis = now
             hasUserModified = true
             coroutineScope.launch {
                 kotlinx.coroutines.delay(50)
+                if (isExiting) return@launch
                 if (isChecklistMode && checklistItems.isNotEmpty()) {
                     targetFocusChecklistId = checklistItems.last().id
                 } else {
@@ -413,15 +435,18 @@ fun CreateNoteScreen(
                     noteTextState = noteTextState.copy(selection = TextRange(endPos))
                     targetCursorPosition = endPos
                 }
-                keyboardController?.show()
+                if (!isExiting) {
+                    keyboardController?.show()
+                }
             }
             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
         }
     }
 
     LaunchedEffect(Unit) {
-        if (!startInViewMode && editingActivityId != null && editingActivityId > 0L) {
+        if (!isExiting && !startInViewMode && editingActivityId != null && editingActivityId > 0L) {
             kotlinx.coroutines.delay(150)
+            if (isExiting) return@LaunchedEffect
             if (isChecklistMode && checklistItems.isNotEmpty()) {
                 targetFocusChecklistId = checklistItems.last().id
             } else {
@@ -433,7 +458,9 @@ fun CreateNoteScreen(
                     targetCursorPosition = endPos
                 }
             }
-            keyboardController?.show()
+            if (!isExiting) {
+                keyboardController?.show()
+            }
         }
     }
 
@@ -518,7 +545,7 @@ fun CreateNoteScreen(
     }
 
     LaunchedEffect(showFindBar) {
-        if (showFindBar) {
+        if (showFindBar && !isExiting) {
             searchFocusRequester.requestFocus()
             keyboardController?.show()
         }
@@ -549,13 +576,16 @@ fun CreateNoteScreen(
             insetsController.isAppearanceLightNavigationBars = isLightBars
 
             onDispose {
+                dismissKeyboardSynchronously()
                 window.statusBarColor = previousStatusBarColor
                 window.navigationBarColor = previousNavColor
                 insetsController.isAppearanceLightStatusBars = previousLightStatus
                 insetsController.isAppearanceLightNavigationBars = previousLightNav
             }
         } else {
-            onDispose {}
+            onDispose {
+                dismissKeyboardSynchronously()
+            }
         }
     }
 
@@ -725,8 +755,9 @@ fun CreateNoteScreen(
     }
 
     LaunchedEffect(autoFocusAfterCaptureTrigger) {
-        if (autoFocusAfterCaptureTrigger > 0) {
+        if (autoFocusAfterCaptureTrigger > 0 && !isExiting) {
             kotlinx.coroutines.delay(100)
+            if (isExiting) return@LaunchedEffect
             contentFocusRequester.requestFocus()
             isContentFocused = true
             keyboardController?.show()
@@ -879,16 +910,28 @@ fun CreateNoteScreen(
         stringBuilder.toString().trim()
     }
 
-    var isExiting by remember { mutableStateOf(false) }
-
-    val handleExit = {
+    val handleExit: () -> Unit = {
         if (!isExiting) {
             isExiting = true
+            dismissKeyboardSynchronously()
             val finalContent = buildFinalContent()
-            if (hasUserModified || (editingActivityId == null && (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || recordedAudioUris.isNotEmpty() || selectedLabels.isNotEmpty()))) {
-                onSaveNote(title, finalContent, selectedColorHex, selectedLabels.toList())
+            val shouldSave = hasUserModified || (editingActivityId == null && (title.isNotBlank() || finalContent.isNotBlank() || attachedImageUris.isNotEmpty() || recordedAudioUris.isNotEmpty() || selectedLabels.isNotEmpty()))
+
+            if (isImeVisible) {
+                coroutineScope.launch {
+                    kotlinx.coroutines.delay(120)
+                    if (shouldSave) {
+                        onSaveNote(title, finalContent, selectedColorHex, selectedLabels.toList())
+                    } else {
+                        onDiscard()
+                    }
+                }
             } else {
-                onDiscard()
+                if (shouldSave) {
+                    onSaveNote(title, finalContent, selectedColorHex, selectedLabels.toList())
+                } else {
+                    onDiscard()
+                }
             }
         }
     }
@@ -911,6 +954,8 @@ fun CreateNoteScreen(
             searchQuery = ""
         } else if (showFormattingSheet) {
             showFormattingSheet = false
+        } else if (isImeVisible) {
+            dismissKeyboardSynchronously()
         } else {
             handleExit()
         }
@@ -2655,6 +2700,7 @@ fun CreateNoteScreen(
                                     showDeleteNoteConfirmDialog = false
                                     if (!isExiting) {
                                         isExiting = true
+                                        dismissKeyboardSynchronously()
                                         if (onDeleteNote != null) {
                                             onDeleteNote()
                                         } else {

@@ -83,7 +83,9 @@ import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.platform.LocalWindowInfo
 import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Dispatchers
@@ -124,8 +126,15 @@ fun DiaryScreen(
     val badgeText = if (noteCount == 1) "1 NOTE" else "$noteCount NOTES"
     val haptic = LocalHapticFeedback.current
     val toastState = LocalToastState.current
+    val focusManager = LocalFocusManager.current
+    val keyboardController = LocalSoftwareKeyboardController.current
     val staggeredGridState = rememberLazyStaggeredGridState()
     val coroutineScope = rememberCoroutineScope()
+
+    LaunchedEffect(Unit) {
+        focusManager.clearFocus(force = true)
+        keyboardController?.hide()
+    }
 
     var showDeleteDialog by remember { mutableStateOf(false) }
     var animatingDismissKeys by remember { mutableStateOf<Set<String>>(emptySet()) }
