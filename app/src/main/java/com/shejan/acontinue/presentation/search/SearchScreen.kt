@@ -43,7 +43,10 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -55,10 +58,12 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -88,7 +93,28 @@ fun SearchScreen(
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
 
+    var textFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
+        mutableStateOf(
+            TextFieldValue(
+                text = uiState.searchQuery,
+                selection = TextRange(uiState.searchQuery.length)
+            )
+        )
+    }
+
+    LaunchedEffect(uiState.searchQuery) {
+        if (textFieldValue.text != uiState.searchQuery) {
+            textFieldValue = TextFieldValue(
+                text = uiState.searchQuery,
+                selection = TextRange(uiState.searchQuery.length)
+            )
+        }
+    }
+
     LaunchedEffect(Unit) {
+        textFieldValue = textFieldValue.copy(
+            selection = TextRange(textFieldValue.text.length)
+        )
         focusRequester.requestFocus()
     }
 
@@ -161,7 +187,7 @@ fun SearchScreen(
                     modifier = Modifier.weight(1f),
                     contentAlignment = Alignment.CenterStart
                 ) {
-                    if (uiState.searchQuery.isEmpty()) {
+                    if (textFieldValue.text.isEmpty()) {
                         Text(
                             text = "Search notes and labels...",
                             color = colors.textPrimaryMuted,
@@ -170,8 +196,13 @@ fun SearchScreen(
                         )
                     }
                     BasicTextField(
-                        value = uiState.searchQuery,
-                        onValueChange = { viewModel.onSearchQueryChange(it) },
+                        value = textFieldValue,
+                        onValueChange = { newTfv ->
+                            textFieldValue = newTfv
+                            if (newTfv.text != uiState.searchQuery) {
+                                viewModel.onSearchQueryChange(newTfv.text)
+                            }
+                        },
                         singleLine = true,
                         textStyle = TextStyle(
                             color = colors.textPrimary,
@@ -188,13 +219,14 @@ fun SearchScreen(
                     )
                 }
 
-                if (uiState.searchQuery.isNotEmpty()) {
+                if (textFieldValue.text.isNotEmpty()) {
                     Box(
                         modifier = Modifier
                             .size(24.dp)
                             .clip(RoundedCornerShape(4.dp))
                             .clickable {
                                 haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                textFieldValue = TextFieldValue("", TextRange.Zero)
                                 viewModel.onSearchQueryChange("")
                             },
                         contentAlignment = Alignment.Center
