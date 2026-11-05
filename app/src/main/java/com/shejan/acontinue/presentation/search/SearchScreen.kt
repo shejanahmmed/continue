@@ -1,5 +1,8 @@
 package com.shejan.acontinue.presentation.search
 
+import androidx.compose.animation.core.LinearOutSlowInEasing
+import androidx.compose.animation.core.animate
+import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -20,6 +23,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
@@ -43,19 +47,28 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.clipToBounds
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.layout
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.text.TextRange
@@ -65,8 +78,10 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlin.math.roundToInt
 import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.presentation.create.DEFAULT_NOTE_COLOR_HEX
@@ -92,6 +107,54 @@ fun SearchScreen(
     val haptic = LocalHapticFeedback.current
     val keyboardController = LocalSoftwareKeyboardController.current
     val focusRequester = remember { FocusRequester() }
+    val lazyListState = rememberLazyListState()
+    var headerHeightPx by remember { mutableFloatStateOf(0f) }
+    var headerOffsetPx by rememberSaveable { mutableFloatStateOf(0f) }
+
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (headerHeightPx <= 0f) return Offset.Zero
+
+                val delta = available.y
+                val prevOffset = headerOffsetPx
+                headerOffsetPx = (headerOffsetPx + delta).coerceIn(-headerHeightPx, 0f)
+                val consumedY = headerOffsetPx - prevOffset
+                return Offset(0f, consumedY)
+            }
+
+            override suspend fun onPreFling(available: Velocity): Velocity {
+                if (headerHeightPx > 0f && headerOffsetPx < 0f && headerOffsetPx > -headerHeightPx) {
+                    val targetOffset = if (available.y < -300f) {
+                        -headerHeightPx
+                    } else if (available.y > 300f) {
+                        0f
+                    } else if (headerOffsetPx > -headerHeightPx / 2f) {
+                        0f
+                    } else {
+                        -headerHeightPx
+                    }
+                    animate(
+                        initialValue = headerOffsetPx,
+                        targetValue = targetOffset,
+                        animationSpec = tween(durationMillis = 150, easing = LinearOutSlowInEasing)
+                    ) { value, _ ->
+                        headerOffsetPx = value
+                    }
+                }
+                return Velocity.Zero
+            }
+        }
+    }
+
+    LaunchedEffect(lazyListState) {
+        snapshotFlow { lazyListState.firstVisibleItemIndex to lazyListState.firstVisibleItemScrollOffset }
+            .collect { (index, offset) ->
+                if (index == 0 && offset <= 5 && headerOffsetPx != 0f) {
+                    headerOffsetPx = 0f
+                }
+            }
+    }
 
     var textFieldValue by rememberSaveable(stateSaver = TextFieldValue.Saver) {
         mutableStateOf(
@@ -108,6 +171,7 @@ fun SearchScreen(
                 text = uiState.searchQuery,
                 selection = TextRange(uiState.searchQuery.length)
             )
+            headerOffsetPx = 0f
         }
     }
 
@@ -124,131 +188,160 @@ fun SearchScreen(
             .background(colors.background)
             .padding(horizontal = 16.dp)
     ) {
-        Spacer(modifier = Modifier.height(16.dp))
-
         val isFilterOrSearchActive = uiState.searchQuery.isNotBlank() ||
             uiState.selectedTypes.isNotEmpty() ||
             uiState.selectedLabels.isNotEmpty() ||
             uiState.selectedColors.isNotEmpty()
 
-        // 1. DotMatrix Title Header with Note-Page Styled Left Back Button
-        DotMatrixHeader(
-            title = "SEARCH",
-            leadingContent = {
-                Box(
-                    modifier = Modifier
-                        .size(40.dp)
-                        .clip(CircleShape)
-                        .clickable {
-                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                            onNavigateBack()
-                        },
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "Back",
-                        tint = colors.textPrimaryMuted,
-                        modifier = Modifier.size(24.dp)
-                    )
-                }
-            },
-            badgeText = if (isFilterOrSearchActive && uiState.results.isNotEmpty()) {
-                "${uiState.results.size} FOUND"
-            } else null
-        )
-
-        Spacer(modifier = Modifier.height(12.dp))
-
-        // 2. Utilitarian Search Bar Container with Crisp 1dp Border
         Box(
             modifier = Modifier
                 .fillMaxWidth()
-                .height(46.dp)
-                .clip(RoundedCornerShape(8.dp))
-                .border(1.dp, colors.borderStroke, RoundedCornerShape(8.dp))
-                .background(Color(0xFF161616))
-                .padding(horizontal = 12.dp),
-            contentAlignment = Alignment.CenterStart
+                .clipToBounds()
+                .layout { measurable, constraints ->
+                    val placeable = measurable.measure(constraints)
+                    val currentHeight = if (headerHeightPx > 0f) {
+                        (placeable.height + headerOffsetPx.roundToInt()).coerceIn(0, placeable.height)
+                    } else {
+                        placeable.height
+                    }
+                    layout(placeable.width, currentHeight) {
+                        placeable.placeRelative(0, headerOffsetPx.roundToInt())
+                    }
+                }
+                .onSizeChanged { size ->
+                    if (size.height > 0) {
+                        headerHeightPx = size.height.toFloat()
+                    }
+                }
         ) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    imageVector = Icons.Outlined.Search,
-                    contentDescription = "Search",
-                    tint = colors.textPrimaryMuted,
-                    modifier = Modifier.size(19.dp)
-                )
-                Spacer(modifier = Modifier.width(10.dp))
+            Column(modifier = Modifier.fillMaxWidth()) {
+                Spacer(modifier = Modifier.height(16.dp))
 
+                // 1. DotMatrix Title Header with Note-Page Styled Left Back Button
+                DotMatrixHeader(
+                    title = "SEARCH",
+                    leadingContent = {
+                        Box(
+                            modifier = Modifier
+                                .size(40.dp)
+                                .clip(CircleShape)
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onNavigateBack()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Back",
+                                tint = colors.textPrimaryMuted,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    },
+                    badgeText = if (isFilterOrSearchActive && uiState.results.isNotEmpty()) {
+                        "${uiState.results.size} FOUND"
+                    } else null
+                )
+
+                Spacer(modifier = Modifier.height(12.dp))
+
+                // 2. Utilitarian Search Bar Container with Crisp 1dp Border
                 Box(
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(46.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, colors.borderStroke, RoundedCornerShape(8.dp))
+                        .background(Color(0xFF161616))
+                        .padding(horizontal = 12.dp),
                     contentAlignment = Alignment.CenterStart
                 ) {
-                    if (textFieldValue.text.isEmpty()) {
-                        Text(
-                            text = "Search notes and labels...",
-                            color = colors.textPrimaryMuted,
-                            fontSize = 14.sp,
-                            fontFamily = FontFamily.Monospace
-                        )
-                    }
-                    BasicTextField(
-                        value = textFieldValue,
-                        onValueChange = { newTfv ->
-                            textFieldValue = newTfv
-                            if (newTfv.text != uiState.searchQuery) {
-                                viewModel.onSearchQueryChange(newTfv.text)
-                            }
-                        },
-                        singleLine = true,
-                        textStyle = TextStyle(
-                            color = colors.textPrimary,
-                            fontSize = 14.sp,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Normal
-                        ),
-                        cursorBrush = SolidColor(colors.textPrimary),
-                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                        keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .focusRequester(focusRequester)
-                    )
-                }
-
-                if (textFieldValue.text.isNotEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .size(24.dp)
-                            .clip(RoundedCornerShape(4.dp))
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                textFieldValue = TextFieldValue("", TextRange.Zero)
-                                viewModel.onSearchQueryChange("")
-                            },
-                        contentAlignment = Alignment.Center
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            imageVector = Icons.Outlined.Close,
-                            contentDescription = "Clear search",
+                            imageVector = Icons.Outlined.Search,
+                            contentDescription = "Search",
                             tint = colors.textPrimaryMuted,
-                            modifier = Modifier.size(17.dp)
+                            modifier = Modifier.size(19.dp)
                         )
+                        Spacer(modifier = Modifier.width(10.dp))
+
+                        Box(
+                            modifier = Modifier.weight(1f),
+                            contentAlignment = Alignment.CenterStart
+                        ) {
+                            if (textFieldValue.text.isEmpty()) {
+                                Text(
+                                    text = "Search notes and labels...",
+                                    color = colors.textPrimaryMuted,
+                                    fontSize = 14.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                            BasicTextField(
+                                value = textFieldValue,
+                                onValueChange = { newTfv ->
+                                    textFieldValue = newTfv
+                                    headerOffsetPx = 0f
+                                    if (newTfv.text != uiState.searchQuery) {
+                                        viewModel.onSearchQueryChange(newTfv.text)
+                                    }
+                                },
+                                singleLine = true,
+                                textStyle = TextStyle(
+                                    color = colors.textPrimary,
+                                    fontSize = 14.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Normal
+                                ),
+                                cursorBrush = SolidColor(colors.textPrimary),
+                                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                                keyboardActions = KeyboardActions(onSearch = { keyboardController?.hide() }),
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .focusRequester(focusRequester)
+                            )
+                        }
+
+                        if (textFieldValue.text.isNotEmpty()) {
+                            Box(
+                                modifier = Modifier
+                                    .size(24.dp)
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .clickable {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                        textFieldValue = TextFieldValue("", TextRange.Zero)
+                                        headerOffsetPx = 0f
+                                        viewModel.onSearchQueryChange("")
+                                    },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Close,
+                                    contentDescription = "Clear search",
+                                    tint = colors.textPrimaryMuted,
+                                    modifier = Modifier.size(17.dp)
+                                )
+                            }
+                        }
                     }
                 }
+
+                Spacer(modifier = Modifier.height(14.dp))
             }
         }
-
-        Spacer(modifier = Modifier.height(14.dp))
 
         val isSearchingByText = uiState.searchQuery.isNotBlank()
 
         // 3. Search Results List / Discovery Filter Sections
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            state = lazyListState,
+            modifier = Modifier
+                .fillMaxSize()
+                .nestedScroll(nestedScrollConnection),
             contentPadding = PaddingValues(top = 4.dp, bottom = 48.dp)
         ) {
             if (!isSearchingByText) {
