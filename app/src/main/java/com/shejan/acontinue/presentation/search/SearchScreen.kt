@@ -1,9 +1,12 @@
 package com.shejan.acontinue.presentation.search
 
+import android.graphics.Bitmap
+import android.net.Uri
 import androidx.compose.animation.core.LinearOutSlowInEasing
 import androidx.compose.animation.core.animate
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -34,6 +37,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.automirrored.outlined.Label
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.FormatColorReset
 import androidx.compose.material.icons.outlined.Link
@@ -62,21 +66,28 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.SolidColor
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
 import androidx.compose.ui.input.nestedscroll.NestedScrollSource
 import androidx.compose.ui.input.nestedscroll.nestedScroll
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.layout
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import com.shejan.acontinue.core.util.ImageUtils
 import androidx.compose.ui.text.TextRange
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.TextFieldValue
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Velocity
 import androidx.compose.ui.unit.dp
@@ -611,15 +622,134 @@ private fun SearchColorFilterPill(
     }
 }
 
+private val SEARCH_PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
+
+@Composable
+private fun SearchPhotoThumbnail(
+    uri: Uri,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var bitmap by remember(uri) { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(uri) {
+        bitmap = withContext(Dispatchers.IO) {
+            ImageUtils.loadSampledBitmapFromUri(context, uri, reqWidth = 600, reqHeight = 600)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(220.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF161616))
+    ) {
+        val currentBitmap = bitmap
+        if (currentBitmap != null) {
+            Image(
+                bitmap = currentBitmap.asImageBitmap(),
+                contentDescription = "Note image preview",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Photo,
+                    contentDescription = null,
+                    tint = UtilitarianTextDisabled,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun SearchAudioRows(
+    audioCount: Int,
+    hasCustomColor: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (audioCount <= 0) return
+    val count = minOf(audioCount, 4)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        for (i in 1..count) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Mic,
+                    contentDescription = "Audio recording",
+                    tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextPrimary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Recording $i",
+                    color = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+        if (audioCount > 4) {
+            val remaining = audioCount - 4
+            Text(
+                text = "+ $remaining more",
+                color = if (hasCustomColor) Color.White.copy(alpha = 0.6f) else UtilitarianTextSecondary,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.padding(start = 24.dp)
+            )
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SearchNoteItemCard(
     note: DiaryNoteItem,
     onClick: () -> Unit
 ) {
+    val parsedChecklistItems = remember(note.content, note.previewText, note.isChecklist) {
+        val raw = if (note.previewText.isNotBlank()) note.previewText else note.content
+        val lines = raw.lines().map { it.trim() }.filter { it.isNotBlank() }
+        if (lines.isNotEmpty() && lines.all { it.startsWith("[ ] ") || it.startsWith("[x] ", ignoreCase = true) || it.startsWith("[X] ") }) {
+            lines.map { line ->
+                val isChecked = line.startsWith("[x] ", ignoreCase = true) || line.startsWith("[X] ")
+                val text = if (line.length >= 4) line.substring(4).trim() else ""
+                isChecked to text
+            }
+        } else {
+            null
+        }
+    }
+    val hasChecklist = !parsedChecklistItems.isNullOrEmpty()
     val hasTitle = note.title.isNotBlank() && !note.title.equals("Untitled Note", ignoreCase = true)
-    val hasContent = note.previewText.isNotBlank()
+    val hasContent = note.previewText.isNotBlank() && !hasChecklist
     val hasLabels = note.labels.isNotEmpty()
+    val hasAudio = note.audioCount > 0
+    val hasPhoto = note.photoCount > 0
+    val isMediaOnly = (hasAudio || hasPhoto) && !hasContent && !hasChecklist
+
+    val firstPhotoUri = remember(note.content, hasPhoto) {
+        if (hasPhoto) {
+            SEARCH_PHOTO_TAG_REGEX.find(note.content)?.groupValues?.getOrNull(1)?.let { uriStr ->
+                runCatching { Uri.parse(uriStr) }.getOrNull()
+            }
+        } else {
+            null
+        }
+    }
 
     val displayContent = remember(note.previewText) {
         val lines = note.previewText.lines()
@@ -652,34 +782,112 @@ private fun SearchNoteItemCard(
         border = BorderStroke(1.dp, baseBorderColor)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            if (hasTitle) {
-                Text(
-                    text = note.title,
-                    color = UtilitarianTextPrimary,
-                    fontWeight = FontWeight.SemiBold,
-                    fontSize = 16.sp,
-                    lineHeight = 22.sp,
-                    modifier = Modifier.fillMaxWidth()
-                )
+            if (isMediaOnly) {
+                if (hasTitle) {
+                    Text(
+                        text = note.title,
+                        color = UtilitarianTextPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp,
+                        lineHeight = 22.sp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+                if (hasPhoto && firstPhotoUri != null) {
+                    SearchPhotoThumbnail(uri = firstPhotoUri)
+                    if (hasAudio) {
+                        Spacer(modifier = Modifier.height(6.dp))
+                        SearchAudioRows(
+                            audioCount = note.audioCount,
+                            hasCustomColor = hasCustomColor
+                        )
+                    }
+                } else if (hasAudio) {
+                    SearchAudioRows(
+                        audioCount = note.audioCount,
+                        hasCustomColor = hasCustomColor
+                    )
+                }
+            } else {
+                if (hasTitle) {
+                    Text(
+                        text = note.title,
+                        color = UtilitarianTextPrimary,
+                        fontWeight = FontWeight.SemiBold,
+                        fontSize = 16.sp,
+                        lineHeight = 22.sp,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
+                if (hasTitle && (hasContent || hasChecklist)) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                }
+
+                if (parsedChecklistItems != null) {
+                    Column(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        val displayItems = parsedChecklistItems.take(8)
+                        displayItems.forEach { (isChecked, itemText) ->
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Icon(
+                                    imageVector = if (isChecked) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+                                    contentDescription = if (isChecked) "Completed" else "To do",
+                                    tint = if (isChecked) {
+                                        Color(0xFF3897F0)
+                                    } else {
+                                        if (hasCustomColor) Color.White.copy(alpha = 0.7f) else UtilitarianTextSecondary
+                                    },
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = itemText,
+                                    color = if (isChecked) {
+                                        if (hasCustomColor) Color.White.copy(alpha = 0.5f) else UtilitarianTextDisabled
+                                    } else {
+                                        UtilitarianTextPrimary
+                                    },
+                                    fontSize = 13.sp,
+                                    lineHeight = 19.sp,
+                                    maxLines = 2,
+                                    overflow = TextOverflow.Ellipsis,
+                                    textDecoration = if (isChecked) TextDecoration.LineThrough else TextDecoration.None,
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
+                        }
+                        if (parsedChecklistItems.size > 8) {
+                            val remaining = parsedChecklistItems.size - 8
+                            Text(
+                                text = "+ $remaining more",
+                                color = if (hasCustomColor) Color.White.copy(alpha = 0.6f) else UtilitarianTextSecondary,
+                                fontSize = 11.sp,
+                                fontFamily = FontFamily.Monospace,
+                                modifier = Modifier.padding(start = 24.dp, top = 2.dp)
+                            )
+                        }
+                    }
+                } else if (hasContent) {
+                    Text(
+                        text = displayContent,
+                        color = UtilitarianTextSecondary,
+                        fontSize = 13.sp,
+                        lineHeight = 19.sp,
+                        maxLines = 8,
+                        overflow = TextOverflow.Ellipsis,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
 
-            if (hasTitle && hasContent) {
-                Spacer(modifier = Modifier.height(8.dp))
-            }
-
-            if (hasContent) {
-                Text(
-                    text = displayContent,
-                    color = UtilitarianTextSecondary,
-                    fontSize = 13.sp,
-                    lineHeight = 19.sp,
-                    maxLines = 8,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-
-            if (hasLabels && (hasTitle || hasContent)) {
+            if (hasLabels && (hasTitle || hasContent || hasChecklist || isMediaOnly)) {
                 Spacer(modifier = Modifier.height(10.dp))
             }
 
@@ -714,47 +922,49 @@ private fun SearchNoteItemCard(
                 }
             }
 
-            val hasMedia = note.audioCount > 0 || note.photoCount > 0
-            if (hasMedia) {
-                if (hasTitle || hasContent || hasLabels) {
-                    Spacer(modifier = Modifier.height(10.dp))
-                }
-                Row(
-                    horizontalArrangement = Arrangement.spacedBy(10.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    if (note.audioCount > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Outlined.Mic,
-                                contentDescription = "Audio attached",
-                                tint = UtilitarianTextDisabled,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${note.audioCount}",
-                                color = UtilitarianTextDisabled,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
-                        }
+            if (!isMediaOnly) {
+                val hasMedia = note.audioCount > 0 || note.photoCount > 0
+                if (hasMedia) {
+                    if (hasTitle || hasContent || hasLabels) {
+                        Spacer(modifier = Modifier.height(10.dp))
                     }
-                    if (note.photoCount > 0) {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Icon(
-                                imageVector = Icons.Outlined.Photo,
-                                contentDescription = "Photo attached",
-                                tint = UtilitarianTextDisabled,
-                                modifier = Modifier.size(13.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "${note.photoCount}",
-                                color = UtilitarianTextDisabled,
-                                fontSize = 11.sp,
-                                fontFamily = FontFamily.Monospace
-                            )
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        if (note.audioCount > 0) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Mic,
+                                    contentDescription = "Audio attached",
+                                    tint = UtilitarianTextDisabled,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "${note.audioCount}",
+                                    color = UtilitarianTextDisabled,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
+                        }
+                        if (note.photoCount > 0) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Icon(
+                                    imageVector = Icons.Outlined.Photo,
+                                    contentDescription = "Photo attached",
+                                    tint = UtilitarianTextDisabled,
+                                    modifier = Modifier.size(13.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "${note.photoCount}",
+                                    color = UtilitarianTextDisabled,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace
+                                )
+                            }
                         }
                     }
                 }

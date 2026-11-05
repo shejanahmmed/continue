@@ -34,6 +34,8 @@ import androidx.compose.material.icons.outlined.AccessTime
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.CalendarToday
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Edit
@@ -1090,7 +1092,20 @@ private fun WorkspaceNoteCard(
         }
     }
 
-    val hasContent = cleanPreview.isNotBlank()
+    val parsedChecklistItems = remember(note.content, cleanPreview) {
+        val lines = cleanPreview.lines().map { it.trim() }.filter { it.isNotBlank() }
+        if (lines.isNotEmpty() && lines.all { it.startsWith("[ ] ") || it.startsWith("[x] ", ignoreCase = true) || it.startsWith("[X] ") }) {
+            lines.map { line ->
+                val isChecked = line.startsWith("[x] ", ignoreCase = true) || line.startsWith("[X] ")
+                val text = if (line.length >= 4) line.substring(4).trim() else ""
+                isChecked to text
+            }
+        } else {
+            null
+        }
+    }
+    val hasChecklist = !parsedChecklistItems.isNullOrEmpty()
+    val hasContent = cleanPreview.isNotBlank() && !hasChecklist
     val hasBadges = audioCount > 0 || photoCount > 0 || note.labels.isNotEmpty()
     val hasCustomColor = !isDefaultNoteColor(note.colorHex)
     val borderColor = if (hasCustomColor) {
@@ -1124,6 +1139,51 @@ private fun WorkspaceNoteCard(
                             lineHeight = 22.sp,
                             modifier = Modifier.weight(1f)
                         )
+                    } else if (parsedChecklistItems != null) {
+                        Column(
+                            modifier = Modifier.weight(1f),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val displayItems = parsedChecklistItems.take(8)
+                            displayItems.forEach { (isChecked, itemText) ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = if (isChecked) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+                                        contentDescription = if (isChecked) "Completed" else "To do",
+                                        tint = if (isChecked) Color(0xFF3897F0) else if (hasCustomColor) Color.White.copy(alpha = 0.7f) else UtilitarianTextSecondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = itemText,
+                                        color = if (isChecked) {
+                                            if (hasCustomColor) Color.White.copy(alpha = 0.5f) else UtilitarianTextDisabled
+                                        } else {
+                                            UtilitarianTextPrimary
+                                        },
+                                        fontSize = 13.sp,
+                                        lineHeight = 19.sp,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textDecoration = if (isChecked) TextDecoration.LineThrough else TextDecoration.None,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                            if (parsedChecklistItems.size > 8) {
+                                val remaining = parsedChecklistItems.size - 8
+                                Text(
+                                    text = "+ $remaining more",
+                                    color = if (hasCustomColor) Color.White.copy(alpha = 0.6f) else UtilitarianTextSecondary,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.padding(start = 24.dp, top = 2.dp)
+                                )
+                            }
+                        }
                     } else if (hasContent) {
                         Text(
                             text = cleanPreview,
@@ -1226,17 +1286,64 @@ private fun WorkspaceNoteCard(
                     }
                 }
 
-                if (hasTitle && hasContent) {
+                if (hasTitle && (hasContent || hasChecklist)) {
                     Spacer(modifier = Modifier.height(8.dp))
-                    Text(
-                        text = cleanPreview,
-                        color = UtilitarianTextSecondary,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp,
-                        maxLines = 10,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (parsedChecklistItems != null) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val displayItems = parsedChecklistItems.take(8)
+                            displayItems.forEach { (isChecked, itemText) ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = if (isChecked) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+                                        contentDescription = if (isChecked) "Completed" else "To do",
+                                        tint = if (isChecked) Color(0xFF3897F0) else if (hasCustomColor) Color.White.copy(alpha = 0.7f) else UtilitarianTextSecondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = itemText,
+                                        color = if (isChecked) {
+                                            if (hasCustomColor) Color.White.copy(alpha = 0.5f) else UtilitarianTextDisabled
+                                        } else {
+                                            UtilitarianTextPrimary
+                                        },
+                                        fontSize = 13.sp,
+                                        lineHeight = 19.sp,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textDecoration = if (isChecked) TextDecoration.LineThrough else TextDecoration.None,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                            if (parsedChecklistItems.size > 8) {
+                                val remaining = parsedChecklistItems.size - 8
+                                Text(
+                                    text = "+ $remaining more",
+                                    color = if (hasCustomColor) Color.White.copy(alpha = 0.6f) else UtilitarianTextSecondary,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.padding(start = 24.dp, top = 2.dp)
+                                )
+                            }
+                        }
+                    } else if (hasContent) {
+                        Text(
+                            text = cleanPreview,
+                            color = UtilitarianTextSecondary,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            maxLines = 10,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
 
                 if (hasBadges) {

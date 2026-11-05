@@ -1,5 +1,7 @@
 package com.shejan.acontinue.presentation.diary
 
+import android.graphics.Bitmap
+import android.net.Uri
 import androidx.activity.compose.BackHandler
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
@@ -11,6 +13,7 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -45,10 +48,14 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.Check
+import androidx.compose.material.icons.outlined.CheckBox
+import androidx.compose.material.icons.outlined.CheckBoxOutlineBlank
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.FilterList
 import androidx.compose.material.icons.outlined.GridView
+import androidx.compose.material.icons.outlined.Mic
+import androidx.compose.material.icons.outlined.Photo
 import androidx.compose.material.icons.outlined.PushPin
 import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.ViewAgenda
@@ -67,20 +74,27 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.layout.boundsInRoot
 import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.platform.LocalWindowInfo
 import kotlin.time.Duration.Companion.milliseconds
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import com.shejan.acontinue.core.util.ImageUtils
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -92,6 +106,7 @@ import com.shejan.acontinue.presentation.create.isDefaultNoteColor
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
 import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
+import com.shejan.acontinue.ui.theme.UtilitarianTextDisabled
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimaryMuted
 import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
@@ -668,6 +683,98 @@ fun DiaryScreen(
     }
 }
 
+private val PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
+
+@Composable
+private fun CardPhotoThumbnail(
+    uri: Uri,
+    modifier: Modifier = Modifier
+) {
+    val context = LocalContext.current
+    var bitmap by remember(uri) { mutableStateOf<Bitmap?>(null) }
+
+    LaunchedEffect(uri) {
+        bitmap = withContext(Dispatchers.IO) {
+            ImageUtils.loadSampledBitmapFromUri(context, uri, reqWidth = 600, reqHeight = 600)
+        }
+    }
+
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(220.dp)
+            .clip(RoundedCornerShape(8.dp))
+            .background(Color(0xFF161616))
+    ) {
+        val currentBitmap = bitmap
+        if (currentBitmap != null) {
+            Image(
+                bitmap = currentBitmap.asImageBitmap(),
+                contentDescription = "Note image preview",
+                contentScale = ContentScale.Crop,
+                modifier = Modifier.fillMaxSize()
+            )
+        } else {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Photo,
+                    contentDescription = null,
+                    tint = UtilitarianTextDisabled,
+                    modifier = Modifier.size(32.dp)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun NoteAudioRows(
+    audioCount: Int,
+    hasCustomColor: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (audioCount <= 0) return
+    val count = minOf(audioCount, 4)
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
+        for (i in 1..count) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.Mic,
+                    contentDescription = "Audio recording",
+                    tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextPrimary,
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Recording $i",
+                    color = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextPrimary,
+                    fontSize = 13.sp,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+        if (audioCount > 4) {
+            val remaining = audioCount - 4
+            Text(
+                text = "+ $remaining more",
+                color = if (hasCustomColor) Color.White.copy(alpha = 0.6f) else UtilitarianTextSecondary,
+                fontSize = 11.sp,
+                fontFamily = FontFamily.Monospace,
+                modifier = Modifier.padding(start = 24.dp)
+            )
+        }
+    }
+}
+
 @Composable
 private fun DiaryNoteCard(
     note: DiaryNoteItem,
@@ -680,6 +787,7 @@ private fun DiaryNoteCard(
     onLongClick: () -> Unit
 ) {
     val windowInfo = LocalWindowInfo.current
+    val colors = LocalUtilitarianColors.current
     val screenWidthPx = windowInfo.containerSize.width.toFloat()
 
     var isRightColumn by remember { mutableStateOf(false) }
@@ -694,9 +802,36 @@ private fun DiaryNoteCard(
         }
     }
 
+    val parsedChecklistItems = remember(note.content, note.previewText, note.isChecklist) {
+        val raw = if (note.previewText.isNotBlank()) note.previewText else note.content
+        val lines = raw.lines().map { it.trim() }.filter { it.isNotBlank() }
+        if (lines.isNotEmpty() && lines.all { it.startsWith("[ ] ") || it.startsWith("[x] ", ignoreCase = true) || it.startsWith("[X] ") }) {
+            lines.map { line ->
+                val isChecked = line.startsWith("[x] ", ignoreCase = true) || line.startsWith("[X] ")
+                val text = if (line.length >= 4) line.substring(4).trim() else ""
+                isChecked to text
+            }
+        } else {
+            null
+        }
+    }
+    val hasChecklist = !parsedChecklistItems.isNullOrEmpty()
     val hasTitle = note.title.isNotBlank() && !note.title.equals("Untitled Note", ignoreCase = true)
-    val hasContent = note.previewText.isNotBlank()
+    val hasContent = note.previewText.isNotBlank() && !hasChecklist
     val hasLabels = note.labels.isNotEmpty()
+    val hasAudio = note.audioCount > 0
+    val hasPhoto = note.photoCount > 0
+    val isMediaOnly = (hasAudio || hasPhoto) && !hasContent && !hasChecklist
+
+    val firstPhotoUri = remember(note.content, hasPhoto) {
+        if (hasPhoto) {
+            PHOTO_TAG_REGEX.find(note.content)?.groupValues?.getOrNull(1)?.let { uriStr ->
+                runCatching { Uri.parse(uriStr) }.getOrNull()
+            }
+        } else {
+            null
+        }
+    }
 
     val displayContent = remember(note.previewText) {
         val lines = note.previewText.lines()
@@ -754,128 +889,464 @@ private fun DiaryNoteCard(
     ) {
         Box(modifier = Modifier.padding(16.dp)) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Header indicators for untitled notes
-                if (!hasTitle && (note.isPinned || isSelectionMode)) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.End,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        if (note.isPinned) {
-                            Icon(
-                                imageVector = Icons.Filled.PushPin,
-                                contentDescription = "Pinned note",
-                                tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
-                                modifier = Modifier.size(16.dp)
+                if (isMediaOnly) {
+                    if (hasTitle) {
+                        // Title row with optional pin and selection indicators
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = note.title,
+                                color = UtilitarianTextPrimary,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp,
+                                lineHeight = 22.sp,
+                                modifier = Modifier.weight(1f)
                             )
-                            if (isSelectionMode) Spacer(modifier = Modifier.width(6.dp))
-                        }
-                        if (isSelectionMode) {
-                            Box(
-                                modifier = Modifier
-                                    .size(20.dp)
-                                    .clip(RoundedCornerShape(4.dp))
-                                    .background(if (isSelected) Color.White else Color.Transparent)
-                                    .border(
-                                        1.dp,
-                                        if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
-                                        RoundedCornerShape(4.dp)
-                                    ),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                if (isSelected) {
-                                    Icon(
-                                        imageVector = Icons.Outlined.Check,
-                                        contentDescription = "Selected",
-                                        tint = Color.Black,
-                                        modifier = Modifier.size(14.dp)
-                                    )
+                            if (note.isPinned || isSelectionMode) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.padding(start = 8.dp)
+                                ) {
+                                    if (note.isPinned) {
+                                        Icon(
+                                            imageVector = Icons.Filled.PushPin,
+                                            contentDescription = "Pinned note",
+                                            tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    if (isSelectionMode) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(20.dp)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(if (isSelected) Color.White else Color.Transparent)
+                                                .border(
+                                                    1.dp,
+                                                    if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
+                                                    RoundedCornerShape(4.dp)
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.Check,
+                                                    contentDescription = "Selected",
+                                                    tint = Color.Black,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
                             }
                         }
-                    }
-                    if (hasContent || hasLabels) {
                         Spacer(modifier = Modifier.height(8.dp))
-                    }
-                }
-
-                // Part 1: Full Title with optional pin and selection indicators
-                if (hasTitle) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.Top,
-                        horizontalArrangement = Arrangement.SpaceBetween
-                    ) {
-                        Text(
-                            text = note.title,
-                            color = UtilitarianTextPrimary,
-                            fontWeight = FontWeight.SemiBold,
-                            fontSize = 16.sp,
-                            lineHeight = 22.sp,
-                            modifier = Modifier.weight(1f)
-                        )
-                        if (note.isPinned || isSelectionMode) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                modifier = Modifier.padding(start = 8.dp)
-                            ) {
-                                if (note.isPinned) {
-                                    Icon(
-                                        imageVector = Icons.Filled.PushPin,
-                                        contentDescription = "Pinned note",
-                                        tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
-                                        modifier = Modifier.size(16.dp)
-                                    )
+                        if (hasPhoto && firstPhotoUri != null) {
+                            CardPhotoThumbnail(uri = firstPhotoUri)
+                            if (hasAudio) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                NoteAudioRows(
+                                    audioCount = note.audioCount,
+                                    hasCustomColor = hasCustomColor
+                                )
+                            }
+                        } else if (hasAudio) {
+                            NoteAudioRows(
+                                audioCount = note.audioCount,
+                                hasCustomColor = hasCustomColor
+                            )
+                        }
+                    } else {
+                        // Untitled Media Note
+                        if (hasPhoto && firstPhotoUri != null) {
+                            if (note.isPinned || isSelectionMode) {
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.End,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    if (note.isPinned) {
+                                        Icon(
+                                            imageVector = Icons.Filled.PushPin,
+                                            contentDescription = "Pinned note",
+                                            tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        if (isSelectionMode) Spacer(modifier = Modifier.width(6.dp))
+                                    }
+                                    if (isSelectionMode) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(20.dp)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(if (isSelected) Color.White else Color.Transparent)
+                                                .border(
+                                                    1.dp,
+                                                    if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
+                                                    RoundedCornerShape(4.dp)
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.Check,
+                                                    contentDescription = "Selected",
+                                                    tint = Color.Black,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
+                                        }
+                                    }
                                 }
-                                if (isSelectionMode) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(20.dp)
-                                            .clip(RoundedCornerShape(4.dp))
-                                            .background(if (isSelected) Color.White else Color.Transparent)
-                                            .border(
-                                                1.dp,
-                                                if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
-                                                RoundedCornerShape(4.dp)
-                                            ),
-                                        contentAlignment = Alignment.Center
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                            CardPhotoThumbnail(uri = firstPhotoUri)
+                            if (hasAudio) {
+                                Spacer(modifier = Modifier.height(6.dp))
+                                NoteAudioRows(
+                                    audioCount = note.audioCount,
+                                    hasCustomColor = hasCustomColor
+                                )
+                            }
+                        } else if (hasAudio) {
+                            if (note.audioCount == 1) {
+                                // Single compact row for single audio untitled note
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween,
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Row(
+                                        verticalAlignment = Alignment.CenterVertically,
+                                        modifier = Modifier.weight(1f, fill = false)
                                     ) {
-                                        if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Mic,
+                                            contentDescription = "Audio recording",
+                                            tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextPrimary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Recording 1",
+                                            color = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextPrimary,
+                                            fontSize = 13.sp,
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                    if (note.isPinned || isSelectionMode) {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                            modifier = Modifier.padding(start = 8.dp)
+                                        ) {
+                                            if (note.isPinned) {
+                                                Icon(
+                                                    imageVector = Icons.Filled.PushPin,
+                                                    contentDescription = "Pinned note",
+                                                    tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                            if (isSelectionMode) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(20.dp)
+                                                        .clip(RoundedCornerShape(4.dp))
+                                                        .background(if (isSelected) Color.White else Color.Transparent)
+                                                        .border(
+                                                            1.dp,
+                                                            if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
+                                                            RoundedCornerShape(4.dp)
+                                                        ),
+                                                    contentAlignment = Alignment.Center
+                                                ) {
+                                                    if (isSelected) {
+                                                        Icon(
+                                                            imageVector = Icons.Outlined.Check,
+                                                            contentDescription = "Selected",
+                                                            tint = Color.Black,
+                                                            modifier = Modifier.size(14.dp)
+                                                        )
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            } else {
+                                // Multi-recording untitled note
+                                if (note.isPinned || isSelectionMode) {
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth(),
+                                        horizontalArrangement = Arrangement.End,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        if (note.isPinned) {
                                             Icon(
-                                                imageVector = Icons.Outlined.Check,
-                                                contentDescription = "Selected",
-                                                tint = Color.Black,
-                                                modifier = Modifier.size(14.dp)
+                                                imageVector = Icons.Filled.PushPin,
+                                                contentDescription = "Pinned note",
+                                                tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                                modifier = Modifier.size(16.dp)
                                             )
+                                            if (isSelectionMode) Spacer(modifier = Modifier.width(6.dp))
+                                        }
+                                        if (isSelectionMode) {
+                                            Box(
+                                                modifier = Modifier
+                                                    .size(20.dp)
+                                                    .clip(RoundedCornerShape(4.dp))
+                                                    .background(if (isSelected) Color.White else Color.Transparent)
+                                                    .border(
+                                                        1.dp,
+                                                        if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
+                                                        RoundedCornerShape(4.dp)
+                                                    ),
+                                                contentAlignment = Alignment.Center
+                                            ) {
+                                                if (isSelected) {
+                                                    Icon(
+                                                        imageVector = Icons.Outlined.Check,
+                                                        contentDescription = "Selected",
+                                                        tint = Color.Black,
+                                                        modifier = Modifier.size(14.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                }
+                                NoteAudioRows(
+                                    audioCount = note.audioCount,
+                                    hasCustomColor = hasCustomColor
+                                )
+                            }
+                        }
+                    }
+                } else {
+                    // Header indicators for untitled notes
+                    if (!hasTitle && (note.isPinned || isSelectionMode)) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (note.isPinned) {
+                                Icon(
+                                    imageVector = Icons.Filled.PushPin,
+                                    contentDescription = "Pinned note",
+                                    tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                if (isSelectionMode) Spacer(modifier = Modifier.width(6.dp))
+                            }
+                            if (isSelectionMode) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(20.dp)
+                                        .clip(RoundedCornerShape(4.dp))
+                                        .background(if (isSelected) Color.White else Color.Transparent)
+                                        .border(
+                                            1.dp,
+                                            if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
+                                            RoundedCornerShape(4.dp)
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isSelected) {
+                                        Icon(
+                                            imageVector = Icons.Outlined.Check,
+                                            contentDescription = "Selected",
+                                            tint = Color.Black,
+                                            modifier = Modifier.size(14.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                        if (hasContent || hasChecklist || hasLabels) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                        }
+                    }
+
+                    // Part 1: Full Title with optional pin and selection indicators
+                    if (hasTitle) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalAlignment = Alignment.Top,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text(
+                                text = note.title,
+                                color = UtilitarianTextPrimary,
+                                fontWeight = FontWeight.SemiBold,
+                                fontSize = 16.sp,
+                                lineHeight = 22.sp,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (note.isPinned || isSelectionMode) {
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
+                                    modifier = Modifier.padding(start = 8.dp)
+                                ) {
+                                    if (note.isPinned) {
+                                        Icon(
+                                            imageVector = Icons.Filled.PushPin,
+                                            contentDescription = "Pinned note",
+                                            tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
+                                    }
+                                    if (isSelectionMode) {
+                                        Box(
+                                            modifier = Modifier
+                                                .size(20.dp)
+                                                .clip(RoundedCornerShape(4.dp))
+                                                .background(if (isSelected) Color.White else Color.Transparent)
+                                                .border(
+                                                    1.dp,
+                                                    if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
+                                                    RoundedCornerShape(4.dp)
+                                                ),
+                                            contentAlignment = Alignment.Center
+                                        ) {
+                                            if (isSelected) {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.Check,
+                                                    contentDescription = "Selected",
+                                                    tint = Color.Black,
+                                                    modifier = Modifier.size(14.dp)
+                                                )
+                                            }
                                         }
                                     }
                                 }
                             }
                         }
                     }
-                }
 
-                // Spacer between Part 1 and Part 2
-                if (hasTitle && hasContent) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                }
+                    // Spacer between Part 1 and Part 2
+                    if (hasTitle && (hasContent || hasChecklist)) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                    }
 
-                // Part 2: Note Content (First 10 lines max with ellipsis on 10th line)
-                if (hasContent) {
-                    Text(
-                        text = displayContent,
-                        color = UtilitarianTextPrimary,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp,
-                        maxLines = 10,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    // Part 2: Note Content or Checklist Preview
+                    if (parsedChecklistItems != null) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            val displayItems = parsedChecklistItems.take(8)
+                            displayItems.forEach { (isChecked, itemText) ->
+                                Row(
+                                    verticalAlignment = Alignment.CenterVertically,
+                                    modifier = Modifier.fillMaxWidth()
+                                ) {
+                                    Icon(
+                                        imageVector = if (isChecked) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
+                                        contentDescription = if (isChecked) "Completed" else "To do",
+                                        tint = if (isChecked) {
+                                            Color(0xFF3897F0)
+                                        } else {
+                                            if (hasCustomColor) Color.White.copy(alpha = 0.7f) else colors.textPrimaryMuted
+                                        },
+                                        modifier = Modifier.size(16.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(
+                                        text = itemText,
+                                        color = if (isChecked) {
+                                            if (hasCustomColor) Color.White.copy(alpha = 0.5f) else UtilitarianTextDisabled
+                                        } else {
+                                            UtilitarianTextPrimary
+                                        },
+                                        fontSize = 13.sp,
+                                        lineHeight = 19.sp,
+                                        maxLines = 2,
+                                        overflow = TextOverflow.Ellipsis,
+                                        textDecoration = if (isChecked) TextDecoration.LineThrough else TextDecoration.None,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                }
+                            }
+                            if (parsedChecklistItems.size > 8) {
+                                val remaining = parsedChecklistItems.size - 8
+                                Text(
+                                    text = "+ $remaining more",
+                                    color = if (hasCustomColor) Color.White.copy(alpha = 0.6f) else UtilitarianTextSecondary,
+                                    fontSize = 11.sp,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.padding(start = 24.dp, top = 2.dp)
+                                )
+                            }
+                        }
+                    } else if (hasContent) {
+                        Text(
+                            text = displayContent,
+                            color = UtilitarianTextPrimary,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            maxLines = 10,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
+
+                    // Attached media indicators for notes with text/checklist
+                    val hasAttachedMedia = hasAudio || hasPhoto
+                    if (hasAttachedMedia) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(10.dp)
+                        ) {
+                            if (hasAudio) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Mic,
+                                        contentDescription = "Audio attached",
+                                        tint = if (hasCustomColor) Color.White.copy(alpha = 0.7f) else UtilitarianTextSecondary,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "${note.audioCount}",
+                                        color = if (hasCustomColor) Color.White.copy(alpha = 0.7f) else UtilitarianTextSecondary,
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                            if (hasPhoto) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(
+                                        imageVector = Icons.Outlined.Photo,
+                                        contentDescription = "Photo attached",
+                                        tint = if (hasCustomColor) Color.White.copy(alpha = 0.7f) else UtilitarianTextSecondary,
+                                        modifier = Modifier.size(13.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(4.dp))
+                                    Text(
+                                        text = "${note.photoCount}",
+                                        color = if (hasCustomColor) Color.White.copy(alpha = 0.7f) else UtilitarianTextSecondary,
+                                        fontSize = 11.sp,
+                                        fontFamily = FontFamily.Monospace
+                                    )
+                                }
+                            }
+                        }
+                    }
                 }
 
                 // Spacer between Content (or Title) and Part 3 Labels
-                if (hasLabels && (hasTitle || hasContent)) {
+                if (hasLabels && (hasTitle || hasContent || hasChecklist || isMediaOnly)) {
                     Spacer(modifier = Modifier.height(10.dp))
                 }
 
