@@ -865,7 +865,7 @@ private fun DiaryNoteCard(
                 if (hasContent) {
                     Text(
                         text = displayContent,
-                        color = UtilitarianTextSecondary,
+                        color = UtilitarianTextPrimary,
                         fontSize = 13.sp,
                         lineHeight = 19.sp,
                         maxLines = 10,
@@ -901,7 +901,7 @@ private fun DiaryNoteCard(
                                     .padding(horizontal = 8.dp, vertical = 3.dp)
                             ) {
                                 Text(
-                                    text = "#$label",
+                                    text = label,
                                     color = if (hasCustomColor) Color.White.copy(alpha = 0.9f) else UtilitarianTextSecondary,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
