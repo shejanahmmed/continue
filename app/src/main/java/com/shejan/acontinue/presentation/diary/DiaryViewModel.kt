@@ -205,9 +205,9 @@ class DiaryViewModel(
         }
     }
 
-    fun deleteSelectedNotes() {
+    fun deleteSelectedNotes(): List<DiaryNoteItem> {
         val selected = _selectedKeys.value
-        if (selected.isEmpty()) return
+        if (selected.isEmpty()) return emptyList()
         val notesToDelete = _uiState.value.notes.filter { it.itemKey in selected }
         val allKeysToRemove = mutableSetOf<String>()
         for (note in notesToDelete) {
@@ -233,6 +233,21 @@ class DiaryViewModel(
             }
             clearSelection()
         }
+        return notesToDelete
+    }
+
+    fun undoDeleteNotes(notes: List<DiaryNoteItem>) {
+        if (notes.isEmpty()) return
+        viewModelScope.launch {
+            for (note in notes) {
+                if (note.activityId > 0L) {
+                    activityRepository.restoreActivity(note.activityId)
+                }
+                if (note.noteId > 0L) {
+                    noteRepository.restoreNote(note.noteId)
+                }
+            }
+        }
     }
 
     fun toggleLayoutMode() {
@@ -246,9 +261,9 @@ class DiaryViewModel(
         }
     }
 
-    fun archiveSelectedNotes() {
+    fun archiveSelectedNotes(): List<DiaryNoteItem> {
         val selected = _selectedKeys.value
-        if (selected.isEmpty()) return
+        if (selected.isEmpty()) return emptyList()
         val notesToArchive = _uiState.value.notes.filter { it.itemKey in selected }
         val allKeysToRemove = mutableSetOf<String>()
         for (note in notesToArchive) {
@@ -273,6 +288,21 @@ class DiaryViewModel(
                 _localPinnedKeys.update { it - allKeysToRemove }
             }
             clearSelection()
+        }
+        return notesToArchive
+    }
+
+    fun undoArchiveNotes(notes: List<DiaryNoteItem>) {
+        if (notes.isEmpty()) return
+        viewModelScope.launch {
+            for (note in notes) {
+                if (note.activityId > 0L) {
+                    activityRepository.setActivityArchived(note.activityId, false)
+                }
+                if (note.noteId > 0L) {
+                    noteRepository.setNoteArchived(note.noteId, false)
+                }
+            }
         }
     }
 

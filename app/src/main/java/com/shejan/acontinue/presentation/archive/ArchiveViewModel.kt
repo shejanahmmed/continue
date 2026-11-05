@@ -139,5 +139,27 @@ class ArchiveViewModel(
             }
         }
     }
+
+    fun archiveNote(item: ArchiveNoteItem) {
+        viewModelScope.launch {
+            if (item.activityId > 0L) {
+                activityRepository.setActivityArchived(item.activityId, true)
+            }
+            if (item.noteId > 0L) {
+                noteRepository.setNoteArchived(item.noteId, true)
+            }
+        }
+    }
+
+    fun restoreNote(item: ArchiveNoteItem) {
+        viewModelScope.launch {
+            if (item.activityId > 0L) {
+                activityRepository.restoreActivity(item.activityId)
+            }
+            if (item.noteId > 0L) {
+                noteRepository.restoreNote(item.noteId)
+            }
+        }
+    }
 }
 

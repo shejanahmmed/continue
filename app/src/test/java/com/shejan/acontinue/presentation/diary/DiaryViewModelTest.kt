@@ -790,5 +790,95 @@ class DiaryViewModelTest {
             org.junit.Assert.assertEquals(customColor, noteItem?.colorHex)
         }
     }
+
+    @Test
+    fun `test undoDeleteNotes restores activities and notes after deletion`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 501L,
+                title = "Note To Delete And Undo",
+                description = "Content",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 1000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 801L,
+                activityId = 501L,
+                title = "Note To Delete And Undo",
+                content = "Content",
+                updatedAtMillis = 1000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleSelection("act_501")
+        testDispatcher.scheduler.advanceUntilIdle()
+        assertTrue(viewModel.uiState.value.isSelectionMode)
+
+        val deletedNotes = viewModel.deleteSelectedNotes()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, deletedNotes.size)
+        assertTrue(activityRepository.activitiesFlow.value.first { it.id == 501L }.isDeleted)
+        assertTrue(noteRepository.notesFlow.value.first { it.id == 801L }.isDeleted)
+
+        // Undo deletion
+        viewModel.undoDeleteNotes(deletedNotes)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(activityRepository.activitiesFlow.value.first { it.id == 501L }.isDeleted)
+        assertFalse(noteRepository.notesFlow.value.first { it.id == 801L }.isDeleted)
+        assertEquals(1, viewModel.uiState.value.notes.size)
+        assertEquals("Note To Delete And Undo", viewModel.uiState.value.notes.first().title)
+    }
+
+    @Test
+    fun `test undoArchiveNotes restores isArchived to false after archiving`() = runTest(testDispatcher) {
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 502L,
+                title = "Note To Archive And Undo",
+                description = "Content",
+                entryType = EntryType.NOTE,
+                startTimeMillis = 0L,
+                endTimeMillis = 0L,
+                createdAtMillis = 1000L
+            )
+        )
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 802L,
+                activityId = 502L,
+                title = "Note To Archive And Undo",
+                content = "Content",
+                updatedAtMillis = 1000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.toggleSelection("act_502")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val archivedNotes = viewModel.archiveSelectedNotes()
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, archivedNotes.size)
+        assertTrue(activityRepository.activitiesFlow.value.first { it.id == 502L }.isArchived)
+        assertTrue(noteRepository.notesFlow.value.first { it.id == 802L }.isArchived)
+        assertTrue(viewModel.uiState.value.notes.isEmpty())
+
+        // Undo archiving
+        viewModel.undoArchiveNotes(archivedNotes)
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        assertFalse(activityRepository.activitiesFlow.value.first { it.id == 502L }.isArchived)
+        assertFalse(noteRepository.notesFlow.value.first { it.id == 802L }.isArchived)
+        assertEquals(1, viewModel.uiState.value.notes.size)
+        assertEquals("Note To Archive And Undo", viewModel.uiState.value.notes.first().title)
+    }
 }
 

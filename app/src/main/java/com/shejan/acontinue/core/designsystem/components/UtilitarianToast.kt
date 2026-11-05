@@ -10,11 +10,15 @@ import androidx.compose.animation.slideInVertically
 import androidx.compose.animation.slideOutVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
@@ -29,6 +33,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.runtime.staticCompositionLocalOf
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -41,12 +49,32 @@ class UtilitarianToastState {
     var message by mutableStateOf<String?>(null)
         private set
 
-    fun show(msg: String) {
-        message = msg
+    var actionLabel by mutableStateOf<String?>(null)
+        private set
+
+    var onAction by mutableStateOf<(() -> Unit)?>(null)
+        private set
+
+    fun show(
+        msg: String,
+        actionLabel: String? = null,
+        onAction: (() -> Unit)? = null
+    ) {
+        this.message = msg
+        this.actionLabel = actionLabel
+        this.onAction = onAction
+    }
+
+    fun performAction() {
+        val action = onAction
+        dismiss()
+        action?.invoke()
     }
 
     fun dismiss() {
         message = null
+        actionLabel = null
+        onAction = null
     }
 }
 
@@ -63,11 +91,14 @@ fun UtilitarianToastHost(
     modifier: Modifier = Modifier
 ) {
     val colors = LocalUtilitarianColors.current
+    val haptic = LocalHapticFeedback.current
     val currentMsg = toastState.message
+    val currentActionLabel = toastState.actionLabel
 
-    LaunchedEffect(currentMsg) {
+    LaunchedEffect(currentMsg, currentActionLabel) {
         if (currentMsg != null) {
-            delay(2500L)
+            val timeout = if (currentActionLabel != null) 4000L else 2500L
+            delay(timeout)
             toastState.dismiss()
         }
     }
@@ -91,7 +122,12 @@ fun UtilitarianToastHost(
                 shadowElevation = 0.dp
             ) {
                 Row(
-                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 9.dp),
+                    modifier = Modifier.padding(
+                        start = 14.dp,
+                        end = if (currentActionLabel != null) 8.dp else 14.dp,
+                        top = if (currentActionLabel != null) 6.dp else 9.dp,
+                        bottom = if (currentActionLabel != null) 6.dp else 9.dp
+                    ),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -109,9 +145,37 @@ fun UtilitarianToastHost(
                         letterSpacing = 0.3.sp,
                         maxLines = 1
                     )
+                    if (currentActionLabel != null) {
+                        Box(
+                            modifier = Modifier
+                                .width(1.dp)
+                                .height(14.dp)
+                                .background(colors.borderStroke)
+                        )
+                        Box(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(6.dp))
+                                .background(colors.accent)
+                                .border(1.dp, colors.accent, RoundedCornerShape(6.dp))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    toastState.performAction()
+                                }
+                                .padding(horizontal = 9.dp, vertical = 4.dp),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Text(
+                                text = currentActionLabel,
+                                color = Color.White,
+                                fontFamily = FontFamily.Monospace,
+                                fontSize = 11.sp,
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 0.8.sp
+                            )
+                        }
+                    }
                 }
             }
         }
     }
 }
-

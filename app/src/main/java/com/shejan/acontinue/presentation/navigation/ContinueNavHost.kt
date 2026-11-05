@@ -506,10 +506,25 @@ fun ContinueNavHost(
                             navController.safePopBackStack("note_editor")
                         },
                         onDeleteNote = {
+                            val targetId = effectiveEditingId
                             container.audioRecordingManager.cancelRecording()
                             noteViewModel.deleteCurrentNote()
                             navController.safePopBackStack("note_editor")
-                            toastState.show("Note moved to bin")
+                            toastState.show(
+                                msg = "Note moved to bin",
+                                actionLabel = "UNDO",
+                                onAction = {
+                                    if (targetId != null && targetId > 0L) {
+                                        coroutineScope.launch {
+                                            if (isWorkspaceMode) {
+                                                container.noteRepository.restoreNote(targetId)
+                                            } else {
+                                                container.activityRepository.restoreActivity(targetId)
+                                            }
+                                        }
+                                    }
+                                }
+                            )
                         },
                         onMakeCopy = { title, content, colorHex, labels ->
                             coroutineScope.launch {

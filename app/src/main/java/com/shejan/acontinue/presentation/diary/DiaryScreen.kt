@@ -235,9 +235,16 @@ fun DiaryScreen(
                                     animatingDismissKeys = keysToDelete
                                     coroutineScope.launch {
                                         delay(230.milliseconds)
-                                        viewModel.deleteSelectedNotes()
+                                        val deleted = viewModel.deleteSelectedNotes()
                                         animatingDismissKeys = emptySet()
-                                        toastState.show(if (count == 1) "1 note moved to bin" else "$count notes moved to bin")
+                                        val deletedCount = if (deleted.isNotEmpty()) deleted.size else count
+                                        toastState.show(
+                                            msg = if (deletedCount == 1) "1 note moved to bin" else "$deletedCount notes moved to bin",
+                                            actionLabel = "UNDO",
+                                            onAction = {
+                                                viewModel.undoDeleteNotes(deleted)
+                                            }
+                                        )
                                     }
                                 },
                             contentAlignment = Alignment.Center
@@ -404,9 +411,16 @@ fun DiaryScreen(
                                     animatingDismissKeys = keysToArchive
                                     coroutineScope.launch {
                                         delay(230.milliseconds)
-                                        viewModel.archiveSelectedNotes()
+                                        val archived = viewModel.archiveSelectedNotes()
                                         animatingDismissKeys = emptySet()
-                                        toastState.show(if (archiveCount == 1) "1 note archived" else "$archiveCount notes archived")
+                                        val count = if (archived.isNotEmpty()) archived.size else archiveCount
+                                        toastState.show(
+                                            msg = if (count == 1) "1 note archived" else "$count notes archived",
+                                            actionLabel = "UNDO",
+                                            onAction = {
+                                                viewModel.undoArchiveNotes(archived)
+                                            }
+                                        )
                                     }
                                 },
                             contentAlignment = Alignment.Center

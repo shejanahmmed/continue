@@ -300,6 +300,13 @@ fun ArchiveScreen(
                                         .clickable {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             viewModel.unarchiveNote(note)
+                                            toastState.show(
+                                                msg = "Note unarchived",
+                                                actionLabel = "UNDO",
+                                                onAction = {
+                                                    viewModel.archiveNote(note)
+                                                }
+                                            )
                                         }
                                         .padding(horizontal = 10.dp),
                                     contentAlignment = Alignment.Center
@@ -334,7 +341,13 @@ fun ArchiveScreen(
                                         .clickable {
                                             haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                             viewModel.deleteNote(note)
-                                            toastState.show("Note moved to bin")
+                                            toastState.show(
+                                                msg = "Note moved to bin",
+                                                actionLabel = "UNDO",
+                                                onAction = {
+                                                    viewModel.restoreNote(note)
+                                                }
+                                            )
                                         },
                                     contentAlignment = Alignment.Center
                                 ) {
