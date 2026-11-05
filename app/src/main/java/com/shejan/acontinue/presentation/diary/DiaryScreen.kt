@@ -868,6 +868,14 @@ private fun DiaryNoteCard(
         }
     }
 
+    val parsedCardPreview = remember(note.content, note.photoCount) {
+        if (hasPhoto && !isMediaOnly && !hasChecklist) {
+            NoteCardPreviewParser.parse(content = note.content, photoCount = note.photoCount, maxLines = 10)
+        } else {
+            null
+        }
+    }
+
     val hasCustomColor = !isDefaultNoteColor(note.colorHex)
     val baseBorderColor = if (hasCustomColor) {
         Color.White.copy(alpha = 0.15f)
@@ -1311,19 +1319,57 @@ private fun DiaryNoteCard(
                             }
                         }
                     } else if (hasContent) {
-                        Text(
-                            text = displayContent,
-                            color = UtilitarianTextPrimary,
-                            fontSize = 13.sp,
-                            lineHeight = 19.sp,
-                            maxLines = 10,
-                            overflow = TextOverflow.Ellipsis,
-                            modifier = Modifier.fillMaxWidth()
-                        )
+                        if (parsedCardPreview != null && parsedCardPreview.elements.isNotEmpty()) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth(),
+                                verticalArrangement = Arrangement.spacedBy(1.dp)
+                            ) {
+                                parsedCardPreview.elements.forEach { elem ->
+                                    when (elem) {
+                                        is NoteCardPreviewElement.TextSegment -> {
+                                            Text(
+                                                text = elem.text,
+                                                color = UtilitarianTextPrimary,
+                                                fontSize = 13.sp,
+                                                lineHeight = 19.sp,
+                                                modifier = Modifier.fillMaxWidth()
+                                            )
+                                        }
+                                        is NoteCardPreviewElement.PhotoLine -> {
+                                            Row(
+                                                verticalAlignment = Alignment.CenterVertically,
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .height(20.dp)
+                                                    .padding(vertical = 2.dp)
+                                            ) {
+                                                Icon(
+                                                    imageVector = Icons.Outlined.Photo,
+                                                    contentDescription = "Photo attached",
+                                                    tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                                    modifier = Modifier.size(16.dp)
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        } else {
+                            Text(
+                                text = displayContent,
+                                color = UtilitarianTextPrimary,
+                                fontSize = 13.sp,
+                                lineHeight = 19.sp,
+                                maxLines = 10,
+                                overflow = TextOverflow.Ellipsis,
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                        }
                     }
 
                     // Attached media indicators for notes with text/checklist
-                    val hasAttachedMedia = hasAudio || hasPhoto
+                    val hiddenPhotoCount = parsedCardPreview?.hiddenPhotoCount ?: (if (hasPhoto) note.photoCount else 0)
+                    val hasAttachedMedia = hasAudio || hiddenPhotoCount > 0
                     if (hasAttachedMedia) {
                         Spacer(modifier = Modifier.height(8.dp))
                         Row(
@@ -1347,7 +1393,7 @@ private fun DiaryNoteCard(
                                     )
                                 }
                             }
-                            if (hasPhoto) {
+                            if (hiddenPhotoCount > 0) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     Icon(
                                         imageVector = Icons.Outlined.Photo,
@@ -1357,7 +1403,7 @@ private fun DiaryNoteCard(
                                     )
                                     Spacer(modifier = Modifier.width(4.dp))
                                     Text(
-                                        text = "${note.photoCount}",
+                                        text = "+ $hiddenPhotoCount",
                                         color = if (hasCustomColor) Color.White.copy(alpha = 0.7f) else UtilitarianTextSecondary,
                                         fontSize = 11.sp,
                                         fontFamily = FontFamily.Monospace

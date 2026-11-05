@@ -102,6 +102,8 @@ import com.shejan.acontinue.presentation.create.DEFAULT_NOTE_COLOR_HEX
 import com.shejan.acontinue.presentation.create.NOTE_COLORS
 import com.shejan.acontinue.presentation.create.isDefaultNoteColor
 import com.shejan.acontinue.presentation.diary.DiaryNoteItem
+import com.shejan.acontinue.presentation.diary.NoteCardPreviewElement
+import com.shejan.acontinue.presentation.diary.NoteCardPreviewParser
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
 import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
@@ -817,6 +819,14 @@ private fun SearchNoteItemCard(
         }
     }
 
+    val parsedCardPreview = remember(note.content, note.photoCount) {
+        if (hasPhoto && !isMediaOnly && !hasChecklist) {
+            NoteCardPreviewParser.parse(content = note.content, photoCount = note.photoCount, maxLines = 8)
+        } else {
+            null
+        }
+    }
+
     val hasCustomColor = !isDefaultNoteColor(note.colorHex)
     val baseBorderColor = if (hasCustomColor) {
         Color.White.copy(alpha = 0.15f)
@@ -929,15 +939,52 @@ private fun SearchNoteItemCard(
                         }
                     }
                 } else if (hasContent) {
-                    Text(
-                        text = displayContent,
-                        color = UtilitarianTextSecondary,
-                        fontSize = 13.sp,
-                        lineHeight = 19.sp,
-                        maxLines = 8,
-                        overflow = TextOverflow.Ellipsis,
-                        modifier = Modifier.fillMaxWidth()
-                    )
+                    if (parsedCardPreview != null && parsedCardPreview.elements.isNotEmpty()) {
+                        Column(
+                            modifier = Modifier.fillMaxWidth(),
+                            verticalArrangement = Arrangement.spacedBy(1.dp)
+                        ) {
+                            parsedCardPreview.elements.forEach { elem ->
+                                when (elem) {
+                                    is NoteCardPreviewElement.TextSegment -> {
+                                        Text(
+                                            text = elem.text,
+                                            color = UtilitarianTextSecondary,
+                                            fontSize = 13.sp,
+                                            lineHeight = 19.sp,
+                                            modifier = Modifier.fillMaxWidth()
+                                        )
+                                    }
+                                    is NoteCardPreviewElement.PhotoLine -> {
+                                        Row(
+                                            verticalAlignment = Alignment.CenterVertically,
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .height(20.dp)
+                                                .padding(vertical = 2.dp)
+                                        ) {
+                                            Icon(
+                                                imageVector = Icons.Outlined.Photo,
+                                                contentDescription = "Photo attached",
+                                                tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                                modifier = Modifier.size(16.dp)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    } else {
+                        Text(
+                            text = displayContent,
+                            color = UtilitarianTextSecondary,
+                            fontSize = 13.sp,
+                            lineHeight = 19.sp,
+                            maxLines = 8,
+                            overflow = TextOverflow.Ellipsis,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
                 }
             }
 
@@ -977,7 +1024,8 @@ private fun SearchNoteItemCard(
             }
 
             if (!isMediaOnly) {
-                val hasMedia = note.audioCount > 0 || note.photoCount > 0
+                val hiddenPhotoCount = parsedCardPreview?.hiddenPhotoCount ?: (if (hasPhoto) note.photoCount else 0)
+                val hasMedia = note.audioCount > 0 || hiddenPhotoCount > 0
                 if (hasMedia) {
                     if (hasTitle || hasContent || hasLabels) {
                         Spacer(modifier = Modifier.height(10.dp))
@@ -1003,7 +1051,7 @@ private fun SearchNoteItemCard(
                                 )
                             }
                         }
-                        if (note.photoCount > 0) {
+                        if (hiddenPhotoCount > 0) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
                                 Icon(
                                     imageVector = Icons.Outlined.Photo,
@@ -1013,7 +1061,7 @@ private fun SearchNoteItemCard(
                                 )
                                 Spacer(modifier = Modifier.width(4.dp))
                                 Text(
-                                    text = "${note.photoCount}",
+                                    text = "+ $hiddenPhotoCount",
                                     color = UtilitarianTextDisabled,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace
