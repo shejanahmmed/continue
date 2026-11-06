@@ -1,5 +1,6 @@
 package com.shejan.acontinue.presentation.search
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shejan.acontinue.core.util.LinkHelper
@@ -12,6 +13,7 @@ import com.shejan.acontinue.domain.repository.SettingsRepository
 import com.shejan.acontinue.presentation.create.DEFAULT_NOTE_COLOR_HEX
 import com.shejan.acontinue.presentation.create.isDefaultNoteColor
 import com.shejan.acontinue.presentation.diary.DiaryNoteItem
+import com.shejan.acontinue.presentation.diary.NoteCardPreviewParser
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -21,8 +23,6 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 
-private val AUDIO_TAG_REGEX = Regex("""!\[audio\]\(([^)]+)\)""")
-private val PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
 private val LIST_LINE_REGEX = Regex("""^\s*(\[[\sxX]\]|[-*•]|\d+[\.\)])\s+""")
 
 enum class SearchNoteType {
@@ -32,6 +32,7 @@ enum class SearchNoteType {
     PHOTOS
 }
 
+@Immutable
 data class SearchUiState(
     val searchQuery: String = "",
     val selectedTypes: Set<SearchNoteType> = emptySet(),
@@ -110,12 +111,14 @@ class SearchViewModel(
                 )
             } else {
                 val filtered = allNoteItems.filter { note ->
-                    val matchesQuery = if (query.isBlank()) {
+                    val trimmedQuery = query.trim()
+                    val matchesQuery = if (trimmedQuery.isBlank()) {
                         true
                     } else {
-                        note.title.contains(query, ignoreCase = true) ||
-                        note.previewText.contains(query, ignoreCase = true) ||
-                        note.labels.any { it.contains(query, ignoreCase = true) }
+                        note.title.contains(trimmedQuery, ignoreCase = true) ||
+                        note.previewText.contains(trimmedQuery, ignoreCase = true) ||
+                        note.content.contains(trimmedQuery, ignoreCase = true) ||
+                        note.labels.any { it.contains(trimmedQuery, ignoreCase = true) }
                     }
 
                     val matchesTypes = if (selectedTypes.isEmpty()) {
@@ -237,15 +240,15 @@ class SearchViewModel(
             val rawContent = matchingNote?.content ?: act.description
             val updatedAt = matchingNote?.updatedAtMillis ?: act.createdAtMillis
 
-            val audioCount = AUDIO_TAG_REGEX.findAll(rawContent).count()
-            val photoCount = PHOTO_TAG_REGEX.findAll(rawContent).count()
+            val audioCount = NoteCardPreviewParser.AUDIO_TAG_REGEX.findAll(rawContent).count()
+            val photoCount = NoteCardPreviewParser.PHOTO_TAG_REGEX.findAll(rawContent).count()
 
             val cleanPreview = rawContent
-                .replace(AUDIO_TAG_REGEX, "")
-                .replace(PHOTO_TAG_REGEX, "")
+                .replace(NoteCardPreviewParser.AUDIO_TAG_REGEX, "")
+                .replace(NoteCardPreviewParser.PHOTO_TAG_REGEX, "")
                 .trim()
 
-            val lines = cleanPreview.lines().filter { it.isNotBlank() }
+            val lines = cleanPreview.lines().map { it.trim() }.filter { it.isNotBlank() }
             val isChecklist = lines.isNotEmpty() && lines.all {
                 it.startsWith("[ ] ") || it.startsWith("[x] ") || it.startsWith("[X] ")
             }
@@ -287,13 +290,13 @@ class SearchViewModel(
 
         for (note in notes) {
             if (!seenActivityIds.contains(note.activityId) && !nonNoteActivityIds.contains(note.activityId) && !note.isDeleted && !note.isArchived) {
-                val audioCount = AUDIO_TAG_REGEX.findAll(note.content).count()
-                val photoCount = PHOTO_TAG_REGEX.findAll(note.content).count()
+                val audioCount = NoteCardPreviewParser.AUDIO_TAG_REGEX.findAll(note.content).count()
+                val photoCount = NoteCardPreviewParser.PHOTO_TAG_REGEX.findAll(note.content).count()
                 val cleanPreview = note.content
-                    .replace(AUDIO_TAG_REGEX, "")
-                    .replace(PHOTO_TAG_REGEX, "")
+                    .replace(NoteCardPreviewParser.AUDIO_TAG_REGEX, "")
+                    .replace(NoteCardPreviewParser.PHOTO_TAG_REGEX, "")
                     .trim()
-                val lines = cleanPreview.lines().filter { it.isNotBlank() }
+                val lines = cleanPreview.lines().map { it.trim() }.filter { it.isNotBlank() }
                 val isChecklist = lines.isNotEmpty() && lines.all {
                     it.startsWith("[ ] ") || it.startsWith("[x] ") || it.startsWith("[X] ")
                 }

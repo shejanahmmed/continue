@@ -678,8 +678,6 @@ private fun SearchColorFilterPill(
     }
 }
 
-private val SEARCH_PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
-
 @Composable
 private fun SearchPhotoThumbnail(
     uri: Uri,
@@ -777,6 +775,7 @@ private fun SearchNoteItemCard(
     onClick: () -> Unit
 ) {
     val parsedChecklistItems = remember(note.content, note.previewText, note.isChecklist) {
+        if (!note.isChecklist) return@remember null
         val raw = if (note.previewText.isNotBlank()) note.previewText else note.content
         val lines = raw.lines().map { it.trim() }.filter { it.isNotBlank() }
         if (lines.isNotEmpty() && lines.all { it.startsWith("[ ] ") || it.startsWith("[x] ", ignoreCase = true) || it.startsWith("[X] ") }) {
@@ -797,25 +796,13 @@ private fun SearchNoteItemCard(
     val hasPhoto = note.photoCount > 0
     val isMediaOnly = (hasAudio || hasPhoto) && !hasContent && !hasChecklist
 
-    val firstPhotoUri = remember(note.content, hasPhoto) {
-        if (hasPhoto) {
-            SEARCH_PHOTO_TAG_REGEX.find(note.content)?.groupValues?.getOrNull(1)?.let { uriStr ->
+    val firstPhotoUri = remember(note.content, hasPhoto, isMediaOnly) {
+        if (hasPhoto && isMediaOnly) {
+            NoteCardPreviewParser.PHOTO_TAG_REGEX.find(note.content)?.groupValues?.getOrNull(1)?.let { uriStr ->
                 runCatching { Uri.parse(uriStr) }.getOrNull()
             }
         } else {
             null
-        }
-    }
-
-    val displayContent = remember(note.previewText) {
-        val lines = note.previewText.lines()
-        if (lines.size > 8) {
-            val first7 = lines.take(7)
-            val eighth = lines[7].trimEnd()
-            val eighthWithDots = if (eighth.endsWith("...")) eighth else "$eighth..."
-            (first7 + eighthWithDots).joinToString("\n")
-        } else {
-            note.previewText
         }
     }
 
@@ -824,6 +811,22 @@ private fun SearchNoteItemCard(
             NoteCardPreviewParser.parse(content = note.content, photoCount = note.photoCount, maxLines = 8)
         } else {
             null
+        }
+    }
+
+    val displayContent = remember(note.previewText, hasContent, parsedCardPreview) {
+        if (!hasContent || parsedCardPreview != null) {
+            ""
+        } else {
+            val lines = note.previewText.lines()
+            if (lines.size > 8) {
+                val first7 = lines.take(7)
+                val eighth = lines[7].trimEnd()
+                val eighthWithDots = if (eighth.endsWith("...")) eighth else "$eighth..."
+                (first7 + eighthWithDots).joinToString("\n")
+            } else {
+                note.previewText
+            }
         }
     }
 
@@ -949,7 +952,7 @@ private fun SearchNoteItemCard(
                                     is NoteCardPreviewElement.TextSegment -> {
                                         Text(
                                             text = elem.text,
-                                            color = UtilitarianTextSecondary,
+                                            color = UtilitarianTextPrimary,
                                             fontSize = 13.sp,
                                             lineHeight = 19.sp,
                                             modifier = Modifier.fillMaxWidth()
@@ -977,7 +980,7 @@ private fun SearchNoteItemCard(
                     } else {
                         Text(
                             text = displayContent,
-                            color = UtilitarianTextSecondary,
+                            color = UtilitarianTextPrimary,
                             fontSize = 13.sp,
                             lineHeight = 19.sp,
                             maxLines = 8,

@@ -785,4 +785,67 @@ class SearchViewModelTest {
         assertTrue(viewModel.uiState.value.selectedColors.isEmpty())
         assertTrue(viewModel.uiState.value.results.isEmpty())
     }
+
+    @Test
+    fun `test query with leading or trailing whitespace matches note`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 2401L,
+                activityId = 0L,
+                title = "Sprint Planning",
+                content = "Discuss quarterly roadmap milestones",
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSearchQueryChange("  Sprint  ")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.results.size)
+        assertEquals("Sprint Planning", state.results[0].title)
+    }
+
+    @Test
+    fun `test indented markdown checklist items properly set isChecklist`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 2402L,
+                activityId = 0L,
+                title = "Indented Tasks",
+                content = "   [ ] Setup database\n   [x] Write migrations",
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSearchQueryChange("Indented")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.results.size)
+        assertTrue(state.results[0].isChecklist)
+    }
+
+    @Test
+    fun `test query matching raw content with markdown tags returns result`() = runTest(testDispatcher) {
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 2403L,
+                activityId = 0L,
+                title = "Reference",
+                content = "Documentation at [Architecture](https://example.com/architecture-spec)",
+                updatedAtMillis = 2000L
+            )
+        )
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        viewModel.onSearchQueryChange("architecture-spec")
+        testDispatcher.scheduler.advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(1, state.results.size)
+        assertEquals("Reference", state.results[0].title)
+    }
 }
