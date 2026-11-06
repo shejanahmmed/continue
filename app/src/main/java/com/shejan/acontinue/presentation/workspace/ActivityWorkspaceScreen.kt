@@ -3,8 +3,18 @@ package com.shejan.acontinue.presentation.workspace
 import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.Animatable
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideOutHorizontally
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -23,6 +33,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -69,7 +80,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import kotlin.time.Duration.Companion.milliseconds
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
@@ -77,7 +90,12 @@ import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.TextStyle
@@ -156,210 +174,182 @@ fun ActivityWorkspaceScreen(
     val aggregate = uiState.aggregate!!
     val activity = aggregate.activity
 
-    LazyColumn(
+    val haptic = LocalHapticFeedback.current
+
+    BackHandler(enabled = showMenu) {
+        showMenu = false
+    }
+
+    Box(
         modifier = modifier
             .fillMaxSize()
             .background(UtilitarianPureBlack)
-            .padding(horizontal = 16.dp)
-            .navigationBarsPadding(),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-        contentPadding = PaddingValues(bottom = 32.dp)
     ) {
-        // Top Bar
-        item {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 12.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                IconButton(
-                    onClick = onNavigateBack,
-                    modifier = Modifier.size(36.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                        contentDescription = "Back",
-                        tint = UtilitarianTextPrimary,
-                        modifier = Modifier.size(20.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "WORKSPACE",
-                    color = UtilitarianTextPrimary,
-                    fontFamily = FontFamily.Monospace,
-                    fontWeight = FontWeight.Bold,
-                    fontSize = 20.sp,
-                    letterSpacing = 1.2.sp
+        // Layer 1: Main Content
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(horizontal = 16.dp)
+                .navigationBarsPadding(),
+            verticalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(bottom = 32.dp)
+        ) {
+            // Top Bar
+            item {
+                WorkspaceTopBar(
+                    isMenuOpen = showMenu,
+                    onNavigateBack = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        onNavigateBack()
+                    },
+                    onToggleMenu = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        showMenu = !showMenu
+                    }
                 )
-                Spacer(modifier = Modifier.weight(1f))
+            }
 
-                Box {
-                    Box(
-                        modifier = Modifier
-                            .size(36.dp)
-                            .clickable(
-                                interactionSource = remember { MutableInteractionSource() },
-                                indication = null
-                            ) { showMenu = true },
-                        contentAlignment = Alignment.Center
+            // Header Title Card
+            item {
+                MonochromeCard {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.Top
                     ) {
-                        Icon(
-                            imageVector = Icons.Outlined.MoreVert,
-                            contentDescription = "Options",
-                            tint = UtilitarianTextPrimary,
-                            modifier = Modifier.size(20.dp)
+                        Text(
+                            text = activity.title,
+                            color = UtilitarianTextPrimaryMuted,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Normal,
+                            modifier = Modifier.fillMaxWidth()
                         )
-                    }
-                    DropdownMenu(
-                        expanded = showMenu,
-                        onDismissRequest = { showMenu = false },
-                        offset = DpOffset(x = (-100).dp, y = 4.dp),
-                        shape = RoundedCornerShape(14.dp),
-                        containerColor = Color(0xFF1E2023),
-                        border = BorderStroke(1.dp, Color(0xFF33383F)),
-                        modifier = Modifier
-                            .width(140.dp)
-                            .clip(RoundedCornerShape(14.dp))
-                    ) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(36.dp)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    showMenu = false
-                                    onEditActivity(activity.id)
-                                }
-                                .padding(horizontal = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Edit,
-                                contentDescription = null,
-                                tint = UtilitarianTextPrimary,
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Edit",
-                                color = UtilitarianTextPrimary,
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        HorizontalDivider(
-                            color = Color(0xFF2C3136),
-                            thickness = 0.5.dp,
-                            modifier = Modifier.padding(horizontal = 8.dp)
-                        )
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(36.dp)
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    showMenu = false
-                                    showDeleteConfirmDialog = true
-                                }
-                                .padding(horizontal = 14.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Delete,
-                                contentDescription = null,
-                                tint = Color(0xFFD71921),
-                                modifier = Modifier.size(16.dp)
-                            )
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(
-                                text = "Delete",
-                                color = Color(0xFFD71921),
-                                fontSize = 14.sp,
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
                     }
                 }
             }
-        }
 
-        // Header Title Card
-        item {
-            MonochromeCard {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.Top
-                ) {
-                    Text(
-                        text = activity.title,
-                        color = UtilitarianTextPrimaryMuted,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Normal,
-                        modifier = Modifier.fillMaxWidth()
+            // Workspace Tabs
+            item {
+                WorkspaceTabRow(
+                    selectedTab = uiState.selectedTab,
+                    onSelectTab = { viewModel.selectTab(it) },
+                    notesCount = aggregate.notes.size,
+                    tasksCount = aggregate.tasks.size,
+                    linksCount = aggregate.links.size
+                )
+            }
+
+            // Tab Content
+            item {
+                when (uiState.selectedTab) {
+                    WorkspaceTab.OVERVIEW -> OverviewTabContent(
+                        aggregate = aggregate,
+                        onAddAttachment = { fileName, uriString, mimeType, sizeBytes ->
+                            viewModel.addAttachment(fileName, uriString, mimeType, sizeBytes)
+                        },
+                        onDeleteAttachment = { attachmentId, filePath ->
+                            viewModel.deleteAttachment(attachmentId, filePath)
+                            toastState.show("Attachment deleted")
+                        }
+                    )
+                    WorkspaceTab.NOTES -> NotesTabContent(
+                        notes = aggregate.notes,
+                        onCreateNoteClick = { onCreateWorkspaceNote(activity.id) },
+                        onNoteClick = { noteId -> onOpenWorkspaceNote(activity.id, noteId) },
+                        onDeleteNote = {
+                            viewModel.deleteNote(it)
+                            toastState.show("Note moved to bin")
+                        }
+                    )
+                    WorkspaceTab.TASKS -> TasksTabContent(
+                        tasks = aggregate.tasks,
+                        onAddTask = { viewModel.addTask(it) },
+                        onUpdateTask = { id, title -> viewModel.updateTask(id, title) },
+                        onToggleTask = { id, done -> viewModel.toggleTask(id, done) },
+                        onDeleteTask = {
+                            viewModel.deleteTask(it)
+                            toastState.show("Task deleted")
+                        }
+                    )
+                    WorkspaceTab.LINKS -> LinksTabContent(
+                        links = aggregate.links,
+                        onAddLink = { url, title -> viewModel.addLink(url, title) },
+                        onUpdateLink = { id, url, title -> viewModel.updateLink(id, url, title) },
+                        onDeleteLink = {
+                            viewModel.deleteLink(it)
+                            toastState.show("Link deleted")
+                        }
                     )
                 }
             }
         }
 
-        // Workspace Tabs
-        item {
-            WorkspaceTabRow(
-                selectedTab = uiState.selectedTab,
-                onSelectTab = { viewModel.selectTab(it) },
-                notesCount = aggregate.notes.size,
-                tasksCount = aggregate.tasks.size,
-                linksCount = aggregate.links.size
+        // Layer 2: Dim Scrim
+        AnimatedVisibility(
+            visible = showMenu,
+            enter = fadeIn(tween(150)),
+            exit = fadeOut(tween(150))
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.65f))
+                    .clickable(
+                        interactionSource = remember { MutableInteractionSource() },
+                        indication = null
+                    ) {
+                        showMenu = false
+                    }
             )
         }
 
-        // Tab Content
-        item {
-            when (uiState.selectedTab) {
-                WorkspaceTab.OVERVIEW -> OverviewTabContent(
-                    aggregate = aggregate,
-                    onAddAttachment = { fileName, uriString, mimeType, sizeBytes ->
-                        viewModel.addAttachment(fileName, uriString, mimeType, sizeBytes)
-                    },
-                    onDeleteAttachment = { attachmentId, filePath ->
-                        viewModel.deleteAttachment(attachmentId, filePath)
-                        toastState.show("Attachment deleted")
-                    }
-                )
-                WorkspaceTab.NOTES -> NotesTabContent(
-                    notes = aggregate.notes,
-                    onCreateNoteClick = { onCreateWorkspaceNote(activity.id) },
-                    onNoteClick = { noteId -> onOpenWorkspaceNote(activity.id, noteId) },
-                    onDeleteNote = {
-                        viewModel.deleteNote(it)
-                        toastState.show("Note moved to bin")
-                    }
-                )
-                WorkspaceTab.TASKS -> TasksTabContent(
-                    tasks = aggregate.tasks,
-                    onAddTask = { viewModel.addTask(it) },
-                    onUpdateTask = { id, title -> viewModel.updateTask(id, title) },
-                    onToggleTask = { id, done -> viewModel.toggleTask(id, done) },
-                    onDeleteTask = {
-                        viewModel.deleteTask(it)
-                        toastState.show("Task deleted")
-                    }
-                )
-                WorkspaceTab.LINKS -> LinksTabContent(
-                    links = aggregate.links,
-                    onAddLink = { url, title -> viewModel.addLink(url, title) },
-                    onUpdateLink = { id, url, title -> viewModel.updateLink(id, url, title) },
-                    onDeleteLink = {
-                        viewModel.deleteLink(it)
-                        toastState.show("Link deleted")
-                    }
-                )
-            }
+        // Layer 3A: Top Bar Header above Scrim (remains crisp & un-dimmed)
+        AnimatedVisibility(
+            visible = showMenu,
+            enter = fadeIn(tween(120)),
+            exit = fadeOut(tween(120)),
+            modifier = Modifier
+                .align(Alignment.TopStart)
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp)
+        ) {
+            WorkspaceTopBar(
+                isMenuOpen = showMenu,
+                onNavigateBack = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    showMenu = false
+                    onNavigateBack()
+                },
+                onToggleMenu = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    showMenu = false
+                }
+            )
+        }
+
+        // Layer 3B: Floating Speed Dial Pills
+        AnimatedVisibility(
+            visible = showMenu,
+            enter = fadeIn(tween(100)),
+            exit = fadeOut(tween(120)) + slideOutHorizontally(
+                animationSpec = tween(140, easing = FastOutSlowInEasing)
+            ) { fullWidth -> fullWidth },
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(top = 58.dp, end = 16.dp)
+        ) {
+            WorkspaceOptionsSpeedDial(
+                onEditClick = {
+                    showMenu = false
+                    onEditActivity(activity.id)
+                },
+                onDeleteClick = {
+                    showMenu = false
+                    showDeleteConfirmDialog = true
+                },
+                onCloseClick = {
+                    showMenu = false
+                }
+            )
         }
     }
 
@@ -435,6 +425,7 @@ fun ActivityWorkspaceScreen(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null
                                     ) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         showDeleteConfirmDialog = false
                                     },
                                 contentAlignment = Alignment.Center
@@ -458,6 +449,7 @@ fun ActivityWorkspaceScreen(
                                         interactionSource = remember { MutableInteractionSource() },
                                         indication = null
                                     ) {
+                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                         showDeleteConfirmDialog = false
                                         viewModel.deleteActivity()
                                     },
@@ -474,6 +466,219 @@ fun ActivityWorkspaceScreen(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceTopBar(
+    isMenuOpen: Boolean,
+    onNavigateBack: () -> Unit,
+    onToggleMenu: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Row(
+        modifier = modifier
+            .fillMaxWidth()
+            .padding(top = 12.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        IconButton(
+            onClick = onNavigateBack,
+            modifier = Modifier.size(36.dp)
+        ) {
+            Icon(
+                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                contentDescription = "Back",
+                tint = UtilitarianTextPrimary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = "WORKSPACE",
+            color = UtilitarianTextPrimary,
+            fontFamily = FontFamily.Monospace,
+            fontWeight = FontWeight.Bold,
+            fontSize = 20.sp,
+            letterSpacing = 1.2.sp
+        )
+        Spacer(modifier = Modifier.weight(1f))
+
+        Box(
+            modifier = Modifier
+                .size(36.dp)
+                .clip(CircleShape)
+                .background(if (isMenuOpen) Color(0xFF2C2C2C) else Color.Transparent)
+                .clickable(
+                    interactionSource = remember { MutableInteractionSource() },
+                    indication = null,
+                    onClick = onToggleMenu
+                ),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.MoreVert,
+                contentDescription = if (isMenuOpen) "Close options" else "Options",
+                tint = if (isMenuOpen) Color.White else UtilitarianTextPrimary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceOptionsSpeedDial(
+    onEditClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onCloseClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val travelDistancePx = with(density) { 260.dp.toPx() }
+
+    val animations = remember { List(3) { Animatable(1f) } }
+
+    LaunchedEffect(Unit) {
+        animations.forEachIndexed { index, animatable ->
+            launch {
+                delay((index * 40).milliseconds)
+                animatable.animateTo(
+                    targetValue = 0f,
+                    animationSpec = spring(
+                        stiffness = Spring.StiffnessMediumLow,
+                        dampingRatio = Spring.DampingRatioLowBouncy
+                    )
+                )
+            }
+        }
+    }
+
+    Column(
+        modifier = modifier.wrapContentSize(),
+        horizontalAlignment = Alignment.End,
+        verticalArrangement = Arrangement.spacedBy(10.dp)
+    ) {
+        // Pill 1: Edit
+        val editAnimValue = animations[0].value
+        Box(
+            modifier = Modifier.graphicsLayer {
+                translationX = editAnimValue * travelDistancePx
+                alpha = (1f - editAnimValue).coerceIn(0f, 1f)
+            }
+        ) {
+            WorkspaceActionPill(
+                icon = Icons.Outlined.Edit,
+                label = "Edit",
+                isDestructive = false,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onEditClick()
+                }
+            )
+        }
+
+        // Pill 2: Delete
+        val deleteAnimValue = animations[1].value
+        Box(
+            modifier = Modifier.graphicsLayer {
+                translationX = deleteAnimValue * travelDistancePx
+                alpha = (1f - deleteAnimValue).coerceIn(0f, 1f)
+            }
+        ) {
+            WorkspaceActionPill(
+                icon = Icons.Outlined.Delete,
+                label = "Delete",
+                isDestructive = true,
+                onClick = {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onDeleteClick()
+                }
+            )
+        }
+
+        // Dedicated Cross close button horizontally centered just below the last pill
+        val crossAnimValue = animations[2].value
+        Box(
+            modifier = Modifier
+                .align(Alignment.CenterHorizontally)
+                .graphicsLayer {
+                    translationX = crossAnimValue * travelDistancePx
+                    alpha = (1f - crossAnimValue).coerceIn(0f, 1f)
+                }
+                .size(38.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF202020))
+                .border(
+                    1.dp,
+                    UtilitarianBorderStroke.copy(alpha = 0.5f),
+                    CircleShape
+                )
+                .clickable {
+                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                    onCloseClick()
+                },
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Close,
+                contentDescription = "Close options",
+                tint = UtilitarianTextPrimary,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceActionPill(
+    icon: ImageVector,
+    label: String,
+    isDestructive: Boolean,
+    onClick: () -> Unit
+) {
+    val pillShape = RoundedCornerShape(32.dp)
+    val backgroundColor = if (isDestructive) UtilitarianAccentRed else Color(0xFF202020)
+    val borderColor = if (isDestructive) UtilitarianAccentRed else UtilitarianBorderStroke
+    val contentColor = if (isDestructive) Color.White else UtilitarianTextPrimary
+
+    Surface(
+        modifier = Modifier
+            .width(136.dp)
+            .clip(pillShape)
+            .clickable(
+                interactionSource = remember { MutableInteractionSource() },
+                indication = null,
+                onClick = onClick
+            ),
+        shape = pillShape,
+        color = backgroundColor,
+        border = BorderStroke(1.dp, borderColor)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 11.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Start
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = contentColor,
+                modifier = Modifier.size(17.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = label,
+                color = contentColor,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 13.sp,
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 0.6.sp,
+                maxLines = 1
+            )
         }
     }
 }
