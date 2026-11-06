@@ -806,7 +806,7 @@ private fun SearchNoteItemCard(
         }
     }
 
-    val parsedCardPreview = remember(note.content, note.photoCount) {
+    val parsedCardPreview = remember(note.content, note.photoCount, isMediaOnly, hasChecklist) {
         if (hasPhoto && !isMediaOnly && !hasChecklist) {
             NoteCardPreviewParser.parse(content = note.content, photoCount = note.photoCount, maxLines = 8)
         } else {

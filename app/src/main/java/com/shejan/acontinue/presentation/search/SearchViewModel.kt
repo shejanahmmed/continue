@@ -50,6 +50,11 @@ private data class SearchFilterParams(
     val selectedColors: Set<Long>
 )
 
+private data class BaseSearchData(
+    val noteItems: List<DiaryNoteItem> = emptyList(),
+    val availableLabels: List<String> = emptyList()
+)
+
 class SearchViewModel(
     private val activityRepository: ActivityRepository,
     private val noteRepository: NoteRepository,
@@ -66,6 +71,23 @@ class SearchViewModel(
     init {
         val savedLabelsFlow = settingsRepository?.getNoteLabels() ?: flowOf(emptyList())
 
+        // Stage 1: Base search data cache flow (runs ONLY when database emits)
+        val baseDataFlow = combine(
+            activityRepository.getAllActivities(),
+            noteRepository.searchNotes(""),
+            savedLabelsFlow
+        ) { activities, notes, savedLabels ->
+            val allNoteItems = buildSearchNoteItems(activities, notes)
+            val labelsFromNotes = allNoteItems.flatMap { it.labels }
+            val combinedLabels = (savedLabels + labelsFromNotes)
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .distinctBy { it.lowercase() }
+                .sortedWith(String.CASE_INSENSITIVE_ORDER)
+            BaseSearchData(allNoteItems, combinedLabels)
+        }
+
+        // Stage 2: Filter parameters flow (query, type, label, and color selections)
         val filterParamsFlow = combine(
             _searchQuery,
             _selectedTypes,
@@ -75,24 +97,15 @@ class SearchViewModel(
             SearchFilterParams(query, selectedTypes, selectedLabels, selectedColors)
         }
 
+        // Fast filtering pipeline: executes against pre-cached in-memory items on keystrokes
         combine(
             filterParamsFlow,
-            activityRepository.getAllActivities(),
-            noteRepository.searchNotes(""),
-            savedLabelsFlow
-        ) { params, activities, notes, savedLabels ->
+            baseDataFlow
+        ) { params, baseData ->
             val query = params.query
             val selectedTypes = params.selectedTypes
             val selectedLabels = params.selectedLabels
             val selectedColors = params.selectedColors
-
-            val allNoteItems = buildSearchNoteItems(activities, notes)
-            val labelsFromNotes = allNoteItems.flatMap { it.labels }
-            val combinedLabels = (savedLabels + labelsFromNotes)
-                .map { it.trim() }
-                .filter { it.isNotBlank() }
-                .distinctBy { it.lowercase() }
-                .sortedWith(String.CASE_INSENSITIVE_ORDER)
 
             val isFilterOrQueryActive = query.isNotBlank() ||
                 selectedTypes.isNotEmpty() ||
@@ -106,59 +119,60 @@ class SearchViewModel(
                     selectedLabels = selectedLabels,
                     selectedColors = selectedColors,
                     results = emptyList(),
-                    availableLabels = combinedLabels,
+                    availableLabels = baseData.availableLabels,
                     isLoading = false
                 )
             } else {
-                val filtered = allNoteItems.filter { note ->
-                    val trimmedQuery = query.trim()
-                    val matchesQuery = if (trimmedQuery.isBlank()) {
-                        true
-                    } else {
-                        note.title.contains(trimmedQuery, ignoreCase = true) ||
-                        note.previewText.contains(trimmedQuery, ignoreCase = true) ||
-                        note.content.contains(trimmedQuery, ignoreCase = true) ||
-                        note.labels.any { it.contains(trimmedQuery, ignoreCase = true) }
+                val trimmedQuery = query.trim()
+                val hasQuery = trimmedQuery.isNotBlank()
+
+                val filtered = baseData.noteItems.filter { note ->
+                    // 1. Color filter: instant Long set comparison
+                    if (selectedColors.isNotEmpty()) {
+                        val normalized = normalizeColor(note.colorHex)
+                        if (!selectedColors.contains(normalized)) return@filter false
                     }
 
-                    val matchesTypes = if (selectedTypes.isEmpty()) {
-                        true
-                    } else {
-                        selectedTypes.all { type ->
+                    // 2. Type filter: fast flag checks and guarded URL verification
+                    if (selectedTypes.isNotEmpty()) {
+                        val matchesAllTypes = selectedTypes.all { type ->
                             when (type) {
                                 SearchNoteType.LISTS -> note.isChecklist || hasListSyntax(note.content)
-                                SearchNoteType.URLS -> LinkHelper.extractUrls(note.title).isNotEmpty() ||
-                                    LinkHelper.extractUrls(note.content).isNotEmpty()
+                                SearchNoteType.URLS -> hasUrls(note.title, note.content)
                                 SearchNoteType.AUDIO -> note.audioCount > 0
                                 SearchNoteType.PHOTOS -> note.photoCount > 0
                             }
                         }
+                        if (!matchesAllTypes) return@filter false
                     }
 
-                    val matchesLabels = if (selectedLabels.isEmpty()) {
-                        true
-                    } else {
-                        selectedLabels.all { selected ->
+                    // 3. Label filter: note label matching
+                    if (selectedLabels.isNotEmpty()) {
+                        val matchesAllLabels = selectedLabels.all { selected ->
                             note.labels.any { it.equals(selected, ignoreCase = true) }
                         }
+                        if (!matchesAllLabels) return@filter false
                     }
 
-                    val matchesColors = if (selectedColors.isEmpty()) {
-                        true
-                    } else {
-                        val normalized = normalizeColor(note.colorHex)
-                        selectedColors.contains(normalized)
+                    // 4. Query filter: only evaluated for notes passing all other active filters
+                    if (hasQuery) {
+                        val matchesQuery = note.title.contains(trimmedQuery, ignoreCase = true) ||
+                            note.previewText.contains(trimmedQuery, ignoreCase = true) ||
+                            note.content.contains(trimmedQuery, ignoreCase = true) ||
+                            note.labels.any { it.contains(trimmedQuery, ignoreCase = true) }
+                        if (!matchesQuery) return@filter false
                     }
 
-                    matchesQuery && matchesTypes && matchesLabels && matchesColors
+                    true
                 }
+
                 SearchUiState(
                     searchQuery = query,
                     selectedTypes = selectedTypes,
                     selectedLabels = selectedLabels,
                     selectedColors = selectedColors,
                     results = filtered,
-                    availableLabels = combinedLabels,
+                    availableLabels = baseData.availableLabels,
                     isLoading = false
                 )
             }
@@ -217,6 +231,19 @@ class SearchViewModel(
             trimmed.startsWith("• ") ||
             LIST_LINE_REGEX.containsMatchIn(line)
         }
+    }
+
+    private fun hasUrls(title: String, content: String): Boolean {
+        val hasUrlSubstring = title.contains("http://", ignoreCase = true) ||
+            title.contains("https://", ignoreCase = true) ||
+            title.contains("www.", ignoreCase = true) ||
+            content.contains("http://", ignoreCase = true) ||
+            content.contains("https://", ignoreCase = true) ||
+            content.contains("www.", ignoreCase = true)
+
+        if (!hasUrlSubstring) return false
+
+        return LinkHelper.extractUrls(title).isNotEmpty() || LinkHelper.extractUrls(content).isNotEmpty()
     }
 
     private fun buildSearchNoteItems(
