@@ -286,7 +286,6 @@ fun DiaryScreen(
                         DiaryNoteCard(
                             note = note,
                             isSelected = isSelected,
-                            isSelectionMode = uiState.isSelectionMode,
                             isDismissing = isDismissing,
                             isGridMode = uiState.isGridMode,
                             modifier = Modifier.animateItem(
@@ -329,7 +328,6 @@ fun DiaryScreen(
                             DiaryNoteCard(
                                 note = note,
                                 isSelected = isSelected,
-                                isSelectionMode = uiState.isSelectionMode,
                                 isDismissing = isDismissing,
                                 isGridMode = uiState.isGridMode,
                                 modifier = Modifier.animateItem(
@@ -358,7 +356,6 @@ fun DiaryScreen(
                         DiaryNoteCard(
                             note = note,
                             isSelected = isSelected,
-                            isSelectionMode = uiState.isSelectionMode,
                             isDismissing = isDismissing,
                             isGridMode = uiState.isGridMode,
                             modifier = Modifier.animateItem(
@@ -857,7 +854,6 @@ private class ColumnPositionRef(var isRight: Boolean = false)
 private fun DiaryNoteCard(
     note: DiaryNoteItem,
     isSelected: Boolean,
-    isSelectionMode: Boolean,
     modifier: Modifier = Modifier,
     isDismissing: Boolean = false,
     isGridMode: Boolean = false,
@@ -978,7 +974,7 @@ private fun DiaryNoteCard(
             Column(modifier = Modifier.fillMaxWidth()) {
                 if (isMediaOnly) {
                     if (hasTitle) {
-                        // Title row with optional pin and selection indicators
+                        // Title row with optional pin indicator
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             verticalAlignment = Alignment.Top,
@@ -992,44 +988,15 @@ private fun DiaryNoteCard(
                                 lineHeight = 22.sp,
                                 modifier = Modifier.weight(1f)
                             )
-                            if (note.isPinned || isSelectionMode) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.padding(start = 8.dp)
-                                ) {
-                                    if (note.isPinned) {
-                                        Icon(
-                                            imageVector = Icons.Filled.PushPin,
-                                            contentDescription = "Pinned note",
-                                            tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                    if (isSelectionMode) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(20.dp)
-                                                .clip(RoundedCornerShape(4.dp))
-                                                .background(if (isSelected) Color.White else Color.Transparent)
-                                                .border(
-                                                    1.dp,
-                                                    if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
-                                                    RoundedCornerShape(4.dp)
-                                                ),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (isSelected) {
-                                                Icon(
-                                                    imageVector = Icons.Outlined.Check,
-                                                    contentDescription = "Selected",
-                                                    tint = Color.Black,
-                                                    modifier = Modifier.size(14.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                            if (note.isPinned) {
+                                Icon(
+                                    imageVector = Icons.Filled.PushPin,
+                                    contentDescription = "Pinned note",
+                                    tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .size(16.dp)
+                                )
                             }
                         }
                         Spacer(modifier = Modifier.height(8.dp))
@@ -1051,44 +1018,18 @@ private fun DiaryNoteCard(
                     } else {
                         // Untitled Media Note
                         if (hasPhoto && firstPhotoUri != null) {
-                            if (note.isPinned || isSelectionMode) {
+                            if (note.isPinned) {
                                 Row(
                                     modifier = Modifier.fillMaxWidth(),
                                     horizontalArrangement = Arrangement.End,
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    if (note.isPinned) {
-                                        Icon(
-                                            imageVector = Icons.Filled.PushPin,
-                                            contentDescription = "Pinned note",
-                                            tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                        if (isSelectionMode) Spacer(modifier = Modifier.width(6.dp))
-                                    }
-                                    if (isSelectionMode) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(20.dp)
-                                                .clip(RoundedCornerShape(4.dp))
-                                                .background(if (isSelected) Color.White else Color.Transparent)
-                                                .border(
-                                                    1.dp,
-                                                    if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
-                                                    RoundedCornerShape(4.dp)
-                                                ),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (isSelected) {
-                                                Icon(
-                                                    imageVector = Icons.Outlined.Check,
-                                                    contentDescription = "Selected",
-                                                    tint = Color.Black,
-                                                    modifier = Modifier.size(14.dp)
-                                                )
-                                            }
-                                        }
-                                    }
+                                    Icon(
+                                        imageVector = Icons.Filled.PushPin,
+                                        contentDescription = "Pinned note",
+                                        tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                        modifier = Modifier.size(16.dp)
+                                    )
                                 }
                                 Spacer(modifier = Modifier.height(8.dp))
                             }
@@ -1126,86 +1067,31 @@ private fun DiaryNoteCard(
                                             fontWeight = FontWeight.Medium
                                         )
                                     }
-                                    if (note.isPinned || isSelectionMode) {
-                                        Row(
-                                            verticalAlignment = Alignment.CenterVertically,
-                                            horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                            modifier = Modifier.padding(start = 8.dp)
-                                        ) {
-                                            if (note.isPinned) {
-                                                Icon(
-                                                    imageVector = Icons.Filled.PushPin,
-                                                    contentDescription = "Pinned note",
-                                                    tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
-                                                    modifier = Modifier.size(16.dp)
-                                                )
-                                            }
-                                            if (isSelectionMode) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(20.dp)
-                                                        .clip(RoundedCornerShape(4.dp))
-                                                        .background(if (isSelected) Color.White else Color.Transparent)
-                                                        .border(
-                                                            1.dp,
-                                                            if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
-                                                            RoundedCornerShape(4.dp)
-                                                        ),
-                                                    contentAlignment = Alignment.Center
-                                                ) {
-                                                    if (isSelected) {
-                                                        Icon(
-                                                            imageVector = Icons.Outlined.Check,
-                                                            contentDescription = "Selected",
-                                                            tint = Color.Black,
-                                                            modifier = Modifier.size(14.dp)
-                                                        )
-                                                    }
-                                                }
-                                            }
-                                        }
+                                    if (note.isPinned) {
+                                        Icon(
+                                            imageVector = Icons.Filled.PushPin,
+                                            contentDescription = "Pinned note",
+                                            tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                            modifier = Modifier
+                                                .padding(start = 8.dp)
+                                                .size(16.dp)
+                                        )
                                     }
                                 }
                             } else {
                                 // Multi-recording untitled note
-                                if (note.isPinned || isSelectionMode) {
+                                if (note.isPinned) {
                                     Row(
                                         modifier = Modifier.fillMaxWidth(),
                                         horizontalArrangement = Arrangement.End,
                                         verticalAlignment = Alignment.CenterVertically
                                     ) {
-                                        if (note.isPinned) {
-                                            Icon(
-                                                imageVector = Icons.Filled.PushPin,
-                                                contentDescription = "Pinned note",
-                                                tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
-                                                modifier = Modifier.size(16.dp)
-                                            )
-                                            if (isSelectionMode) Spacer(modifier = Modifier.width(6.dp))
-                                        }
-                                        if (isSelectionMode) {
-                                            Box(
-                                                modifier = Modifier
-                                                    .size(20.dp)
-                                                    .clip(RoundedCornerShape(4.dp))
-                                                    .background(if (isSelected) Color.White else Color.Transparent)
-                                                    .border(
-                                                        1.dp,
-                                                        if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
-                                                        RoundedCornerShape(4.dp)
-                                                    ),
-                                                contentAlignment = Alignment.Center
-                                            ) {
-                                                if (isSelected) {
-                                                    Icon(
-                                                        imageVector = Icons.Outlined.Check,
-                                                        contentDescription = "Selected",
-                                                        tint = Color.Black,
-                                                        modifier = Modifier.size(14.dp)
-                                                    )
-                                                }
-                                            }
-                                        }
+                                        Icon(
+                                            imageVector = Icons.Filled.PushPin,
+                                            contentDescription = "Pinned note",
+                                            tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                            modifier = Modifier.size(16.dp)
+                                        )
                                     }
                                     Spacer(modifier = Modifier.height(8.dp))
                                 }
@@ -1218,51 +1104,25 @@ private fun DiaryNoteCard(
                     }
                 } else {
                     // Header indicators for untitled notes
-                    if (!hasTitle && (note.isPinned || isSelectionMode)) {
+                    if (!hasTitle && note.isPinned) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.End,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            if (note.isPinned) {
-                                Icon(
-                                    imageVector = Icons.Filled.PushPin,
-                                    contentDescription = "Pinned note",
-                                    tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                if (isSelectionMode) Spacer(modifier = Modifier.width(6.dp))
-                            }
-                            if (isSelectionMode) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(20.dp)
-                                        .clip(RoundedCornerShape(4.dp))
-                                        .background(if (isSelected) Color.White else Color.Transparent)
-                                        .border(
-                                            1.dp,
-                                            if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
-                                            RoundedCornerShape(4.dp)
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    if (isSelected) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Check,
-                                            contentDescription = "Selected",
-                                            tint = Color.Black,
-                                            modifier = Modifier.size(14.dp)
-                                        )
-                                    }
-                                }
-                            }
+                            Icon(
+                                imageVector = Icons.Filled.PushPin,
+                                contentDescription = "Pinned note",
+                                tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                modifier = Modifier.size(16.dp)
+                            )
                         }
                         if (hasContent || hasChecklist || hasLabels) {
                             Spacer(modifier = Modifier.height(8.dp))
                         }
                     }
 
-                    // Part 1: Full Title with optional pin and selection indicators
+                    // Part 1: Full Title with optional pin indicator
                     if (hasTitle) {
                         Row(
                             modifier = Modifier.fillMaxWidth(),
@@ -1277,44 +1137,15 @@ private fun DiaryNoteCard(
                                 lineHeight = 22.sp,
                                 modifier = Modifier.weight(1f)
                             )
-                            if (note.isPinned || isSelectionMode) {
-                                Row(
-                                    verticalAlignment = Alignment.CenterVertically,
-                                    horizontalArrangement = Arrangement.spacedBy(6.dp),
-                                    modifier = Modifier.padding(start = 8.dp)
-                                ) {
-                                    if (note.isPinned) {
-                                        Icon(
-                                            imageVector = Icons.Filled.PushPin,
-                                            contentDescription = "Pinned note",
-                                            tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
-                                    if (isSelectionMode) {
-                                        Box(
-                                            modifier = Modifier
-                                                .size(20.dp)
-                                                .clip(RoundedCornerShape(4.dp))
-                                                .background(if (isSelected) Color.White else Color.Transparent)
-                                                .border(
-                                                    1.dp,
-                                                    if (isSelected) Color.White else if (hasCustomColor) Color.White.copy(alpha = 0.4f) else UtilitarianBorderStroke,
-                                                    RoundedCornerShape(4.dp)
-                                                ),
-                                            contentAlignment = Alignment.Center
-                                        ) {
-                                            if (isSelected) {
-                                                Icon(
-                                                    imageVector = Icons.Outlined.Check,
-                                                    contentDescription = "Selected",
-                                                    tint = Color.Black,
-                                                    modifier = Modifier.size(14.dp)
-                                                )
-                                            }
-                                        }
-                                    }
-                                }
+                            if (note.isPinned) {
+                                Icon(
+                                    imageVector = Icons.Filled.PushPin,
+                                    contentDescription = "Pinned note",
+                                    tint = if (hasCustomColor) Color.White.copy(alpha = 0.85f) else UtilitarianTextSecondary,
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .size(16.dp)
+                                )
                             }
                         }
                     }
