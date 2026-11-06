@@ -42,7 +42,6 @@ data class DiaryNoteItem(
 }
 
 data class DiaryUiState(
-    val searchQuery: String = "",
     val notes: List<DiaryNoteItem> = emptyList(),
     val isLoading: Boolean = false,
     val sortOption: DiarySortOption = DiarySortOption.DEFAULT,
@@ -61,7 +60,6 @@ data class DiaryUiState(
 }
 
 private data class FilterParams(
-    val query: String,
     val sortOption: DiarySortOption,
     val selectedKeys: Set<String>,
     val pinnedKeys: Set<String>,
@@ -74,7 +72,6 @@ class DiaryViewModel(
     private val settingsRepository: SettingsRepository? = null
 ) : ViewModel() {
 
-    private val _searchQuery = MutableStateFlow("")
     private val _localSortOption = MutableStateFlow(DiarySortOption.DEFAULT)
     private val _selectedKeys = MutableStateFlow<Set<String>>(emptySet())
     private val _localPinnedKeys = MutableStateFlow<Set<String>>(emptySet())
@@ -94,13 +91,12 @@ class DiaryViewModel(
 
     init {
         val filterFlow = combine(
-            _searchQuery,
             sortOptionFlow,
             _selectedKeys,
             pinnedKeysFlow,
             gridModeFlow
-        ) { query, sortOption, selectedKeys, pinnedKeys, isGridMode ->
-            FilterParams(query, sortOption, selectedKeys, pinnedKeys, isGridMode)
+        ) { sortOption, selectedKeys, pinnedKeys, isGridMode ->
+            FilterParams(sortOption, selectedKeys, pinnedKeys, isGridMode)
         }
 
         combine(
@@ -109,17 +105,7 @@ class DiaryViewModel(
             noteRepository.searchNotes("")
         ) { params, activities, notes ->
             val allNoteItems = buildDiaryNoteItems(activities, notes, params.pinnedKeys)
-            val filtered = if (params.query.isBlank()) {
-                allNoteItems
-            } else {
-                allNoteItems.filter { note ->
-                    note.title.contains(params.query, ignoreCase = true) ||
-                    note.previewText.contains(params.query, ignoreCase = true) ||
-                    note.labels.any { it.contains(params.query, ignoreCase = true) }
-                }
-            }
-
-            val (pinned, unpinned) = filtered.partition { it.isPinned }
+            val (pinned, unpinned) = allNoteItems.partition { it.isPinned }
 
             fun sortGroup(list: List<DiaryNoteItem>): List<DiaryNoteItem> {
                 return when (params.sortOption) {
@@ -136,7 +122,6 @@ class DiaryViewModel(
             }.toSet()
 
             DiaryUiState(
-                searchQuery = params.query,
                 notes = sorted,
                 isLoading = false,
                 sortOption = params.sortOption,
@@ -148,10 +133,6 @@ class DiaryViewModel(
             _uiState.value = state
         }
         .launchIn(viewModelScope)
-    }
-
-    fun onSearchQueryChange(query: String) {
-        _searchQuery.value = query
     }
 
     fun onSortOptionChange(option: DiarySortOption) {
