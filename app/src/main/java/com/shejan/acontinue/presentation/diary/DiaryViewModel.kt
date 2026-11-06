@@ -166,10 +166,6 @@ class DiaryViewModel(
         }
     }
 
-    fun selectAll() {
-        _selectedKeys.value = _uiState.value.notes.map { it.itemKey }.toSet()
-    }
-
     fun clearSelection() {
         _selectedKeys.value = emptySet()
     }

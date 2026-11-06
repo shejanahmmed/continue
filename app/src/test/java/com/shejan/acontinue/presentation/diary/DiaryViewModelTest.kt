@@ -370,7 +370,7 @@ class DiaryViewModelTest {
     }
 
     @Test
-    fun `test multi-selection toggle selectAll and clearSelection`() = runTest(testDispatcher) {
+    fun `test multi-selection toggle and clearSelection`() = runTest(testDispatcher) {
         activityRepository.insertActivity(
             ActivityItem(
                 id = 1L,
@@ -417,11 +417,6 @@ class DiaryViewModelTest {
         viewModel.toggleSelection(key1)
         testScheduler.advanceUntilIdle()
         assertEquals(setOf(key2), viewModel.uiState.value.selectedKeys)
-
-        // Select all
-        viewModel.selectAll()
-        testScheduler.advanceUntilIdle()
-        assertEquals(setOf(key1, key2), viewModel.uiState.value.selectedKeys)
 
         // Clear selection
         viewModel.clearSelection()
