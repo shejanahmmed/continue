@@ -1542,6 +1542,48 @@ class CreateEntryViewModelTest {
         assertTrue(savedNote.isArchived)
         assertTrue(savedNote.archivedAtMillis > 0L)
     }
+
+    @Test
+    fun `test standalone note loaded via initWorkspaceNote with negative parentActivityId saves and deletes correctly`() = runTest(testDispatcher) {
+        val standaloneNote = ActivityNote(
+            id = 888L,
+            activityId = 0L,
+            title = "Standalone Title",
+            content = "Standalone Content",
+            colorHex = 0xFF123456L,
+            labels = listOf("StandaloneLabel")
+        )
+        noteRepository.insertNote(standaloneNote)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.initWorkspaceNote(parentActivityId = -1L, noteId = 888L)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(viewModel.state.value.isWorkspaceNoteLoaded)
+        assertEquals(888L, viewModel.state.value.editingNoteId)
+        assertEquals("Standalone Title", viewModel.state.value.title)
+        assertEquals("Standalone Content", viewModel.state.value.notes)
+
+        viewModel.saveNote(
+            title = "Updated Standalone Title",
+            content = "Updated Standalone Content",
+            colorHex = 0xFF654321L,
+            labels = listOf("UpdatedLabel")
+        )
+        testScheduler.advanceUntilIdle()
+
+        val updated = noteRepository.notesFlow.value.first { it.id == 888L }
+        assertEquals("Updated Standalone Title", updated.title)
+        assertEquals("Updated Standalone Content", updated.content)
+        assertEquals(0xFF654321L, updated.colorHex)
+        assertEquals(listOf("UpdatedLabel"), updated.labels)
+
+        viewModel.deleteCurrentNote()
+        testScheduler.advanceUntilIdle()
+
+        val afterDelete = noteRepository.notesFlow.value.firstOrNull { it.id == 888L }
+        assertTrue(afterDelete == null || afterDelete.isDeleted)
+    }
 }
 
 

@@ -875,11 +875,11 @@ class CreateEntryViewModel(
         colorHex: Long = 0xFF000000L,
         labels: List<String> = emptyList()
     ): Long {
+        val existingNoteId = _state.value.editingNoteId
+        if (existingNoteId != null && existingNoteId > 0L) return existingNoteId
+
         val currentParentId = _state.value.parentActivityId
         if (currentParentId != null && currentParentId > 0L) {
-            val existingNoteId = _state.value.editingNoteId
-            if (existingNoteId != null && existingNoteId > 0L) return existingNoteId
-
             return withContext(NonCancellable) {
                 val now = System.currentTimeMillis()
                 val trimmedTitle = title.trim()
@@ -969,7 +969,7 @@ class CreateEntryViewModel(
                 val cleanLabels = labels.map { it.trim() }.filter { it.isNotBlank() }
                 val categoryString = if (cleanLabels.isNotEmpty()) cleanLabels.joinToString(",") else "Notes"
 
-                if (currentParentId != null && currentParentId > 0L) {
+                if ((currentParentId != null && currentParentId > 0L) || (currentNoteId != null && currentNoteId > 0L)) {
                     val isArchived = _state.value.isArchived
                     val archivedAt = if (isArchived) now else 0L
 
@@ -991,7 +991,7 @@ class CreateEntryViewModel(
                             noteRepository.insertNote(
                                 ActivityNote(
                                     id = currentNoteId,
-                                    activityId = currentParentId,
+                                    activityId = if (currentParentId != null && currentParentId > 0L) currentParentId else 0L,
                                     title = effectiveTitle,
                                     content = trimmedContent,
                                     colorHex = colorHex,
@@ -1003,9 +1003,10 @@ class CreateEntryViewModel(
                             )
                         }
                     } else {
+                        val parentId = if (currentParentId != null && currentParentId > 0L) currentParentId else 0L
                         val newNoteId = noteRepository.insertNote(
                             ActivityNote(
-                                activityId = currentParentId,
+                                activityId = parentId,
                                 title = effectiveTitle,
                                 content = trimmedContent,
                                 colorHex = colorHex,
@@ -1018,13 +1019,13 @@ class CreateEntryViewModel(
                         _state.update { it.copy(editingNoteId = newNoteId) }
                         if (_state.value.isPinned) {
                             val keys = mutableSetOf("note_$newNoteId")
-                            if (currentParentId > 0L) keys.add("act_$currentParentId")
+                            if (parentId > 0L) keys.add("act_$parentId")
                             settingsRepository?.setNotesPinned(keys, true)
                         }
                     }
                     if (currentNoteId != null && currentNoteId > 0L && settingsRepository != null) {
                         val keys = mutableSetOf("note_$currentNoteId")
-                        if (currentParentId > 0L) keys.add("act_$currentParentId")
+                        if (currentParentId != null && currentParentId > 0L) keys.add("act_$currentParentId")
                         settingsRepository.setNotesPinned(keys, _state.value.isPinned)
                     }
                 } else if (currentEditId != null) {
@@ -1148,14 +1149,14 @@ class CreateEntryViewModel(
     fun deleteCurrentNote() {
         val currentParentId = _state.value.parentActivityId
         val currentNoteId = _state.value.editingNoteId
-        if (currentParentId != null && currentParentId > 0L) {
-            if (currentNoteId != null && currentNoteId > 0L) {
-                viewModelScope.launch {
-                    withContext(NonCancellable) {
-                        settingsRepository?.setNotesPinned(setOf("note_$currentNoteId"), false)
-                        noteRepository.deleteNote(currentNoteId)
-                        _events.emit(CreateEntryEvent.SavedSuccessfully)
-                    }
+        if (currentNoteId != null && currentNoteId > 0L) {
+            viewModelScope.launch {
+                withContext(NonCancellable) {
+                    val keys = mutableSetOf("note_$currentNoteId")
+                    if (currentParentId != null && currentParentId > 0L) keys.add("act_$currentParentId")
+                    settingsRepository?.setNotesPinned(keys, false)
+                    noteRepository.deleteNote(currentNoteId)
+                    _events.emit(CreateEntryEvent.SavedSuccessfully)
                 }
             }
             return
@@ -1194,11 +1195,12 @@ class CreateEntryViewModel(
             val cleanLabels = labels.map { it.trim() }.filter { it.isNotBlank() }
             val categoryString = if (cleanLabels.isNotEmpty()) cleanLabels.joinToString(",") else "Notes"
             val currentParentId = _state.value.parentActivityId
+            val currentNoteId = _state.value.editingNoteId
 
-            if (currentParentId != null && currentParentId > 0L) {
+            if ((currentParentId != null && currentParentId > 0L) || (currentNoteId != null && currentNoteId > 0L)) {
                 return@withContext noteRepository.insertNote(
                     ActivityNote(
-                        activityId = currentParentId,
+                        activityId = if (currentParentId != null && currentParentId > 0L) currentParentId else 0L,
                         title = effectiveTitle,
                         content = trimmedContent,
                         colorHex = colorHex,

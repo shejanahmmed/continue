@@ -116,7 +116,7 @@ import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
 @Composable
 fun DiaryScreen(
     viewModel: DiaryViewModel,
-    onNoteClick: (Long) -> Unit,
+    onNoteClick: (activityId: Long, noteId: Long) -> Unit,
     modifier: Modifier = Modifier,
     onCreateNote: (() -> Unit)? = null,
     onNavigateToSearch: (() -> Unit)? = null
@@ -504,7 +504,7 @@ fun DiaryScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     DiaryEmptyState(
-                        onCreateNote = { onCreateNote?.invoke() ?: onNoteClick(0L) }
+                        onCreateNote = { onCreateNote?.invoke() ?: onNoteClick(0L, 0L) }
                     )
                 }
             }
@@ -561,7 +561,7 @@ fun DiaryScreen(
                                 if (uiState.isSelectionMode) {
                                     viewModel.toggleSelection(note.itemKey)
                                 } else {
-                                    onNoteClick(if (note.activityId > 0L) note.activityId else note.noteId)
+                                    onNoteClick(note.activityId, note.noteId)
                                 }
                             },
                             onLongClick = {
@@ -604,7 +604,7 @@ fun DiaryScreen(
                                     if (uiState.isSelectionMode) {
                                         viewModel.toggleSelection(note.itemKey)
                                     } else {
-                                        onNoteClick(if (note.activityId > 0L) note.activityId else note.noteId)
+                                        onNoteClick(note.activityId, note.noteId)
                                     }
                                 },
                                 onLongClick = {
@@ -633,7 +633,7 @@ fun DiaryScreen(
                                 if (uiState.isSelectionMode) {
                                     viewModel.toggleSelection(note.itemKey)
                                 } else {
-                                    onNoteClick(if (note.activityId > 0L) note.activityId else note.noteId)
+                                    onNoteClick(note.activityId, note.noteId)
                                 }
                             },
                             onLongClick = {

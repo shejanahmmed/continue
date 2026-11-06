@@ -221,8 +221,13 @@ fun ContinueNavHost(
                 )
                 DiaryScreen(
                     viewModel = diaryViewModel,
-                    onNoteClick = { activityId ->
-                        navController.navigate(Screen.NoteEditor.createRoute(activityId))
+                    onNoteClick = { activityId, noteId ->
+                        navController.navigate(
+                            Screen.NoteEditor.createRoute(
+                                editActivityId = activityId.takeIf { it > 0L },
+                                editNoteId = noteId.takeIf { it > 0L }
+                            )
+                        )
                     },
                     onCreateNote = {
                         navController.navigate(Screen.NoteEditor.createRoute())
@@ -427,7 +432,7 @@ fun ContinueNavHost(
                 val parentActivityId = backStackEntry.arguments?.getLong("parentActivityId") ?: -1L
                 val editNoteId = backStackEntry.arguments?.getLong("editNoteId") ?: -1L
                 val startInEditMode = backStackEntry.arguments?.getBoolean("startInEditMode") ?: false
-                val isWorkspaceMode = parentActivityId > 0L
+                val isWorkspaceMode = parentActivityId > 0L || editNoteId > 0L
 
                 val vmKey = when {
                     isWorkspaceMode -> "note_editor_ws_${parentActivityId}_${editNoteId}"
