@@ -161,7 +161,7 @@ fun CalendarScreen(
                     // First scroll: Month mode swipe UP initiates collapse and locks this gesture
                     if (available.y < -6f && !uiState.isWeekMode && !isCollapsingGesture) {
                         isCollapsingGesture = true
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         viewModel.setWeekMode(true)
                         return Offset(0f, available.y)
                     }
@@ -177,7 +177,7 @@ fun CalendarScreen(
                         lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset <= 0
                     ) {
                         isExpandingGesture = true
-                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         viewModel.setWeekMode(false)
                         return Offset(0f, available.y)
                     }
@@ -225,6 +225,7 @@ fun CalendarScreen(
                 ) {
                     IconButton(
                         onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             if (uiState.isWeekMode) viewModel.previousWeek() else viewModel.previousMonth()
                         },
                         modifier = Modifier.size(28.dp)
@@ -249,6 +250,7 @@ fun CalendarScreen(
 
                     IconButton(
                         onClick = {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                             if (uiState.isWeekMode) viewModel.nextWeek() else viewModel.nextMonth()
                         },
                         modifier = Modifier.size(28.dp)
@@ -265,7 +267,10 @@ fun CalendarScreen(
                 // Right Action: Persistent Today Badge
                 val todayBadgeShape = RoundedCornerShape(7.dp)
                 Surface(
-                    onClick = { viewModel.jumpToToday() },
+                    onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                        viewModel.jumpToToday()
+                    },
                     shape = todayBadgeShape,
                     color = Color.Transparent,
                     border = BorderStroke(1.5.dp, UtilitarianTextPrimary),
@@ -311,15 +316,14 @@ fun CalendarScreen(
                                 val absX = kotlin.math.abs(dragX)
                                 val absY = kotlin.math.abs(dragY)
                                 if (absY > absX && absY > 20.dp.toPx()) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     if (dragY < 0) {
-                                        if (!uiState.isWeekMode) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         viewModel.setWeekMode(true)
                                     } else {
-                                        if (uiState.isWeekMode) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         viewModel.setWeekMode(false)
                                     }
                                 } else if (absX > absY && absX > 25.dp.toPx()) {
-                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     if (dragX < 0) {
                                         if (uiState.isWeekMode) viewModel.nextWeek() else viewModel.nextMonth()
                                     } else {
@@ -342,6 +346,7 @@ fun CalendarScreen(
                     monthDays = uiState.monthDays,
                     todayPulseTrigger = uiState.todayPulseTrigger,
                     onDayClick = { day ->
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         viewModel.selectDate(day.dateMillis)
                         if (day.activities.isNotEmpty()) {
                             viewModel.setWeekMode(true)
@@ -489,7 +494,10 @@ fun CalendarScreen(
 
         // Floating Quick Action Pill Button
         Surface(
-            onClick = { onCreateClick(uiState.selectedDateMillis) },
+            onClick = {
+                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                onCreateClick(uiState.selectedDateMillis)
+            },
             modifier = Modifier
                 .align(Alignment.BottomCenter)
                 .padding(bottom = 16.dp)
@@ -999,6 +1007,7 @@ internal fun UtilitarianEventDetailSheet(
     onOpenWorkspace: (Long) -> Unit = {}
 ) {
     val sheetState = rememberModalBottomSheetState(skipPartiallyExpanded = true)
+    val haptic = LocalHapticFeedback.current
     val isReminder = activity.entryType == EntryType.REMINDER
     val catColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
     val typeTitle = if (isReminder) "Reminder" else "Event"
@@ -1173,6 +1182,7 @@ internal fun UtilitarianEventDetailSheet(
                 // DELETE (Solid red button with text only)
                 Surface(
                     onClick = {
+                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                         showDeleteConfirmDialog = true
                     },
                     shape = RoundedCornerShape(8.dp),
@@ -1195,6 +1205,7 @@ internal fun UtilitarianEventDetailSheet(
                             // UNMARK (Solid neutral button with white text)
                             Surface(
                                 onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onToggleCompletion(activity.id, false)
                                 },
                                 shape = RoundedCornerShape(8.dp),
@@ -1214,6 +1225,7 @@ internal fun UtilitarianEventDetailSheet(
                             // COMPLETED (Solid green mark with white text)
                             Surface(
                                 onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onToggleCompletion(activity.id, false)
                                 },
                                 shape = RoundedCornerShape(8.dp),
@@ -1233,6 +1245,7 @@ internal fun UtilitarianEventDetailSheet(
                             // SKIP (Solid button with white text)
                             Surface(
                                 onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onToggleSkip(activity.id)
                                 },
                                 shape = RoundedCornerShape(8.dp),
@@ -1252,6 +1265,7 @@ internal fun UtilitarianEventDetailSheet(
                             // MARK DONE (Solid green button with white text)
                             Surface(
                                 onClick = {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                     onToggleCompletion(activity.id, true)
                                 },
                                 shape = RoundedCornerShape(8.dp),
@@ -1272,7 +1286,10 @@ internal fun UtilitarianEventDetailSheet(
 
                     if (!isReminder) {
                         Surface(
-                            onClick = { onOpenWorkspace(activity.id) },
+                            onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onOpenWorkspace(activity.id)
+                            },
                             shape = RoundedCornerShape(8.dp),
                             color = Color.White,
                             shadowElevation = 0.dp

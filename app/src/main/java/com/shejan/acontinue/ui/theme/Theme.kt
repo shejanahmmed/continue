@@ -145,11 +145,24 @@ fun ContinueTheme(
     }
 
     val systemHaptic = LocalHapticFeedback.current
-    val effectiveHaptic = remember(systemHaptic, settings.hapticFeedbackEnabled) {
+    val effectiveHaptic = remember(systemHaptic, view, settings.hapticFeedbackEnabled) {
         object : HapticFeedback {
             override fun performHapticFeedback(hapticFeedbackType: HapticFeedbackType) {
                 if (settings.hapticFeedbackEnabled) {
-                    systemHaptic.performHapticFeedback(hapticFeedbackType)
+                    val feedbackConstant = when (hapticFeedbackType) {
+                        HapticFeedbackType.LongPress -> android.view.HapticFeedbackConstants.LONG_PRESS
+                        else -> android.view.HapticFeedbackConstants.KEYBOARD_TAP
+                    }
+                    val handled = runCatching {
+                        view.performHapticFeedback(
+                            feedbackConstant,
+                            android.view.HapticFeedbackConstants.FLAG_IGNORE_GLOBAL_SETTING
+                        )
+                    }.getOrDefault(false)
+
+                    if (!handled) {
+                        systemHaptic.performHapticFeedback(hapticFeedbackType)
+                    }
                 }
             }
         }

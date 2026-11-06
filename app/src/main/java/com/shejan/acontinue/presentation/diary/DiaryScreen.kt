@@ -294,6 +294,7 @@ fun DiaryScreen(
                                 fadeOutSpec = null
                             ),
                             onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 if (uiState.isSelectionMode) {
                                     viewModel.toggleSelection(note.itemKey)
                                 } else {
@@ -364,6 +365,7 @@ fun DiaryScreen(
                                 fadeOutSpec = null
                             ),
                             onClick = {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                                 if (uiState.isSelectionMode) {
                                     viewModel.toggleSelection(note.itemKey)
                                 } else {
