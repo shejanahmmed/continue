@@ -1155,8 +1155,46 @@ internal fun UtilitarianEventDetailSheet(
 
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (isReminder) {
-                        // SKIP (Solid button with white text)
-                        if (!activity.isCompleted) {
+                        if (activity.isCompleted) {
+                            // UNMARK (Solid neutral button with white text)
+                            Surface(
+                                onClick = {
+                                    onToggleCompletion(activity.id, false)
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF383838),
+                                shadowElevation = 0.dp
+                            ) {
+                                Text(
+                                    text = "UNMARK",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                )
+                            }
+
+                            // COMPLETED (Solid green mark with white text)
+                            Surface(
+                                onClick = {
+                                    onToggleCompletion(activity.id, false)
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF1B5E20),
+                                shadowElevation = 0.dp
+                            ) {
+                                Text(
+                                    text = "COMPLETED",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                )
+                            }
+                        } else {
+                            // SKIP (Solid button with white text)
                             Surface(
                                 onClick = {
                                     onToggleSkip(activity.id)
@@ -1174,25 +1212,25 @@ internal fun UtilitarianEventDetailSheet(
                                     modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
                                 )
                             }
-                        }
 
-                        // MARK DONE / COMPLETED (Solid green button with white text)
-                        Surface(
-                            onClick = {
-                                onToggleCompletion(activity.id, !activity.isCompleted)
-                            },
-                            shape = RoundedCornerShape(8.dp),
-                            color = if (activity.isCompleted) Color(0xFF1B5E20) else Color(0xFF2E7D32),
-                            shadowElevation = 0.dp
-                        ) {
-                            Text(
-                                text = if (activity.isCompleted) "COMPLETED" else "MARK DONE",
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold,
-                                fontFamily = FontFamily.Monospace,
-                                modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
-                            )
+                            // MARK DONE (Solid green button with white text)
+                            Surface(
+                                onClick = {
+                                    onToggleCompletion(activity.id, true)
+                                },
+                                shape = RoundedCornerShape(8.dp),
+                                color = Color(0xFF2E7D32),
+                                shadowElevation = 0.dp
+                            ) {
+                                Text(
+                                    text = "MARK DONE",
+                                    color = Color.White,
+                                    fontSize = 11.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    fontFamily = FontFamily.Monospace,
+                                    modifier = Modifier.padding(horizontal = 14.dp, vertical = 10.dp)
+                                )
+                            }
                         }
                     }
 
