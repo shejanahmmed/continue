@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityNote
+import com.shejan.acontinue.domain.model.DiarySortOption
 import com.shejan.acontinue.domain.model.EntryType
 import com.shejan.acontinue.domain.repository.ActivityRepository
 import com.shejan.acontinue.domain.repository.NoteRepository
@@ -20,12 +21,6 @@ import kotlinx.coroutines.launch
 
 private val AUDIO_TAG_REGEX = Regex("""!\[audio\]\(([^)]+)\)""")
 private val PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
-
-enum class DiarySortOption(val displayName: String) {
-    DEFAULT("Default"),
-    DATE_CREATED("Date created"),
-    DATE_MODIFIED("Date modified")
-}
 
 data class DiaryNoteItem(
     val activityId: Long,
@@ -80,10 +75,13 @@ class DiaryViewModel(
 ) : ViewModel() {
 
     private val _searchQuery = MutableStateFlow("")
-    private val _sortOption = MutableStateFlow(DiarySortOption.DEFAULT)
+    private val _localSortOption = MutableStateFlow(DiarySortOption.DEFAULT)
     private val _selectedKeys = MutableStateFlow<Set<String>>(emptySet())
     private val _localPinnedKeys = MutableStateFlow<Set<String>>(emptySet())
     private val _localGridMode = MutableStateFlow(false)
+
+    private val sortOptionFlow: Flow<DiarySortOption> =
+        settingsRepository?.getDiarySortOption() ?: _localSortOption.asStateFlow()
 
     private val pinnedKeysFlow: Flow<Set<String>> =
         settingsRepository?.getPinnedNoteIds() ?: _localPinnedKeys.asStateFlow()
@@ -97,7 +95,7 @@ class DiaryViewModel(
     init {
         val filterFlow = combine(
             _searchQuery,
-            _sortOption,
+            sortOptionFlow,
             _selectedKeys,
             pinnedKeysFlow,
             gridModeFlow
@@ -157,7 +155,13 @@ class DiaryViewModel(
     }
 
     fun onSortOptionChange(option: DiarySortOption) {
-        _sortOption.value = option
+        viewModelScope.launch {
+            if (settingsRepository != null) {
+                settingsRepository.setDiarySortOption(option)
+            } else {
+                _localSortOption.value = option
+            }
+        }
     }
 
     fun toggleSelection(itemKey: String) {

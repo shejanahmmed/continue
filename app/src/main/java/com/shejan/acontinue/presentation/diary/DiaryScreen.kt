@@ -104,6 +104,7 @@ import androidx.compose.ui.window.Dialog
 import androidx.compose.ui.window.DialogProperties
 import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.LocalToastState
+import com.shejan.acontinue.domain.model.DiarySortOption
 import com.shejan.acontinue.presentation.create.isDefaultNoteColor
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke

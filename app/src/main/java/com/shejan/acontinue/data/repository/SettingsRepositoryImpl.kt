@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import com.shejan.acontinue.domain.model.AccentPalette
 import com.shejan.acontinue.domain.model.CustomAlert
+import com.shejan.acontinue.domain.model.DiarySortOption
 import com.shejan.acontinue.domain.model.ReminderCategory
 import com.shejan.acontinue.domain.model.ThemeMode
 import com.shejan.acontinue.domain.model.UserSettings
@@ -27,6 +28,8 @@ class SettingsRepositoryImpl(
     private val pinnedNotesFlow = _pinnedNotesFlow.asStateFlow()
     private val _isDiaryGridModeFlow = MutableStateFlow(loadDiaryGridMode())
     private val isDiaryGridModeFlow = _isDiaryGridModeFlow.asStateFlow()
+    private val _diarySortOptionFlow = MutableStateFlow(loadDiarySortOption())
+    private val diarySortOptionFlow = _diarySortOptionFlow.asStateFlow()
 
     override fun getUserSettings(): Flow<UserSettings> = settingsFlow
 
@@ -207,6 +210,22 @@ class SettingsRepositoryImpl(
         return prefs.getBoolean(KEY_DIARY_GRID_MODE, false)
     }
 
+    override fun getDiarySortOption(): Flow<DiarySortOption> = diarySortOptionFlow
+
+    override suspend fun setDiarySortOption(sortOption: DiarySortOption) {
+        prefs.edit().putString(KEY_DIARY_SORT_OPTION, sortOption.name).commit()
+        _diarySortOptionFlow.value = sortOption
+    }
+
+    private fun loadDiarySortOption(): DiarySortOption {
+        val raw = prefs.getString(KEY_DIARY_SORT_OPTION, DiarySortOption.DEFAULT.name)
+        return try {
+            DiarySortOption.valueOf(raw ?: DiarySortOption.DEFAULT.name)
+        } catch (_: Exception) {
+            DiarySortOption.DEFAULT
+        }
+    }
+
     private fun saveCustomAlerts(alerts: List<CustomAlert>) {
         val serialized = alerts.joinToString(DELIMITER) { "${it.id}:::${it.value}:::${it.unit}" }
         prefs.edit().putString(KEY_CUSTOM_ALERTS, serialized).apply()
@@ -322,6 +341,7 @@ class SettingsRepositoryImpl(
         private const val KEY_NOTE_LABELS = "note_labels"
         private const val KEY_PINNED_NOTES = "pinned_notes"
         private const val KEY_DIARY_GRID_MODE = "diary_grid_mode"
+        private const val KEY_DIARY_SORT_OPTION = "diary_sort_option"
         private const val KEY_ONBOARDING_COMPLETED = "key_onboarding_completed"
         private const val DELIMITER = "|||"
     }

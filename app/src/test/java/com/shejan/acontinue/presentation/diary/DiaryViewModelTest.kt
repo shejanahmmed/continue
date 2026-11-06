@@ -7,6 +7,7 @@ import com.shejan.acontinue.FakeSettingsRepository
 import com.shejan.acontinue.domain.model.ActivityCategory
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityNote
+import com.shejan.acontinue.domain.model.DiarySortOption
 import com.shejan.acontinue.domain.model.EntryType
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
@@ -367,6 +368,23 @@ class DiaryViewModelTest {
             assertEquals("Note Alpha (Created First)", state.notes[0].title)
             assertEquals("Note Beta (Created Second)", state.notes[1].title)
         }
+    }
+
+    @Test
+    fun `test sort option is persisted in settingsRepository and restored on app restart`() = runTest(testDispatcher) {
+        assertEquals(DiarySortOption.DEFAULT, viewModel.uiState.value.sortOption)
+        assertEquals(DiarySortOption.DEFAULT, settingsRepository.diarySortOptionFlow.value)
+
+        viewModel.onSortOptionChange(DiarySortOption.DATE_MODIFIED)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(DiarySortOption.DATE_MODIFIED, viewModel.uiState.value.sortOption)
+        assertEquals(DiarySortOption.DATE_MODIFIED, settingsRepository.diarySortOptionFlow.value)
+
+        val restoredViewModel = DiaryViewModel(activityRepository, noteRepository, settingsRepository)
+        testScheduler.advanceUntilIdle()
+
+        assertEquals(DiarySortOption.DATE_MODIFIED, restoredViewModel.uiState.value.sortOption)
     }
 
     @Test

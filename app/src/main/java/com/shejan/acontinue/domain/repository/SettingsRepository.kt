@@ -2,6 +2,7 @@ package com.shejan.acontinue.domain.repository
 
 import com.shejan.acontinue.domain.model.AccentPalette
 import com.shejan.acontinue.domain.model.CustomAlert
+import com.shejan.acontinue.domain.model.DiarySortOption
 import com.shejan.acontinue.domain.model.ThemeMode
 import com.shejan.acontinue.domain.model.UserSettings
 import kotlinx.coroutines.flow.Flow
@@ -30,4 +31,6 @@ interface SettingsRepository {
     suspend fun toggleNotesPinned(ids: Set<String>)
     fun isDiaryGridMode(): Flow<Boolean>
     suspend fun setDiaryGridMode(isGrid: Boolean)
+    fun getDiarySortOption(): Flow<DiarySortOption>
+    suspend fun setDiarySortOption(sortOption: DiarySortOption)
 }

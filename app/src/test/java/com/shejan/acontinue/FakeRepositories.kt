@@ -443,5 +443,13 @@ class FakeSettingsRepository : com.shejan.acontinue.domain.repository.SettingsRe
     override suspend fun setDiaryGridMode(isGrid: Boolean) {
         diaryGridModeFlow.value = isGrid
     }
+
+    val diarySortOptionFlow = MutableStateFlow(com.shejan.acontinue.domain.model.DiarySortOption.DEFAULT)
+
+    override fun getDiarySortOption(): Flow<com.shejan.acontinue.domain.model.DiarySortOption> = diarySortOptionFlow
+
+    override suspend fun setDiarySortOption(sortOption: com.shejan.acontinue.domain.model.DiarySortOption) {
+        diarySortOptionFlow.value = sortOption
+    }
 }
 
