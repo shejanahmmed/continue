@@ -1,5 +1,6 @@
 package com.shejan.acontinue.presentation.diary
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shejan.acontinue.domain.model.ActivityItem
@@ -19,9 +20,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-private val AUDIO_TAG_REGEX = Regex("""!\[audio\]\(([^)]+)\)""")
-private val PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
-
+@Immutable
 data class DiaryNoteItem(
     val activityId: Long,
     val noteId: Long = 0L,
@@ -41,6 +40,7 @@ data class DiaryNoteItem(
         get() = if (activityId > 0L) "act_$activityId" else "note_$noteId"
 }
 
+@Immutable
 data class DiaryUiState(
     val notes: List<DiaryNoteItem> = emptyList(),
     val isLoading: Boolean = false,
@@ -309,12 +309,12 @@ class DiaryViewModel(
             val rawContent = matchingNote?.content ?: act.description
             val updatedAt = matchingNote?.updatedAtMillis ?: act.createdAtMillis
 
-            val audioCount = AUDIO_TAG_REGEX.findAll(rawContent).count()
-            val photoCount = PHOTO_TAG_REGEX.findAll(rawContent).count()
+            val audioCount = NoteCardPreviewParser.AUDIO_TAG_REGEX.findAll(rawContent).count()
+            val photoCount = NoteCardPreviewParser.PHOTO_TAG_REGEX.findAll(rawContent).count()
 
             val cleanPreview = rawContent
-                .replace(AUDIO_TAG_REGEX, "")
-                .replace(PHOTO_TAG_REGEX, "")
+                .replace(NoteCardPreviewParser.AUDIO_TAG_REGEX, "")
+                .replace(NoteCardPreviewParser.PHOTO_TAG_REGEX, "")
                 .trim()
 
             val lines = cleanPreview.lines().filter { it.isNotBlank() }
@@ -364,11 +364,11 @@ class DiaryViewModel(
 
         for (note in notes) {
             if (!seenActivityIds.contains(note.activityId) && !nonNoteActivityIds.contains(note.activityId) && !note.isDeleted && !note.isArchived) {
-                val audioCount = AUDIO_TAG_REGEX.findAll(note.content).count()
-                val photoCount = PHOTO_TAG_REGEX.findAll(note.content).count()
+                val audioCount = NoteCardPreviewParser.AUDIO_TAG_REGEX.findAll(note.content).count()
+                val photoCount = NoteCardPreviewParser.PHOTO_TAG_REGEX.findAll(note.content).count()
                 val cleanPreview = note.content
-                    .replace(AUDIO_TAG_REGEX, "")
-                    .replace(PHOTO_TAG_REGEX, "")
+                    .replace(NoteCardPreviewParser.AUDIO_TAG_REGEX, "")
+                    .replace(NoteCardPreviewParser.PHOTO_TAG_REGEX, "")
                     .trim()
                 val lines = cleanPreview.lines().filter { it.isNotBlank() }
                 val isChecklist = lines.isNotEmpty() && lines.all {

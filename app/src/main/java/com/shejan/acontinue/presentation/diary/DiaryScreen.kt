@@ -152,340 +152,76 @@ fun DiaryScreen(
 
     if (showDeleteDialog) {
         val count = uiState.selectedKeys.size
-        Dialog(
-            onDismissRequest = { showDeleteDialog = false },
-            properties = DialogProperties(usePlatformDefaultWidth = false)
-        ) {
-            Surface(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 28.dp),
-                shape = RoundedCornerShape(14.dp),
-                color = Color(0xFF161616),
-                border = BorderStroke(1.dp, UtilitarianBorderStroke)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(24.dp),
-                    horizontalAlignment = Alignment.CenterHorizontally
-                ) {
-                    Text(
-                        text = "DELETE $count ${if (count == 1) "NOTE" else "NOTES"}?",
-                        color = UtilitarianTextPrimary,
-                        fontFamily = FontFamily.Monospace,
-                        fontWeight = FontWeight.Bold,
-                        fontSize = 16.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(8.dp))
-
-                    Text(
-                        text = "This action cannot be undone.",
-                        color = UtilitarianTextSecondary,
-                        fontSize = 13.sp,
-                        textAlign = TextAlign.Center,
-                        modifier = Modifier.fillMaxWidth()
-                    )
-
-                    Spacer(modifier = Modifier.height(22.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(10.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // Cancel Button Box
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(42.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF2C3136))
-                                .border(1.dp, Color(0xFF3F454C), RoundedCornerShape(8.dp))
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    showDeleteDialog = false
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Text(
-                                text = "CANCEL",
-                                color = Color.White,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 13.sp,
-                                textAlign = TextAlign.Center
-                            )
+        DiaryDeleteDialog(
+            count = count,
+            onDismiss = { showDeleteDialog = false },
+            onConfirmDelete = {
+                val keysToDelete = uiState.selectedKeys.toSet()
+                showDeleteDialog = false
+                animatingDismissKeys = keysToDelete
+                coroutineScope.launch {
+                    delay(230.milliseconds)
+                    val deleted = viewModel.deleteSelectedNotes()
+                    animatingDismissKeys = emptySet()
+                    val deletedCount = if (deleted.isNotEmpty()) deleted.size else count
+                    toastState.show(
+                        msg = if (deletedCount == 1) "1 note moved to bin" else "$deletedCount notes moved to bin",
+                        actionLabel = "UNDO",
+                        onAction = {
+                            viewModel.undoDeleteNotes(deleted)
                         }
-
-                        // Delete Button Box
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .height(42.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFFD71921))
-                                .border(1.dp, Color(0xFFD71921), RoundedCornerShape(8.dp))
-                            .clickable {
-                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                val keysToDelete = uiState.selectedKeys.toSet()
-                                showDeleteDialog = false
-                                animatingDismissKeys = keysToDelete
-                                coroutineScope.launch {
-                                    delay(230.milliseconds)
-                                    val deleted = viewModel.deleteSelectedNotes()
-                                    animatingDismissKeys = emptySet()
-                                    val deletedCount = if (deleted.isNotEmpty()) deleted.size else count
-                                    toastState.show(
-                                        msg = if (deletedCount == 1) "1 note moved to bin" else "$deletedCount notes moved to bin",
-                                        actionLabel = "UNDO",
-                                        onAction = {
-                                            viewModel.undoDeleteNotes(deleted)
-                                        }
-                                    )
-                                }
-                            },
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "DELETE",
-                            color = Color.White,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 13.sp,
-                            textAlign = TextAlign.Center
-                        )
-                    }
-                    }
+                    )
                 }
             }
-        }
+        )
     }
 
-    val renderTopHeader: @Composable (Modifier) -> Unit = { headerModifier ->
-        DotMatrixHeader(
-            title = if (uiState.isSelectionMode) "${uiState.selectedKeys.size} SELECTED" else "DIARY",
-            badgeText = if (uiState.isSelectionMode) null else badgeText,
+    val topHeaderContent: @Composable (Modifier) -> Unit = { headerModifier ->
+        DiaryTopHeader(
+            uiState = uiState,
+            badgeText = badgeText,
+            isFilterOpen = isFilterOpen,
             modifier = headerModifier,
-            actions = {
-                if (!uiState.isSelectionMode) {
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // 1. SEARCH (Opens dedicated Search screen)
-                        if (onNavigateToSearch != null) {
-                            Box(
-                                modifier = Modifier
-                                    .size(38.dp)
-                                    .clip(RoundedCornerShape(5.dp))
-                                    .background(Color(0xFF202020))
-                                    .border(
-                                        1.dp,
-                                        UtilitarianBorderStroke.copy(alpha = 0.5f),
-                                        RoundedCornerShape(5.dp)
-                                    )
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        if (isFilterOpen) isFilterOpen = false
-                                        onNavigateToSearch()
-                                    },
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.Search,
-                                    contentDescription = "Search notes",
-                                    tint = UtilitarianTextPrimary,
-                                    modifier = Modifier.size(22.dp)
-                                )
-                            }
-                        }
-
-                        // 2. CARD FORMAT TOGGLE (1-column vs 2-column)
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(Color(0xFF202020))
-                                .border(
-                                    1.dp,
-                                    UtilitarianBorderStroke.copy(alpha = 0.5f),
-                                    RoundedCornerShape(5.dp)
-                                )
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    viewModel.toggleLayoutMode()
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (uiState.isGridMode) Icons.Outlined.ViewAgenda else Icons.Outlined.GridView,
-                                contentDescription = "Toggle card layout",
-                                tint = UtilitarianTextPrimary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-
-                        // 3. FILTER (Pill-shaped speed dial overlay)
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(if (isFilterOpen) Color(0xFF2C2C2C) else Color(0xFF202020))
-                                .border(
-                                    1.dp,
-                                    if (isFilterOpen) Color.White.copy(alpha = 0.8f) else UtilitarianBorderStroke.copy(alpha = 0.5f),
-                                    RoundedCornerShape(5.dp)
-                                )
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    isFilterOpen = !isFilterOpen
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.FilterList,
-                                contentDescription = if (isFilterOpen) "Close filter options" else "Filter and sort cards",
-                                tint = UtilitarianTextPrimary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
-                } else {
-                    // Multi-Selection Mode: Pin, Archive, Delete, and Cancel/Close Buttons
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        // 1. Pin Button
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(Color(0xFF202020))
-                                .border(
-                                    1.dp,
-                                    UtilitarianBorderStroke.copy(alpha = 0.5f),
-                                    RoundedCornerShape(5.dp)
-                                )
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    val count = uiState.selectedKeys.size
-                                    val willUnpin = uiState.areAllSelectedPinned
-                                    viewModel.togglePinSelectedNotes()
-                                    toastState.show(
-                                        if (willUnpin) {
-                                            if (count == 1) "1 note unpinned" else "$count notes unpinned"
-                                        } else {
-                                            if (count == 1) "1 note pinned" else "$count notes pinned"
-                                        }
-                                    )
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = if (uiState.areAllSelectedPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
-                                contentDescription = if (uiState.areAllSelectedPinned) "Unpin notes" else "Pin notes",
-                                tint = UtilitarianTextPrimary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-
-                        // 2. Archive Button
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(Color(0xFF202020))
-                                .border(
-                                    1.dp,
-                                    UtilitarianBorderStroke.copy(alpha = 0.5f),
-                                    RoundedCornerShape(5.dp)
-                                )
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    val archiveCount = uiState.selectedKeys.size
-                                    val keysToArchive = uiState.selectedKeys.toSet()
-                                    animatingDismissKeys = keysToArchive
-                                    coroutineScope.launch {
-                                        delay(230.milliseconds)
-                                        val archived = viewModel.archiveSelectedNotes()
-                                        animatingDismissKeys = emptySet()
-                                        val count = if (archived.isNotEmpty()) archived.size else archiveCount
-                                        toastState.show(
-                                            msg = if (count == 1) "1 note archived" else "$count notes archived",
-                                            actionLabel = "UNDO",
-                                            onAction = {
-                                                viewModel.undoArchiveNotes(archived)
-                                            }
-                                        )
-                                    }
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Archive,
-                                contentDescription = "Archive selected notes",
-                                tint = UtilitarianTextPrimary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-
-                        // 3. Delete Button
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(Color(0xFF202020))
-                                .border(
-                                    1.dp,
-                                    Color(0xFFFF453A).copy(alpha = 0.7f),
-                                    RoundedCornerShape(5.dp)
-                                )
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    showDeleteDialog = true
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Delete,
-                                contentDescription = "Delete selected notes",
-                                tint = Color(0xFFFF453A),
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-
-                        // 4. Cancel / Close Selection Button
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(5.dp))
-                                .background(Color(0xFF202020))
-                                .border(
-                                    1.dp,
-                                    UtilitarianBorderStroke.copy(alpha = 0.5f),
-                                    RoundedCornerShape(5.dp)
-                                )
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    viewModel.clearSelection()
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Close,
-                                contentDescription = "Cancel selection",
-                                tint = UtilitarianTextPrimary,
-                                modifier = Modifier.size(22.dp)
-                            )
-                        }
-                    }
+            onNavigateToSearch = onNavigateToSearch?.let { navigateSearch ->
+                {
+                    if (isFilterOpen) isFilterOpen = false
+                    navigateSearch()
                 }
-            }
+            },
+            onToggleLayoutMode = { viewModel.toggleLayoutMode() },
+            onToggleFilter = { isFilterOpen = !isFilterOpen },
+            onPinClick = {
+                val count = uiState.selectedKeys.size
+                val willUnpin = uiState.areAllSelectedPinned
+                viewModel.togglePinSelectedNotes()
+                toastState.show(
+                    if (willUnpin) {
+                        if (count == 1) "1 note unpinned" else "$count notes unpinned"
+                    } else {
+                        if (count == 1) "1 note pinned" else "$count notes pinned"
+                    }
+                )
+            },
+            onArchiveClick = {
+                val archiveCount = uiState.selectedKeys.size
+                val keysToArchive = uiState.selectedKeys.toSet()
+                animatingDismissKeys = keysToArchive
+                coroutineScope.launch {
+                    delay(230.milliseconds)
+                    val archived = viewModel.archiveSelectedNotes()
+                    animatingDismissKeys = emptySet()
+                    val count = if (archived.isNotEmpty()) archived.size else archiveCount
+                    toastState.show(
+                        msg = if (count == 1) "1 note archived" else "$count notes archived",
+                        actionLabel = "UNDO",
+                        onAction = {
+                            viewModel.undoArchiveNotes(archived)
+                        }
+                    )
+                }
+            },
+            onDeleteClick = { showDeleteDialog = true },
+            onCloseSelection = { viewModel.clearSelection() }
         )
     }
 
@@ -497,7 +233,7 @@ fun DiaryScreen(
                     .padding(horizontal = 16.dp)
                     .padding(top = 16.dp, bottom = 100.dp)
             ) {
-                renderTopHeader(Modifier)
+                topHeaderContent(Modifier)
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -525,7 +261,7 @@ fun DiaryScreen(
                 contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
             ) {
                 item(span = StaggeredGridItemSpan.FullLine) {
-                    renderTopHeader(Modifier)
+                    topHeaderContent(Modifier)
                     Spacer(modifier = Modifier.height(12.dp))
                 }
 
@@ -677,7 +413,7 @@ fun DiaryScreen(
                 .padding(horizontal = 16.dp)
                 .padding(top = 16.dp)
         ) {
-            renderTopHeader(Modifier)
+            topHeaderContent(Modifier)
         }
 
         // Layer 3B: Floating Filter Speed Dial Pills (staggered cascade entrance from right edge)
@@ -707,7 +443,323 @@ fun DiaryScreen(
     }
 }
 
-private val PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
+@Composable
+private fun DiaryDeleteDialog(
+    count: Int,
+    onDismiss: () -> Unit,
+    onConfirmDelete: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    Dialog(
+        onDismissRequest = onDismiss,
+        properties = DialogProperties(usePlatformDefaultWidth = false)
+    ) {
+        Surface(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 28.dp),
+            shape = RoundedCornerShape(14.dp),
+            color = Color(0xFF161616),
+            border = BorderStroke(1.dp, UtilitarianBorderStroke)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "DELETE $count ${if (count == 1) "NOTE" else "NOTES"}?",
+                    color = UtilitarianTextPrimary,
+                    fontFamily = FontFamily.Monospace,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 16.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Text(
+                    text = "This action cannot be undone.",
+                    color = UtilitarianTextSecondary,
+                    fontSize = 13.sp,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+
+                Spacer(modifier = Modifier.height(22.dp))
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Cancel Button Box
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFF2C3136))
+                            .border(1.dp, Color(0xFF3F454C), RoundedCornerShape(8.dp))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onDismiss()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "CANCEL",
+                            color = Color.White,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+
+                    // Delete Button Box
+                    Box(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(42.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color(0xFFD71921))
+                            .border(1.dp, Color(0xFFD71921), RoundedCornerShape(8.dp))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onConfirmDelete()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = "DELETE",
+                            color = Color.White,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun DiaryTopHeader(
+    uiState: DiaryUiState,
+    badgeText: String,
+    isFilterOpen: Boolean,
+    modifier: Modifier = Modifier,
+    onNavigateToSearch: (() -> Unit)? = null,
+    onToggleLayoutMode: () -> Unit,
+    onToggleFilter: () -> Unit,
+    onPinClick: () -> Unit,
+    onArchiveClick: () -> Unit,
+    onDeleteClick: () -> Unit,
+    onCloseSelection: () -> Unit
+) {
+    val haptic = LocalHapticFeedback.current
+    DotMatrixHeader(
+        title = if (uiState.isSelectionMode) "${uiState.selectedKeys.size} SELECTED" else "DIARY",
+        badgeText = if (uiState.isSelectionMode) null else badgeText,
+        modifier = modifier,
+        actions = {
+            if (!uiState.isSelectionMode) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 1. SEARCH (Opens dedicated Search screen)
+                    if (onNavigateToSearch != null) {
+                        Box(
+                            modifier = Modifier
+                                .size(38.dp)
+                                .clip(RoundedCornerShape(5.dp))
+                                .background(Color(0xFF202020))
+                                .border(
+                                    1.dp,
+                                    UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                    RoundedCornerShape(5.dp)
+                                )
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onNavigateToSearch()
+                                },
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Outlined.Search,
+                                contentDescription = "Search notes",
+                                tint = UtilitarianTextPrimary,
+                                modifier = Modifier.size(22.dp)
+                            )
+                        }
+                    }
+
+                    // 2. CARD FORMAT TOGGLE (1-column vs 2-column)
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(Color(0xFF202020))
+                            .border(
+                                1.dp,
+                                UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                RoundedCornerShape(5.dp)
+                            )
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onToggleLayoutMode()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (uiState.isGridMode) Icons.Outlined.ViewAgenda else Icons.Outlined.GridView,
+                            contentDescription = "Toggle card layout",
+                            tint = UtilitarianTextPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // 3. FILTER (Pill-shaped speed dial overlay)
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(if (isFilterOpen) Color(0xFF2C2C2C) else Color(0xFF202020))
+                            .border(
+                                1.dp,
+                                if (isFilterOpen) Color.White.copy(alpha = 0.8f) else UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                RoundedCornerShape(5.dp)
+                            )
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onToggleFilter()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.FilterList,
+                            contentDescription = if (isFilterOpen) "Close filter options" else "Filter and sort cards",
+                            tint = UtilitarianTextPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            } else {
+                // Multi-Selection Mode: Pin, Archive, Delete, and Cancel/Close Buttons
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // 1. Pin Button
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(Color(0xFF202020))
+                            .border(
+                                1.dp,
+                                UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                RoundedCornerShape(5.dp)
+                            )
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onPinClick()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = if (uiState.areAllSelectedPinned) Icons.Filled.PushPin else Icons.Outlined.PushPin,
+                            contentDescription = if (uiState.areAllSelectedPinned) "Unpin notes" else "Pin notes",
+                            tint = UtilitarianTextPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // 2. Archive Button
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(Color(0xFF202020))
+                            .border(
+                                1.dp,
+                                UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                RoundedCornerShape(5.dp)
+                            )
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onArchiveClick()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Archive,
+                            contentDescription = "Archive selected notes",
+                            tint = UtilitarianTextPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // 3. Delete Button
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(Color(0xFF202020))
+                            .border(
+                                1.dp,
+                                Color(0xFFFF453A).copy(alpha = 0.7f),
+                                RoundedCornerShape(5.dp)
+                            )
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onDeleteClick()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = "Delete selected notes",
+                            tint = Color(0xFFFF453A),
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+
+                    // 4. Cancel / Close Selection Button
+                    Box(
+                        modifier = Modifier
+                            .size(38.dp)
+                            .clip(RoundedCornerShape(5.dp))
+                            .background(Color(0xFF202020))
+                            .border(
+                                1.dp,
+                                UtilitarianBorderStroke.copy(alpha = 0.5f),
+                                RoundedCornerShape(5.dp)
+                            )
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onCloseSelection()
+                            },
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Close,
+                            contentDescription = "Cancel selection",
+                            tint = UtilitarianTextPrimary,
+                            modifier = Modifier.size(22.dp)
+                        )
+                    }
+                }
+            }
+        }
+    )
+}
 
 @Composable
 private fun CardPhotoThumbnail(
@@ -799,6 +851,8 @@ private fun NoteAudioRows(
     }
 }
 
+private class ColumnPositionRef(var isRight: Boolean = false)
+
 @Composable
 private fun DiaryNoteCard(
     note: DiaryNoteItem,
@@ -814,7 +868,7 @@ private fun DiaryNoteCard(
     val colors = LocalUtilitarianColors.current
     val screenWidthPx = windowInfo.containerSize.width.toFloat()
 
-    var isRightColumn by remember { mutableStateOf(false) }
+    val columnPositionRef = remember { ColumnPositionRef() }
     val exitAnim = remember { Animatable(0f) }
 
     LaunchedEffect(isDismissing) {
@@ -827,16 +881,13 @@ private fun DiaryNoteCard(
     }
 
     val parsedChecklistItems = remember(note.content, note.previewText, note.isChecklist) {
+        if (!note.isChecklist) return@remember null
         val raw = if (note.previewText.isNotBlank()) note.previewText else note.content
         val lines = raw.lines().map { it.trim() }.filter { it.isNotBlank() }
-        if (lines.isNotEmpty() && lines.all { it.startsWith("[ ] ") || it.startsWith("[x] ", ignoreCase = true) || it.startsWith("[X] ") }) {
-            lines.map { line ->
-                val isChecked = line.startsWith("[x] ", ignoreCase = true) || line.startsWith("[X] ")
-                val text = if (line.length >= 4) line.substring(4).trim() else ""
-                isChecked to text
-            }
-        } else {
-            null
+        lines.map { line ->
+            val isChecked = line.startsWith("[x] ", ignoreCase = true) || line.startsWith("[X] ")
+            val text = if (line.length >= 4) line.substring(4).trim() else ""
+            isChecked to text
         }
     }
     val hasChecklist = !parsedChecklistItems.isNullOrEmpty()
@@ -847,25 +898,13 @@ private fun DiaryNoteCard(
     val hasPhoto = note.photoCount > 0
     val isMediaOnly = (hasAudio || hasPhoto) && !hasContent && !hasChecklist
 
-    val firstPhotoUri = remember(note.content, hasPhoto) {
-        if (hasPhoto) {
-            PHOTO_TAG_REGEX.find(note.content)?.groupValues?.getOrNull(1)?.let { uriStr ->
+    val firstPhotoUri = remember(note.content, hasPhoto, isMediaOnly) {
+        if (hasPhoto && isMediaOnly) {
+            NoteCardPreviewParser.PHOTO_TAG_REGEX.find(note.content)?.groupValues?.getOrNull(1)?.let { uriStr ->
                 runCatching { Uri.parse(uriStr) }.getOrNull()
             }
         } else {
             null
-        }
-    }
-
-    val displayContent = remember(note.previewText) {
-        val lines = note.previewText.lines()
-        if (lines.size > 10) {
-            val first9 = lines.take(9)
-            val tenth = lines[9].trimEnd()
-            val tenthWithDots = if (tenth.endsWith("...")) tenth else "$tenth..."
-            (first9 + tenthWithDots).joinToString("\n")
-        } else {
-            note.previewText
         }
     }
 
@@ -874,6 +913,22 @@ private fun DiaryNoteCard(
             NoteCardPreviewParser.parse(content = note.content, photoCount = note.photoCount, maxLines = 10)
         } else {
             null
+        }
+    }
+
+    val displayContent = remember(note.previewText, hasContent, parsedCardPreview) {
+        if (!hasContent || parsedCardPreview != null) {
+            ""
+        } else {
+            val lines = note.previewText.lines()
+            if (lines.size > 10) {
+                val first9 = lines.take(9)
+                val tenth = lines[9].trimEnd()
+                val tenthWithDots = if (tenth.endsWith("...")) tenth else "$tenth..."
+                (first9 + tenthWithDots).joinToString("\n")
+            } else {
+                note.previewText
+            }
         }
     }
 
@@ -898,13 +953,13 @@ private fun DiaryNoteCard(
             .fillMaxWidth()
             .onGloballyPositioned { coordinates ->
                 if (isGridMode) {
-                    isRightColumn = coordinates.boundsInRoot().center.x >= (screenWidthPx / 2f)
+                    columnPositionRef.isRight = coordinates.boundsInRoot().center.x >= (screenWidthPx / 2f)
                 }
             }
             .graphicsLayer {
                 if (exitAnim.value > 0f) {
                     val travelDistance = if (isGridMode) (screenWidthPx / 2f) * 1.5f else screenWidthPx * 1.1f
-                    val direction = if (isGridMode && isRightColumn) 1f else -1f
+                    val direction = if (isGridMode && columnPositionRef.isRight) 1f else -1f
                     this.translationX = exitAnim.value * travelDistance * direction
                     this.alpha = (1f - exitAnim.value).coerceIn(0f, 1f)
                 }
