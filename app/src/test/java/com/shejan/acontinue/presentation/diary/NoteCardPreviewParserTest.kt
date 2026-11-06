@@ -115,5 +115,63 @@ class NoteCardPreviewParserTest {
         assertEquals("Footer", secondSeg.text)
         assertEquals(0, result.hiddenPhotoCount)
     }
+
+    @Test
+    fun parse_markdownHeadings_stripsLeadingHashMarksLeavingCleanText() {
+        val content = """
+            # Heading 1
+            Normal body paragraph
+            ## Subheading 2
+            ### Deep Heading 3
+        """.trimIndent()
+
+        val result = NoteCardPreviewParser.parse(content = content, photoCount = 0)
+        assertEquals(1, result.elements.size)
+        val textSeg = result.elements[0] as NoteCardPreviewElement.TextSegment
+        val expected = """
+            Heading 1
+            Normal body paragraph
+            Subheading 2
+            Deep Heading 3
+        """.trimIndent()
+        assertEquals(expected, textSeg.text)
+    }
+
+    @Test
+    fun parse_inlineHashtagsWithoutSpaces_arePreserved() {
+        val content = """
+            #hashtag1 #hashtag2
+            Note discussing #android architecture
+        """.trimIndent()
+
+        val result = NoteCardPreviewParser.parse(content = content, photoCount = 0)
+        assertEquals(1, result.elements.size)
+        val textSeg = result.elements[0] as NoteCardPreviewElement.TextSegment
+        val expected = """
+            #hashtag1 #hashtag2
+            Note discussing #android architecture
+        """.trimIndent()
+        assertEquals(expected, textSeg.text)
+    }
+
+    @Test
+    fun parse_markdownHeadingsWithPhotos_cleansHeadingsAndInterleavesPhotos() {
+        val content = """
+            # Meeting Notes
+            ![photo](content://photo1)
+            ## Action Items
+        """.trimIndent()
+
+        val result = NoteCardPreviewParser.parse(content = content, photoCount = 1)
+        assertEquals(3, result.elements.size)
+
+        val firstSeg = result.elements[0] as NoteCardPreviewElement.TextSegment
+        assertEquals("Meeting Notes", firstSeg.text)
+
+        assertTrue(result.elements[1] is NoteCardPreviewElement.PhotoLine)
+
+        val secondSeg = result.elements[2] as NoteCardPreviewElement.TextSegment
+        assertEquals("Action Items", secondSeg.text)
+    }
 }
 

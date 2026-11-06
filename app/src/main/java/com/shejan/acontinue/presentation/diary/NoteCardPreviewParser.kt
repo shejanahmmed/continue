@@ -13,6 +13,7 @@ data class NoteCardPreviewResult(
 object NoteCardPreviewParser {
     val PHOTO_TAG_REGEX = Regex("""!\[photo\]\(([^)]+)\)""")
     val AUDIO_TAG_REGEX = Regex("""!\[audio\]\(([^)]+)\)""")
+    val HEADING_TAG_REGEX = Regex("""(?m)^#{1,6}\s+""")
 
     fun parse(
         content: String,
@@ -24,10 +25,11 @@ object NoteCardPreviewParser {
         }
 
         val contentWithoutAudio = content.replace(AUDIO_TAG_REGEX, "")
+        val cleanContent = contentWithoutAudio.replace(HEADING_TAG_REGEX, "")
 
         // If note has no photos, handle as pure text up to maxLines
-        if (photoCount <= 0 || !PHOTO_TAG_REGEX.containsMatchIn(contentWithoutAudio)) {
-            val lines = contentWithoutAudio.trim().lines()
+        if (photoCount <= 0 || !PHOTO_TAG_REGEX.containsMatchIn(cleanContent)) {
+            val lines = cleanContent.trim().lines()
             if (lines.isEmpty()) return NoteCardPreviewResult(emptyList(), 0)
             val displayLines = if (lines.size > maxLines) {
                 val firstPart = lines.take(maxLines - 1)
@@ -46,11 +48,11 @@ object NoteCardPreviewParser {
         // Interleave TextSegments and PhotoLines
         val rawSegments = mutableListOf<NoteCardPreviewElement>()
         var currentIndex = 0
-        val matches = PHOTO_TAG_REGEX.findAll(contentWithoutAudio).toList()
+        val matches = PHOTO_TAG_REGEX.findAll(cleanContent).toList()
 
         for (match in matches) {
             if (match.range.first > currentIndex) {
-                val textChunk = contentWithoutAudio.substring(currentIndex, match.range.first)
+                val textChunk = cleanContent.substring(currentIndex, match.range.first)
                 val cleanedText = textChunk.trim('\r', '\n')
                 if (cleanedText.isNotEmpty()) {
                     rawSegments.add(NoteCardPreviewElement.TextSegment(cleanedText))
@@ -58,17 +60,17 @@ object NoteCardPreviewParser {
             }
             rawSegments.add(NoteCardPreviewElement.PhotoLine)
             var nextIndex = match.range.last + 1
-            if (nextIndex < contentWithoutAudio.length && contentWithoutAudio[nextIndex] == '\r') {
+            if (nextIndex < cleanContent.length && cleanContent[nextIndex] == '\r') {
                 nextIndex++
             }
-            if (nextIndex < contentWithoutAudio.length && contentWithoutAudio[nextIndex] == '\n') {
+            if (nextIndex < cleanContent.length && cleanContent[nextIndex] == '\n') {
                 nextIndex++
             }
             currentIndex = nextIndex
         }
 
-        if (currentIndex < contentWithoutAudio.length) {
-            val textChunk = contentWithoutAudio.substring(currentIndex).trim('\r', '\n')
+        if (currentIndex < cleanContent.length) {
+            val textChunk = cleanContent.substring(currentIndex).trim('\r', '\n')
             if (textChunk.isNotEmpty()) {
                 rawSegments.add(NoteCardPreviewElement.TextSegment(textChunk))
             }
