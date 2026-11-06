@@ -597,5 +597,91 @@ class CalendarViewModelTest {
             assertFalse(day2Occurrence.isCompleted)
         }
     }
+
+    @Test
+    fun `test multi-day spanning activity appears across all days in calendar grid`() = runTest(testDispatcher) {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 20, 10, 0, 0)
+        }
+        val startMillis = cal.timeInMillis
+        // Spans 3 days: Oct 20 10:00 to Oct 22 18:00
+        val endCal = (cal.clone() as Calendar).apply {
+            add(Calendar.DAY_OF_YEAR, 2)
+            set(Calendar.HOUR_OF_DAY, 18)
+        }
+        val endMillis = endCal.timeInMillis
+
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 301L,
+                title = "3-Day Conference",
+                entryType = EntryType.ACTIVITY,
+                category = ActivityCategory.PROJECT,
+                startTimeMillis = startMillis,
+                endTimeMillis = endMillis
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        viewModel.selectDate(startMillis)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            // Check Oct 20
+            val day20 = state.monthDays.firstOrNull { it.isCurrentMonth && it.dayOfMonth == 20 }
+            assertNotNull(day20)
+            assertTrue(day20!!.activities.any { it.id == 301L })
+
+            // Check Oct 21
+            val day21 = state.monthDays.firstOrNull { it.isCurrentMonth && it.dayOfMonth == 21 }
+            assertNotNull(day21)
+            assertTrue(day21!!.activities.any { it.id == 301L })
+
+            // Check Oct 22
+            val day22 = state.monthDays.firstOrNull { it.isCurrentMonth && it.dayOfMonth == 22 }
+            assertNotNull(day22)
+            assertTrue(day22!!.activities.any { it.id == 301L })
+
+            // Check selected activities on Oct 20
+            assertEquals(1, state.selectedDayActivities.size)
+            assertEquals("3-Day Conference", state.selectedDayActivities[0].title)
+        }
+    }
+
+    @Test
+    fun `test single-pass expansion preserves dot colors and counts for recurring events`() = runTest(testDispatcher) {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 1, 9, 0, 0)
+        }
+        val startTime = cal.timeInMillis
+
+        // Add daily event
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 401L,
+                title = "Daily Sync",
+                entryType = EntryType.ACTIVITY,
+                category = ActivityCategory.MEETING,
+                startTimeMillis = startTime,
+                endTimeMillis = startTime + 1800000L,
+                recurrenceMode = RecurrenceMode.DAILY,
+                recurrenceInterval = 1
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        viewModel.selectDate(startTime)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            // Every day in October should have the meeting category color dot
+            val octDays = state.monthDays.filter { it.isCurrentMonth }
+            assertEquals(31, octDays.size)
+            assertTrue(octDays.all { it.activities.any { act -> act.id == 401L } })
+            assertTrue(octDays.all { it.dotColorsHex.contains(ActivityCategory.MEETING.colorHex) })
+        }
+    }
 }
 

@@ -1,5 +1,6 @@
 package com.shejan.acontinue.presentation.calendar
 
+import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.shejan.acontinue.domain.model.ActivityItem
@@ -17,6 +18,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
+@Immutable
 data class CalendarDay(
     val dateMillis: Long,
     val dayOfMonth: Int,
@@ -35,6 +37,7 @@ data class CalendarDay(
     val hasMoreDots: Boolean get() = activities.size > 8
 }
 
+@Immutable
 data class CalendarUiState(
     val currentMonthMillis: Long = System.currentTimeMillis(),
     val selectedDateMillis: Long = System.currentTimeMillis(),
@@ -253,16 +256,37 @@ class CalendarViewModel(
         val targetMonth = monthCal.get(Calendar.MONTH)
         val todayMillis = System.currentTimeMillis()
 
+        // 1. Single-pass 42-day recurrence expansion for the full month grid window
+        val allOccurrences = scheduledActivities.flatMap { item ->
+            RecurrenceEvaluator.expandOccurrencesForRange(item, bounds.startMillis, bounds.endMillis)
+        }
+
+        // 2. Index occurrences by day (supporting both single-day and multi-day activities)
+        val occurrencesByDay = mutableMapOf<Long, MutableList<ActivityItem>>()
+        for (occurrence in allOccurrences) {
+            val occStartDay = getStartOfDayMillis(occurrence.startTimeMillis)
+            val occEndDay = getStartOfDayMillis(occurrence.endTimeMillis)
+            if (occStartDay == occEndDay) {
+                occurrencesByDay.getOrPut(occStartDay) { mutableListOf() }.add(occurrence)
+            } else {
+                var dayCursor = occStartDay
+                while (dayCursor <= occEndDay && dayCursor <= bounds.endMillis) {
+                    occurrencesByDay.getOrPut(dayCursor) { mutableListOf() }.add(occurrence)
+                    dayCursor = Calendar.getInstance().apply {
+                        timeInMillis = dayCursor
+                        add(Calendar.DAY_OF_YEAR, 1)
+                    }.timeInMillis
+                }
+            }
+        }
+
+        // 3. Construct 42 day cells using fast O(1) map lookups
         val days = (0 until 42).map { offset ->
             val dayCal = (bounds.firstGridCal.clone() as Calendar).apply {
                 add(Calendar.DAY_OF_YEAR, offset)
             }
             val startOfDay = getStartOfDayMillis(dayCal.timeInMillis)
-            val endOfDay = getEndOfDayMillis(dayCal.timeInMillis)
-
-            val dayActivities = scheduledActivities.flatMap { item ->
-                RecurrenceEvaluator.expandOccurrencesForRange(item, startOfDay, endOfDay)
-            }.sortedBy { it.startTimeMillis }
+            val dayActivities = occurrencesByDay[startOfDay]?.sortedBy { it.startTimeMillis } ?: emptyList()
 
             CalendarDay(
                 dateMillis = startOfDay,
@@ -275,17 +299,17 @@ class CalendarViewModel(
         }
 
         val selStart = getStartOfDayMillis(selectedMillis)
-        val selEnd = getEndOfDayMillis(selectedMillis)
-
-        val selectedActivities = scheduledActivities.flatMap { item ->
-            RecurrenceEvaluator.expandOccurrencesForRange(item, selStart, selEnd)
-        }.sortedBy { it.startTimeMillis }
+        val selectedActivities = days.firstOrNull { it.isSelected }?.activities
+            ?: occurrencesByDay[selStart]?.sortedBy { it.startTimeMillis }
+            ?: scheduledActivities.flatMap { item ->
+                RecurrenceEvaluator.expandOccurrencesForRange(item, selStart, getEndOfDayMillis(selectedMillis))
+            }.sortedBy { it.startTimeMillis }
 
         val todayDate = Calendar.getInstance().apply { timeInMillis = todayMillis }.get(Calendar.DAY_OF_MONTH)
         val resolvedDetail = detailActivity?.let { da ->
             val master = activities.firstOrNull { it.id == da.id } ?: return@let null
             if (master.recurrenceMode != RecurrenceMode.NONE) {
-                val occurrenceDayStart = getStartOfDayMillis(selectedMillis)
+                val occurrenceDayStart = getStartOfDayMillis(da.startTimeMillis)
                 master.copy(
                     startTimeMillis = da.startTimeMillis,
                     endTimeMillis = da.endTimeMillis,

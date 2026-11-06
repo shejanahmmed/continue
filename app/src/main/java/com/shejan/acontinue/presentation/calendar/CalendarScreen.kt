@@ -82,6 +82,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -129,18 +131,23 @@ fun CalendarScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val toastState = LocalToastState.current
+    val haptic = LocalHapticFeedback.current
 
-    val monthShortFormat = SimpleDateFormat("MMM", Locale.getDefault())
-    val monthShortTitle = monthShortFormat.format(Date(uiState.currentMonthMillis)).uppercase()
+    val monthShortTitle = remember(uiState.currentMonthMillis) {
+        SimpleDateFormat("MMM", Locale.getDefault()).format(Date(uiState.currentMonthMillis)).uppercase()
+    }
 
-    val dayNumberFormat = SimpleDateFormat("dd", Locale.getDefault())
-    val dayNumberStr = dayNumberFormat.format(Date(uiState.selectedDateMillis))
+    val dayNumberStr = remember(uiState.selectedDateMillis) {
+        SimpleDateFormat("dd", Locale.getDefault()).format(Date(uiState.selectedDateMillis))
+    }
 
-    val dayWeekFormat = SimpleDateFormat("EEE", Locale.getDefault())
-    val dayWeekStr = dayWeekFormat.format(Date(uiState.selectedDateMillis)).uppercase()
+    val dayWeekStr = remember(uiState.selectedDateMillis) {
+        SimpleDateFormat("EEE", Locale.getDefault()).format(Date(uiState.selectedDateMillis)).uppercase()
+    }
 
-    val pillDateFormat = SimpleDateFormat("d MMM", Locale.getDefault())
-    val pillDateStr = pillDateFormat.format(Date(uiState.selectedDateMillis))
+    val pillDateStr = remember(uiState.selectedDateMillis) {
+        SimpleDateFormat("d MMM", Locale.getDefault()).format(Date(uiState.selectedDateMillis))
+    }
 
     val lazyListState = rememberLazyListState()
 
@@ -154,6 +161,7 @@ fun CalendarScreen(
                     // First scroll: Month mode swipe UP initiates collapse and locks this gesture
                     if (available.y < -6f && !uiState.isWeekMode && !isCollapsingGesture) {
                         isCollapsingGesture = true
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         viewModel.setWeekMode(true)
                         return Offset(0f, available.y)
                     }
@@ -169,6 +177,7 @@ fun CalendarScreen(
                         lazyListState.firstVisibleItemIndex == 0 && lazyListState.firstVisibleItemScrollOffset <= 0
                     ) {
                         isExpandingGesture = true
+                        haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                         viewModel.setWeekMode(false)
                         return Offset(0f, available.y)
                     }
@@ -303,11 +312,14 @@ fun CalendarScreen(
                                 val absY = kotlin.math.abs(dragY)
                                 if (absY > absX && absY > 20.dp.toPx()) {
                                     if (dragY < 0) {
+                                        if (!uiState.isWeekMode) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         viewModel.setWeekMode(true)
                                     } else {
+                                        if (uiState.isWeekMode) haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                         viewModel.setWeekMode(false)
                                     }
                                 } else if (absX > absY && absX > 25.dp.toPx()) {
+                                    haptic.performHapticFeedback(HapticFeedbackType.TextHandleMove)
                                     if (dragX < 0) {
                                         if (uiState.isWeekMode) viewModel.nextWeek() else viewModel.nextMonth()
                                     } else {
@@ -536,14 +548,15 @@ fun CalendarScreen(
 
 
 
+private val DAY_OF_WEEK_LABELS = listOf("S", "M", "T", "W", "T", "F", "S")
+
 @Composable
 private fun DayOfWeekHeaderRow() {
-    val dayLabels = listOf("S", "M", "T", "W", "T", "F", "S")
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(4.dp)
     ) {
-        dayLabels.forEachIndexed { index, label ->
+        DAY_OF_WEEK_LABELS.forEachIndexed { index, label ->
             val headerColor = when (index) {
                 0 -> Color(0xFF5C6BC0) // Sunday distinct accent
                 6 -> Color(0xFF7E8CE0) // Saturday subtle accent
@@ -580,12 +593,14 @@ private fun UtilitarianAccordionCalendar(
         label = "CalendarAccordionAnimation"
     )
 
-    val rows = monthDays.chunked(7)
+    val rows = remember(monthDays) { monthDays.chunked(7) }
     // Anchor onto the week row containing the selected date or today's date
-    val activeRowIndex = rows.indexOfFirst { week -> week.any { it.isSelected } }
-        .takeIf { it >= 0 }
-        ?: rows.indexOfFirst { week -> week.any { it.isToday } }.takeIf { it >= 0 }
-        ?: 0
+    val activeRowIndex = remember(rows) {
+        rows.indexOfFirst { week -> week.any { it.isSelected } }
+            .takeIf { it >= 0 }
+            ?: rows.indexOfFirst { week -> week.any { it.isToday } }.takeIf { it >= 0 }
+            ?: 0
+    }
 
     Layout(
         content = {
@@ -758,6 +773,24 @@ private fun MonthDayCell(
     }
 }
 
+private fun ensureDotColor(colorHex: Long): Color {
+    val r = ((colorHex shr 16) and 0xFF).toInt()
+    val g = ((colorHex shr 8) and 0xFF).toInt()
+    val b = (colorHex and 0xFF).toInt()
+    val luminance = 0.299 * r + 0.587 * g + 0.114 * b
+    return if (luminance < 60.0) {
+        val boost = 1.4f
+        Color(
+            red = (r * boost).coerceAtMost(255f) / 255f,
+            green = (g * boost).coerceAtMost(255f) / 255f,
+            blue = (b * boost).coerceAtMost(255f) / 255f,
+            alpha = 1f
+        )
+    } else {
+        Color(colorHex)
+    }
+}
+
 @Composable
 private fun DayDotMatrix(
     colorsHex: List<Long>,
@@ -781,7 +814,7 @@ private fun DayDotMatrix(
                 Box(
                     modifier = Modifier
                         .size(4.dp)
-                        .background(color = Color(hex), shape = CircleShape)
+                        .background(color = ensureDotColor(hex), shape = CircleShape)
                 )
             }
         }
@@ -798,7 +831,7 @@ private fun DayDotMatrix(
                         Box(
                             modifier = Modifier
                                 .size(4.dp)
-                                .background(color = Color(hex), shape = CircleShape)
+                                .background(color = ensureDotColor(hex), shape = CircleShape)
                         )
                     }
                     // 4th item: arrow indicating more
@@ -814,7 +847,7 @@ private fun DayDotMatrix(
                         Box(
                             modifier = Modifier
                                 .size(4.dp)
-                                .background(color = Color(hex), shape = CircleShape)
+                                .background(color = ensureDotColor(hex), shape = CircleShape)
                         )
                     }
                 }
@@ -830,9 +863,12 @@ private fun CalendarActivityCard(
     onToggleCompletion: ((Boolean) -> Unit)? = null
 ) {
     val isReminder = activity.entryType == EntryType.REMINDER
-    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
-    val startStr = timeFormat.format(Date(activity.startTimeMillis))
-    val endStr = timeFormat.format(Date(activity.endTimeMillis))
+    val startStr = remember(activity.startTimeMillis) {
+        SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(activity.startTimeMillis))
+    }
+    val endStr = remember(activity.endTimeMillis) {
+        SimpleDateFormat("h:mm a", Locale.getDefault()).format(Date(activity.endTimeMillis))
+    }
 
     val catColor = if (isReminder) Color(activity.reminderCategoryColorHex) else Color(activity.category.colorHex)
     val isCompleted = isReminder && activity.isCompleted
