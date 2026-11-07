@@ -1093,23 +1093,15 @@ private fun NotesTabContent(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
-                    Text(
-                        text = "EVENT WORKSPACE NOTES",
-                        color = UtilitarianTextPrimary,
-                        fontFamily = FontFamily.Monospace,
-                        fontSize = 11.sp,
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Text(
-                        text = "Take rich notes, checklists, or voice recordings during this event.",
-                        color = UtilitarianTextPrimary,
-                        fontSize = 12.sp,
-                        lineHeight = 17.sp
-                    )
-                }
+                Text(
+                    text = "EVENT WORKSPACE NOTES",
+                    color = UtilitarianTextPrimary,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 11.sp,
+                    fontWeight = FontWeight.Bold,
+                    letterSpacing = 1.sp,
+                    modifier = Modifier.weight(1f)
+                )
                 Spacer(modifier = Modifier.width(12.dp))
                 HighContrastButton(
                     text = "+ Create Note",
