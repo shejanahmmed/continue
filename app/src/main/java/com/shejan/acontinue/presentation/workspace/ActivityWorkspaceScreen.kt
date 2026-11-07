@@ -4,8 +4,6 @@ import android.content.Intent
 import android.net.Uri
 import android.widget.Toast
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.core.Animatable
 import androidx.compose.animation.core.FastOutSlowInEasing
@@ -42,7 +40,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.foundation.border
 import androidx.compose.material.icons.outlined.AccessTime
-import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.CalendarToday
 import androidx.compose.material.icons.outlined.CheckBox
@@ -78,13 +75,10 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import kotlin.time.Duration.Companion.milliseconds
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.BiasAlignment
 import androidx.compose.ui.Modifier
@@ -240,14 +234,7 @@ fun ActivityWorkspaceScreen(
             item {
                 when (uiState.selectedTab) {
                     WorkspaceTab.OVERVIEW -> OverviewTabContent(
-                        aggregate = aggregate,
-                        onAddAttachment = { fileName, uriString, mimeType, sizeBytes ->
-                            viewModel.addAttachment(fileName, uriString, mimeType, sizeBytes)
-                        },
-                        onDeleteAttachment = { attachmentId, filePath ->
-                            viewModel.deleteAttachment(attachmentId, filePath)
-                            toastState.show("Attachment deleted")
-                        }
+                        aggregate = aggregate
                     )
                     WorkspaceTab.NOTES -> NotesTabContent(
                         notes = aggregate.notes,
@@ -727,37 +714,10 @@ private fun WorkspaceTabRow(
 
 @Composable
 private fun OverviewTabContent(
-    aggregate: ActivityWorkspaceAggregate,
-    onAddAttachment: (fileName: String, uriString: String, mimeType: String, sizeBytes: Long) -> Unit,
-    onDeleteAttachment: (attachmentId: Long, filePath: String?) -> Unit
+    aggregate: ActivityWorkspaceAggregate
 ) {
     val activity = aggregate.activity
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
-
-    val filePickerLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.OpenMultipleDocuments()
-    ) { uris ->
-        if (uris.isNotEmpty()) {
-            coroutineScope.launch(Dispatchers.IO) {
-                uris.forEach { uri ->
-                    AttachmentHelper.processAndCopyUri(context, uri)
-                        .onSuccess { proc ->
-                            onAddAttachment(proc.fileName, proc.filePath, proc.mimeType, proc.sizeBytes)
-                        }
-                        .onFailure { error ->
-                            withContext(Dispatchers.Main) {
-                                Toast.makeText(
-                                    context,
-                                    error.message ?: "Failed to process attachment",
-                                    Toast.LENGTH_LONG
-                                ).show()
-                            }
-                        }
-                }
-            }
-        }
-    }
 
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -1025,51 +985,18 @@ private fun OverviewTabContent(
         // Card 4: ATTACHMENTS
         MonochromeCard {
                 Column {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = if (aggregate.attachments.isNotEmpty()) {
-                                "ATTACHMENTS (${aggregate.attachments.size})"
-                            } else {
-                                "ATTACHMENTS"
-                            },
-                            color = UtilitarianTextPrimary,
-                            fontFamily = FontFamily.Monospace,
-                            fontSize = 11.sp,
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 1.sp
-                        )
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(4.dp))
-                                .clickable(
-                                    interactionSource = remember { MutableInteractionSource() },
-                                    indication = null
-                                ) {
-                                    filePickerLauncher.launch(AttachmentHelper.SUPPORTED_MIME_TYPES)
-                                }
-                                .padding(horizontal = 4.dp, vertical = 2.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.Add,
-                                contentDescription = "Add attachment",
-                                tint = UtilitarianTextPrimary,
-                                modifier = Modifier.size(14.dp)
-                            )
-                            Spacer(modifier = Modifier.width(4.dp))
-                            Text(
-                                text = "ATTACH",
-                                color = UtilitarianTextPrimary,
-                                fontFamily = FontFamily.Monospace,
-                                fontSize = 11.sp,
-                                fontWeight = FontWeight.Bold
-                            )
-                        }
-                    }
+                    Text(
+                        text = if (aggregate.attachments.isNotEmpty()) {
+                            "ATTACHMENTS (${aggregate.attachments.size})"
+                        } else {
+                            "ATTACHMENTS"
+                        },
+                        color = UtilitarianTextPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontSize = 11.sp,
+                        fontWeight = FontWeight.Bold,
+                        letterSpacing = 1.sp
+                    )
                     Spacer(modifier = Modifier.height(10.dp))
                     if (aggregate.attachments.isNotEmpty()) {
                         aggregate.attachments.forEachIndexed { index, att ->
@@ -1123,50 +1050,19 @@ private fun OverviewTabContent(
                                             fontSize = 11.sp
                                         )
                                     }
-                                    IconButton(
-                                        onClick = { onDeleteAttachment(att.id, att.uriString) },
-                                        modifier = Modifier.size(28.dp)
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Outlined.Close,
-                                            contentDescription = "Remove attachment",
-                                            tint = UtilitarianTextPrimary,
-                                            modifier = Modifier.size(16.dp)
-                                        )
-                                    }
                                 }
                             }
                         }
                     } else {
-                        Surface(
-                            onClick = { filePickerLauncher.launch(AttachmentHelper.SUPPORTED_MIME_TYPES) },
-                            modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp),
-                            color = Color(0xFF161616),
-                            border = BorderStroke(1.dp, UtilitarianBorderStroke)
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(horizontal = 14.dp, vertical = 12.dp),
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.AttachFile,
-                                    contentDescription = null,
-                                    tint = UtilitarianTextPrimary,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "+ Attach File or Photo",
-                                    color = UtilitarianTextPrimary,
-                                    fontSize = 13.sp,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
+                        Text(
+                            text = "No attachment",
+                            color = UtilitarianTextPrimary,
+                            fontSize = 13.sp,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 12.dp)
+                        )
                     }
                 }
             }
