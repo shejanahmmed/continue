@@ -126,8 +126,6 @@ import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
 import com.shejan.acontinue.ui.theme.UtilitarianPureBlack
 import com.shejan.acontinue.ui.theme.UtilitarianTextDisabled
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
-import com.shejan.acontinue.ui.theme.UtilitarianTextPrimaryMuted
-import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
 import kotlinx.coroutines.flow.collectLatest
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -218,7 +216,7 @@ fun ActivityWorkspaceScreen(
                     ) {
                         Text(
                             text = activity.title,
-                            color = UtilitarianTextPrimaryMuted,
+                            color = UtilitarianTextPrimary,
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Normal,
                             modifier = Modifier.fillMaxWidth()
@@ -398,7 +396,7 @@ fun ActivityWorkspaceScreen(
 
                         Text(
                             text = "Are you sure you want to delete this event? This action cannot be undone.",
-                            color = UtilitarianTextSecondary,
+                            color = UtilitarianTextPrimary,
                             fontSize = 14.sp,
                             fontWeight = FontWeight.Normal,
                             textAlign = TextAlign.Center,
@@ -711,11 +709,11 @@ private fun WorkspaceTabRow(
                     .clickable { onSelectTab(tab) },
                 shape = RoundedCornerShape(8.dp),
                 color = if (isSelected) UtilitarianCardBackground else UtilitarianPureBlack,
-                border = BorderStroke(1.dp, if (isSelected) UtilitarianTextPrimaryMuted else UtilitarianBorderStroke)
+                border = BorderStroke(1.dp, if (isSelected) UtilitarianTextPrimary else UtilitarianBorderStroke)
             ) {
                 Text(
                     text = label,
-                    color = if (isSelected) UtilitarianTextPrimaryMuted else UtilitarianTextSecondary,
+                    color = UtilitarianTextPrimary,
                     fontFamily = FontFamily.SansSerif,
                     fontWeight = if (isSelected) FontWeight.SemiBold else FontWeight.Normal,
                     fontSize = 11.sp,
@@ -770,7 +768,7 @@ private fun OverviewTabContent(
                 Column {
                     Text(
                         text = "DATE, TIME & LOCATION",
-                        color = UtilitarianTextSecondary,
+                        color = UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -786,13 +784,13 @@ private fun OverviewTabContent(
                         Icon(
                             imageVector = Icons.Outlined.CalendarToday,
                             contentDescription = null,
-                            tint = UtilitarianTextSecondary,
+                            tint = UtilitarianTextPrimary,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = EventFormatters.formatDate(activity.startTimeMillis),
-                            color = UtilitarianTextSecondary,
+                            color = UtilitarianTextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Normal
                         )
@@ -807,7 +805,7 @@ private fun OverviewTabContent(
                         Icon(
                             imageVector = Icons.Outlined.AccessTime,
                             contentDescription = null,
-                            tint = UtilitarianTextSecondary,
+                            tint = UtilitarianTextPrimary,
                             modifier = Modifier.size(16.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
@@ -817,7 +815,7 @@ private fun OverviewTabContent(
                                 activity.endTimeMillis,
                                 activity.isAllDay
                             ),
-                            color = UtilitarianTextSecondary,
+                            color = UtilitarianTextPrimary,
                             fontFamily = FontFamily.Monospace,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Normal
@@ -847,13 +845,13 @@ private fun OverviewTabContent(
                             Icon(
                                 imageVector = Icons.Outlined.LocationOn,
                                 contentDescription = "Location",
-                                tint = if (isLink) Color(0xFF3897F0) else UtilitarianTextSecondary,
+                                tint = if (isLink) Color(0xFF3897F0) else UtilitarianTextPrimary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = effectiveLocation,
-                                color = if (isLink) Color(0xFF3897F0) else UtilitarianTextSecondary,
+                                color = if (isLink) Color(0xFF3897F0) else UtilitarianTextPrimary,
                                 fontSize = 13.sp,
                                 modifier = Modifier.weight(1f)
                             )
@@ -871,13 +869,13 @@ private fun OverviewTabContent(
                             Icon(
                                 imageVector = Icons.Outlined.LocationOn,
                                 contentDescription = "Location",
-                                tint = UtilitarianTextDisabled,
+                                tint = UtilitarianTextPrimary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Not set",
-                                color = UtilitarianTextDisabled,
+                                color = UtilitarianTextPrimary,
                                 fontSize = 13.sp
                             )
                         }
@@ -890,7 +888,7 @@ private fun OverviewTabContent(
                 Column {
                     Text(
                         text = "EVENT SETTINGS",
-                        color = UtilitarianTextSecondary,
+                        color = UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -909,19 +907,19 @@ private fun OverviewTabContent(
                             Icon(
                                 imageVector = Icons.Outlined.Notifications,
                                 contentDescription = null,
-                                tint = UtilitarianTextSecondary,
+                                tint = UtilitarianTextPrimary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Alert",
-                                color = UtilitarianTextSecondary,
+                                color = UtilitarianTextPrimary,
                                 fontSize = 13.sp
                             )
                         }
                         Text(
                             text = alertText,
-                            color = if (alertText == "Not set") UtilitarianTextDisabled else UtilitarianTextSecondary,
+                            color = UtilitarianTextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Normal
                         )
@@ -944,19 +942,19 @@ private fun OverviewTabContent(
                             Icon(
                                 imageVector = Icons.Outlined.Repeat,
                                 contentDescription = null,
-                                tint = UtilitarianTextSecondary,
+                                tint = UtilitarianTextPrimary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Repeat",
-                                color = UtilitarianTextSecondary,
+                                color = UtilitarianTextPrimary,
                                 fontSize = 13.sp
                             )
                         }
                         Text(
                             text = repeatText,
-                            color = if (repeatText == "Not set") UtilitarianTextDisabled else UtilitarianTextSecondary,
+                            color = UtilitarianTextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Normal
                         )
@@ -974,19 +972,19 @@ private fun OverviewTabContent(
                             Icon(
                                 imageVector = Icons.Outlined.Flag,
                                 contentDescription = null,
-                                tint = UtilitarianTextSecondary,
+                                tint = UtilitarianTextPrimary,
                                 modifier = Modifier.size(16.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
                             Text(
                                 text = "Priority",
-                                color = UtilitarianTextSecondary,
+                                color = UtilitarianTextPrimary,
                                 fontSize = 13.sp
                             )
                         }
                         Text(
                             text = activity.priority.name,
-                            color = UtilitarianTextSecondary,
+                            color = UtilitarianTextPrimary,
                             fontSize = 13.sp,
                             fontWeight = FontWeight.Normal
                         )
@@ -999,7 +997,7 @@ private fun OverviewTabContent(
                 Column {
                     Text(
                         text = "EVENT NOTE",
-                        color = UtilitarianTextSecondary,
+                        color = UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -1009,7 +1007,7 @@ private fun OverviewTabContent(
                     if (activity.description.isNotBlank()) {
                         ClickableLinkText(
                             text = activity.description,
-                            color = UtilitarianTextSecondary,
+                            color = UtilitarianTextPrimary,
                             linkColor = Color(0xFF3897F0),
                             style = TextStyle(fontSize = 14.sp),
                             lineHeight = 20.sp
@@ -1017,7 +1015,7 @@ private fun OverviewTabContent(
                     } else {
                         Text(
                             text = "Not set",
-                            color = UtilitarianTextDisabled,
+                            color = UtilitarianTextPrimary,
                             fontSize = 13.sp
                         )
                     }
@@ -1038,7 +1036,7 @@ private fun OverviewTabContent(
                             } else {
                                 "ATTACHMENTS"
                             },
-                            color = UtilitarianTextSecondary,
+                            color = UtilitarianTextPrimary,
                             fontFamily = FontFamily.Monospace,
                             fontSize = 11.sp,
                             fontWeight = FontWeight.Bold,
@@ -1106,14 +1104,14 @@ private fun OverviewTabContent(
                                     Icon(
                                         imageVector = Icons.Outlined.AttachFile,
                                         contentDescription = null,
-                                        tint = UtilitarianTextSecondary,
+                                        tint = UtilitarianTextPrimary,
                                         modifier = Modifier.size(18.dp)
                                     )
                                     Spacer(modifier = Modifier.width(10.dp))
                                     Column(modifier = Modifier.weight(1f)) {
                                         Text(
                                             text = att.fileName,
-                                            color = UtilitarianTextSecondary,
+                                            color = UtilitarianTextPrimary,
                                             fontSize = 13.sp,
                                             fontWeight = FontWeight.Normal,
                                             maxLines = 1,
@@ -1121,7 +1119,7 @@ private fun OverviewTabContent(
                                         )
                                         Text(
                                             text = AttachmentHelper.formatFileSize(att.sizeBytes),
-                                            color = UtilitarianTextDisabled,
+                                            color = UtilitarianTextPrimary,
                                             fontSize = 11.sp
                                         )
                                     }
@@ -1132,7 +1130,7 @@ private fun OverviewTabContent(
                                         Icon(
                                             imageVector = Icons.Outlined.Close,
                                             contentDescription = "Remove attachment",
-                                            tint = UtilitarianTextDisabled,
+                                            tint = UtilitarianTextPrimary,
                                             modifier = Modifier.size(16.dp)
                                         )
                                     }
@@ -1157,13 +1155,13 @@ private fun OverviewTabContent(
                                 Icon(
                                     imageVector = Icons.Outlined.AttachFile,
                                     contentDescription = null,
-                                    tint = UtilitarianTextSecondary,
+                                    tint = UtilitarianTextPrimary,
                                     modifier = Modifier.size(16.dp)
                                 )
                                 Spacer(modifier = Modifier.width(8.dp))
                                 Text(
                                     text = "+ Attach File or Photo",
-                                    color = UtilitarianTextSecondary,
+                                    color = UtilitarianTextPrimary,
                                     fontSize = 13.sp,
                                     fontWeight = FontWeight.Medium
                                 )
@@ -1202,7 +1200,7 @@ private fun NotesTabContent(
                 Column(modifier = Modifier.weight(1f)) {
                     Text(
                         text = "EVENT WORKSPACE NOTES",
-                        color = UtilitarianTextSecondary,
+                        color = UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
                         fontWeight = FontWeight.Bold,
@@ -1211,7 +1209,7 @@ private fun NotesTabContent(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Take rich notes, checklists, or voice recordings during this event.",
-                        color = UtilitarianTextSecondary,
+                        color = UtilitarianTextPrimary,
                         fontSize = 12.sp,
                         lineHeight = 17.sp
                     )
@@ -1241,7 +1239,7 @@ private fun NotesTabContent(
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
                         text = "Tap '+ Create Note' above to capture notes while this event is running.",
-                        color = UtilitarianTextSecondary,
+                        color = UtilitarianTextPrimary,
                         fontSize = 12.sp,
                         textAlign = TextAlign.Center
                     )
@@ -1358,7 +1356,7 @@ private fun WorkspaceNoteCard(
                                     Icon(
                                         imageVector = if (isChecked) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
                                         contentDescription = if (isChecked) "Completed" else "To do",
-                                        tint = if (isChecked) Color(0xFF3897F0) else if (hasCustomColor) Color.White.copy(alpha = 0.7f) else UtilitarianTextSecondary,
+                                        tint = if (isChecked) Color(0xFF3897F0) else if (hasCustomColor) Color.White.copy(alpha = 0.7f) else UtilitarianTextPrimary,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -1382,7 +1380,7 @@ private fun WorkspaceNoteCard(
                                 val remaining = parsedChecklistItems.size - 8
                                 Text(
                                     text = "+ $remaining more",
-                                    color = if (hasCustomColor) Color.White.copy(alpha = 0.6f) else UtilitarianTextSecondary,
+                                    color = if (hasCustomColor) Color.White.copy(alpha = 0.8f) else UtilitarianTextPrimary,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.padding(start = 24.dp, top = 2.dp)
@@ -1392,7 +1390,7 @@ private fun WorkspaceNoteCard(
                     } else if (hasContent) {
                         Text(
                             text = cleanPreview,
-                            color = UtilitarianTextSecondary,
+                            color = UtilitarianTextPrimary,
                             fontSize = 13.sp,
                             lineHeight = 19.sp,
                             maxLines = 10,
@@ -1417,7 +1415,7 @@ private fun WorkspaceNoteCard(
                             Icon(
                                 imageVector = Icons.Outlined.MoreVert,
                                 contentDescription = "Note Options",
-                                tint = UtilitarianTextSecondary,
+                                tint = UtilitarianTextPrimary,
                                 modifier = Modifier.size(18.dp)
                             )
                         }
@@ -1507,7 +1505,7 @@ private fun WorkspaceNoteCard(
                                     Icon(
                                         imageVector = if (isChecked) Icons.Outlined.CheckBox else Icons.Outlined.CheckBoxOutlineBlank,
                                         contentDescription = if (isChecked) "Completed" else "To do",
-                                        tint = if (isChecked) Color(0xFF3897F0) else if (hasCustomColor) Color.White.copy(alpha = 0.7f) else UtilitarianTextSecondary,
+                                        tint = if (isChecked) Color(0xFF3897F0) else if (hasCustomColor) Color.White.copy(alpha = 0.7f) else UtilitarianTextPrimary,
                                         modifier = Modifier.size(16.dp)
                                     )
                                     Spacer(modifier = Modifier.width(8.dp))
@@ -1531,7 +1529,7 @@ private fun WorkspaceNoteCard(
                                 val remaining = parsedChecklistItems.size - 8
                                 Text(
                                     text = "+ $remaining more",
-                                    color = if (hasCustomColor) Color.White.copy(alpha = 0.6f) else UtilitarianTextSecondary,
+                                    color = if (hasCustomColor) Color.White.copy(alpha = 0.8f) else UtilitarianTextPrimary,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
                                     modifier = Modifier.padding(start = 24.dp, top = 2.dp)
@@ -1541,7 +1539,7 @@ private fun WorkspaceNoteCard(
                     } else if (hasContent) {
                         Text(
                             text = cleanPreview,
-                            color = UtilitarianTextSecondary,
+                            color = UtilitarianTextPrimary,
                             fontSize = 13.sp,
                             lineHeight = 19.sp,
                             maxLines = 10,
@@ -1569,7 +1567,7 @@ private fun WorkspaceNoteCard(
                             ) {
                                 Text(
                                     text = if (audioCount == 1) "1 AUDIO" else "$audioCount AUDIOS",
-                                    color = UtilitarianTextSecondary,
+                                    color = UtilitarianTextPrimary,
                                     fontSize = 10.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Medium
@@ -1585,7 +1583,7 @@ private fun WorkspaceNoteCard(
                             ) {
                                 Text(
                                     text = if (photoCount == 1) "1 PHOTO" else "$photoCount PHOTOS",
-                                    color = UtilitarianTextSecondary,
+                                    color = UtilitarianTextPrimary,
                                     fontSize = 10.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Medium
@@ -1601,7 +1599,7 @@ private fun WorkspaceNoteCard(
                             ) {
                                 Text(
                                     text = "#$label",
-                                    color = UtilitarianTextSecondary,
+                                    color = UtilitarianTextPrimary,
                                     fontSize = 11.sp,
                                     fontFamily = FontFamily.Monospace,
                                     fontWeight = FontWeight.Medium
@@ -1662,7 +1660,7 @@ private fun TasksTabContent(
         if (tasks.isEmpty()) {
             Text(
                 text = "No checklist items. Add follow-up assignments or items to remember.",
-                color = UtilitarianTextSecondary,
+                color = UtilitarianTextPrimary,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(8.dp)
             )
@@ -1728,7 +1726,7 @@ private fun TasksTabContent(
                 ) {
                     Text(
                         text = "EDIT TASK",
-                        color = UtilitarianTextSecondary,
+                        color = UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -1752,7 +1750,7 @@ private fun TasksTabContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TextButton(onClick = { taskToEdit = null }) {
-                            Text("Cancel", color = UtilitarianTextSecondary)
+                            Text("Cancel", color = UtilitarianTextPrimary)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         HighContrastButton(
@@ -1791,7 +1789,7 @@ private fun LinksTabContent(
             Column {
                 Text(
                     text = "SAVE REFERENCE LINK / URL",
-                    color = UtilitarianTextSecondary,
+                    color = UtilitarianTextPrimary,
                     fontFamily = FontFamily.Monospace,
                     fontSize = 11.sp,
                     fontWeight = FontWeight.Bold,
@@ -1840,7 +1838,7 @@ private fun LinksTabContent(
         if (links.isEmpty()) {
             Text(
                 text = "No resource links attached. Save URLs discussed in this session.",
-                color = UtilitarianTextSecondary,
+                color = UtilitarianTextPrimary,
                 fontSize = 13.sp,
                 modifier = Modifier.padding(8.dp)
             )
@@ -1859,11 +1857,11 @@ private fun LinksTabContent(
                         modifier = Modifier.fillMaxWidth(),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Icon(imageVector = Icons.Outlined.Link, contentDescription = null, tint = UtilitarianTextSecondary, modifier = Modifier.size(20.dp))
+                        Icon(imageVector = Icons.Outlined.Link, contentDescription = null, tint = UtilitarianTextPrimary, modifier = Modifier.size(20.dp))
                         Spacer(modifier = Modifier.width(12.dp))
                         Column(modifier = Modifier.weight(1f)) {
                             Text(text = link.title, color = UtilitarianTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text(text = link.url, color = UtilitarianTextSecondary, fontSize = 11.sp)
+                            Text(text = link.url, color = UtilitarianTextPrimary, fontSize = 11.sp)
                         }
                         Icon(imageVector = Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, tint = UtilitarianTextDisabled, modifier = Modifier.size(16.dp))
                         Spacer(modifier = Modifier.width(8.dp))
@@ -1899,7 +1897,7 @@ private fun LinksTabContent(
                 ) {
                     Text(
                         text = "EDIT LINK",
-                        color = UtilitarianTextSecondary,
+                        color = UtilitarianTextPrimary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Bold,
@@ -1937,7 +1935,7 @@ private fun LinksTabContent(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         TextButton(onClick = { linkToEdit = null }) {
-                            Text("Cancel", color = UtilitarianTextSecondary)
+                            Text("Cancel", color = UtilitarianTextPrimary)
                         }
                         Spacer(modifier = Modifier.width(8.dp))
                         HighContrastButton(
