@@ -265,7 +265,8 @@ class CalendarViewModel(
         val occurrencesByDay = mutableMapOf<Long, MutableList<ActivityItem>>()
         for (occurrence in allOccurrences) {
             val occStartDay = getStartOfDayMillis(occurrence.startTimeMillis)
-            val occEndDay = getStartOfDayMillis(occurrence.endTimeMillis)
+            val effectiveEnd = if (occurrence.endTimeMillis >= occurrence.startTimeMillis) occurrence.endTimeMillis else occurrence.startTimeMillis
+            val occEndDay = getStartOfDayMillis(effectiveEnd)
             if (occStartDay == occEndDay) {
                 occurrencesByDay.getOrPut(occStartDay) { mutableListOf() }.add(occurrence)
             } else {

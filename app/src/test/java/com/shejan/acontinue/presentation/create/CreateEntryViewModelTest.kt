@@ -27,6 +27,7 @@ import org.junit.Assert.assertTrue
 import kotlinx.coroutines.flow.first
 import org.junit.Before
 import org.junit.Test
+import java.util.Calendar
 
 @OptIn(ExperimentalCoroutinesApi::class)
 class CreateEntryViewModelTest {
@@ -943,6 +944,81 @@ class CreateEntryViewModelTest {
     }
 
     @Test
+    fun `test save all day event normalizes start and end to full day boundaries`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.updateEntryType(EntryType.ACTIVITY)
+        viewModel.updateTitle("Company Hackathon")
+        viewModel.updateAllDay(true)
+        viewModel.updateStartDate(2026, java.util.Calendar.NOVEMBER, 12)
+
+        viewModel.saveEntry()
+        testScheduler.advanceUntilIdle()
+
+        val saved = activityRepository.activitiesFlow.value.first()
+        assertTrue(saved.isAllDay)
+        assertEquals(EntryType.ACTIVITY, saved.entryType)
+
+        val startCal = java.util.Calendar.getInstance().apply { timeInMillis = saved.startTimeMillis }
+        assertEquals(2026, startCal.get(java.util.Calendar.YEAR))
+        assertEquals(java.util.Calendar.NOVEMBER, startCal.get(java.util.Calendar.MONTH))
+        assertEquals(12, startCal.get(java.util.Calendar.DAY_OF_MONTH))
+        assertEquals(0, startCal.get(java.util.Calendar.HOUR_OF_DAY))
+        assertEquals(0, startCal.get(java.util.Calendar.MINUTE))
+        assertEquals(0, startCal.get(java.util.Calendar.SECOND))
+        assertEquals(0, startCal.get(java.util.Calendar.MILLISECOND))
+
+        val endCal = java.util.Calendar.getInstance().apply { timeInMillis = saved.endTimeMillis }
+        assertEquals(2026, endCal.get(java.util.Calendar.YEAR))
+        assertEquals(java.util.Calendar.NOVEMBER, endCal.get(java.util.Calendar.MONTH))
+        assertEquals(12, endCal.get(java.util.Calendar.DAY_OF_MONTH))
+        assertEquals(23, endCal.get(java.util.Calendar.HOUR_OF_DAY))
+        assertEquals(59, endCal.get(java.util.Calendar.MINUTE))
+        assertEquals(59, endCal.get(java.util.Calendar.SECOND))
+        assertEquals(999, endCal.get(java.util.Calendar.MILLISECOND))
+    }
+
+    @Test
+    fun `test setInitialDate synchronizes both startMillis and endMillis to target date`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        val targetCal = java.util.Calendar.getInstance().apply {
+            set(2026, java.util.Calendar.DECEMBER, 5, 0, 0, 0)
+            set(java.util.Calendar.MILLISECOND, 0)
+        }
+        viewModel.setInitialDate(targetCal.timeInMillis)
+
+        val state = viewModel.state.value
+        val startCal = java.util.Calendar.getInstance().apply { timeInMillis = state.startMillis }
+        val endCal = java.util.Calendar.getInstance().apply { timeInMillis = state.endMillis }
+
+        assertEquals(2026, startCal.get(java.util.Calendar.YEAR))
+        assertEquals(java.util.Calendar.DECEMBER, startCal.get(java.util.Calendar.MONTH))
+        assertEquals(5, startCal.get(java.util.Calendar.DAY_OF_MONTH))
+
+        assertEquals(2026, endCal.get(java.util.Calendar.YEAR))
+        assertEquals(java.util.Calendar.DECEMBER, endCal.get(java.util.Calendar.MONTH))
+        assertEquals(5, endCal.get(java.util.Calendar.DAY_OF_MONTH))
+        assertTrue("endMillis must be >= startMillis", state.endMillis >= state.startMillis)
+    }
+
+    @Test
+    fun `test save event with inverted endMillis enforces valid non-negative interval`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.updateEntryType(EntryType.ACTIVITY)
+        viewModel.updateTitle("Edge Event")
+        val start = viewModel.state.value.startMillis
+        viewModel.updateEndMillis(start - 3600000L)
+
+        viewModel.saveEntry()
+        testScheduler.advanceUntilIdle()
+
+        val saved = activityRepository.activitiesFlow.value.first()
+        assertTrue("Saved endTimeMillis must be >= startTimeMillis", saved.endTimeMillis >= saved.startTimeMillis)
+    }
+
+    @Test
     fun `test addReminderCategory trims input and prevents duplicate categories`() = runTest(testDispatcher) {
         testScheduler.advanceUntilIdle()
 
@@ -1583,6 +1659,39 @@ class CreateEntryViewModelTest {
 
         val afterDelete = noteRepository.notesFlow.value.firstOrNull { it.id == 888L }
         assertTrue(afterDelete == null || afterDelete.isDeleted)
+    }
+
+    @Test
+    fun `test saving entry with identical or inverted endMillis enforces minimum positive duration`() = runTest(testDispatcher) {
+        viewModel.updateTitle("Late Session")
+        val fixedStart = 1700000000000L
+        viewModel.updateStartDate(2026, Calendar.NOVEMBER, 8)
+        viewModel.updateStartTime(11, 0, true) // 11:00 PM
+
+        // Set end time prior to or equal to start time
+        viewModel.updateEndDate(2026, Calendar.NOVEMBER, 8)
+        viewModel.updateEndTime(11, 0, true)
+
+        viewModel.events.test {
+            viewModel.saveEntry()
+            testScheduler.advanceUntilIdle()
+
+            assertEquals(CreateEntryEvent.SavedSuccessfully, awaitItem())
+
+            val saved = activityRepository.activitiesFlow.value.first { it.title == "Late Session" }
+            assertTrue(saved.endTimeMillis >= saved.startTimeMillis + 60_000L)
+        }
+    }
+
+    @Test
+    fun `test defaultStartMillis anchors to today and does not rollover into tomorrow`() {
+        val start = defaultStartMillis()
+        val calNow = Calendar.getInstance()
+        val calStart = Calendar.getInstance().apply { timeInMillis = start }
+
+        // Start time must either be today or top of the current hour if late night
+        assertEquals(calNow.get(Calendar.DAY_OF_YEAR), calStart.get(Calendar.DAY_OF_YEAR))
+        assertEquals(calNow.get(Calendar.YEAR), calStart.get(Calendar.YEAR))
     }
 }
 

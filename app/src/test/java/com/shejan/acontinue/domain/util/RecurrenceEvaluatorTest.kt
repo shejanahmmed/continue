@@ -331,4 +331,47 @@ class RecurrenceEvaluatorTest {
         // Day 3 occurrence should NOT be completed
         assertEquals(false, occurrences[2].isCompleted)
     }
+
+    @Test
+    fun `expandOccurrencesForRange handles inverted end time gracefully`() {
+        val startCal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 15, 14, 0, 0)
+        }
+        val startMillis = startCal.timeInMillis
+        val invalidEndMillis = startMillis - 3600000L
+
+        val activity = createBaseActivity(startCal).copy(
+            startTimeMillis = startMillis,
+            endTimeMillis = invalidEndMillis
+        )
+
+        val dayStart = RecurrenceEvaluator.getStartOfDayMillis(startMillis)
+        val dayEnd = RecurrenceEvaluator.getEndOfDayMillis(startMillis)
+
+        val occurrences = RecurrenceEvaluator.expandOccurrencesForRange(
+            activity = activity,
+            rangeStartMillis = dayStart,
+            rangeEndMillis = dayEnd
+        )
+
+        assertEquals(1, occurrences.size)
+        assertEquals(startMillis, occurrences.first().startTimeMillis)
+        assertTrue(occurrences.first().endTimeMillis >= occurrences.first().startTimeMillis)
+    }
+
+    @Test
+    fun `occursOnDay handles inverted end time without dropping event`() {
+        val startCal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 15, 14, 0, 0)
+        }
+        val startMillis = startCal.timeInMillis
+        val invalidEndMillis = startMillis - 3600000L
+
+        val activity = createBaseActivity(startCal).copy(
+            startTimeMillis = startMillis,
+            endTimeMillis = invalidEndMillis
+        )
+
+        assertTrue(RecurrenceEvaluator.occursOnDay(activity, startMillis))
+    }
 }

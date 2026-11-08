@@ -13,7 +13,7 @@ interface ActivityDao {
     @Query("""
         SELECT * FROM activities 
         WHERE isDeleted = 0 
-          AND ((startTimeMillis <= :endMillis AND endTimeMillis >= :startMillis)
+          AND ((startTimeMillis <= :endMillis AND (CASE WHEN endTimeMillis >= startTimeMillis THEN endTimeMillis ELSE startTimeMillis END) >= :startMillis)
            OR recurrenceMode != 'NONE')
         ORDER BY startTimeMillis ASC
     """)

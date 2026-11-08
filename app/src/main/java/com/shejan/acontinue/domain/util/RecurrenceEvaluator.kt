@@ -37,7 +37,8 @@ object RecurrenceEvaluator {
         if (targetDayStart < activityStartDate) return false
 
         if (activity.recurrenceMode == RecurrenceMode.NONE) {
-            return activity.startTimeMillis <= targetDayEnd && activity.endTimeMillis >= targetDayStart
+            val effectiveEnd = if (activity.endTimeMillis >= activity.startTimeMillis) activity.endTimeMillis else activity.startTimeMillis
+            return activity.startTimeMillis <= targetDayEnd && effectiveEnd >= targetDayStart
         }
 
         // Check UNTIL_DATE end condition
@@ -210,8 +211,9 @@ object RecurrenceEvaluator {
         rangeEndMillis: Long
     ): List<ActivityItem> {
         if (activity.recurrenceMode == RecurrenceMode.NONE) {
-            return if (activity.startTimeMillis <= rangeEndMillis && activity.endTimeMillis >= rangeStartMillis) {
-                listOf(activity)
+            val effectiveEnd = if (activity.endTimeMillis >= activity.startTimeMillis) activity.endTimeMillis else activity.startTimeMillis
+            return if (activity.startTimeMillis <= rangeEndMillis && effectiveEnd >= rangeStartMillis) {
+                listOf(activity.copy(endTimeMillis = effectiveEnd))
             } else {
                 emptyList()
             }

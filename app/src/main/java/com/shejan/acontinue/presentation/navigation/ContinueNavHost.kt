@@ -156,7 +156,7 @@ fun ContinueNavHost(
             if (currentRoute == Screen.Diary.route) {
                 navController.navigate(Screen.NoteEditor.createRoute())
             } else {
-                navController.navigate(Screen.Create.route)
+                navController.navigate(Screen.Create.createRoute())
             }
         },
         onQuickCreate = { entryType ->
@@ -389,14 +389,16 @@ fun ContinueNavHost(
                 val createViewModel: CreateEntryViewModel = viewModel(
                     factory = container.provideCreateEntryViewModelFactory()
                 )
-                if (editActivityId > 0L) {
-                    createViewModel.loadActivityForEditing(editActivityId)
-                } else if (initialDate > 0L) {
-                    createViewModel.setInitialDate(initialDate)
-                }
-                if (entryTypeStr != null) {
-                    runCatching { EntryType.valueOf(entryTypeStr) }.getOrNull()?.let {
-                        createViewModel.updateEntryType(it)
+                LaunchedEffect(initialDate, editActivityId, entryTypeStr) {
+                    if (editActivityId > 0L) {
+                        createViewModel.loadActivityForEditing(editActivityId)
+                    } else if (initialDate > 0L) {
+                        createViewModel.setInitialDate(initialDate)
+                    }
+                    if (entryTypeStr != null) {
+                        runCatching { EntryType.valueOf(entryTypeStr) }.getOrNull()?.let {
+                            createViewModel.updateEntryType(it)
+                        }
                     }
                 }
                 CreateEntryScreen(

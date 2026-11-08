@@ -41,12 +41,17 @@ import kotlinx.coroutines.withContext
 import java.util.Calendar
 
 fun defaultStartMillis(): Long {
-    val cal = Calendar.getInstance().apply {
-        add(Calendar.HOUR_OF_DAY, 1)
-        set(Calendar.MINUTE, 0)
-        set(Calendar.SECOND, 0)
-        set(Calendar.MILLISECOND, 0)
+    val cal = Calendar.getInstance()
+    // Anchor to current day when opened late at night to prevent rolling over to tomorrow
+    if (cal.get(Calendar.HOUR_OF_DAY) >= 23) {
+        cal.set(Calendar.HOUR_OF_DAY, 23)
+        cal.set(Calendar.MINUTE, 0)
+    } else {
+        cal.add(Calendar.HOUR_OF_DAY, 1)
+        cal.set(Calendar.MINUTE, 0)
     }
+    cal.set(Calendar.SECOND, 0)
+    cal.set(Calendar.MILLISECOND, 0)
     return cal.timeInMillis
 }
 
@@ -385,11 +390,27 @@ class CreateEntryViewModel(
 
     fun setInitialDate(dateMillis: Long) {
         val targetCal = Calendar.getInstance().apply { timeInMillis = dateMillis }
-        updateStartDate(
-            year = targetCal.get(Calendar.YEAR),
-            month = targetCal.get(Calendar.MONTH),
-            dayOfMonth = targetCal.get(Calendar.DAY_OF_MONTH)
-        )
+        val targetYear = targetCal.get(Calendar.YEAR)
+        val targetMonth = targetCal.get(Calendar.MONTH)
+        val targetDay = targetCal.get(Calendar.DAY_OF_MONTH)
+        _state.update { current ->
+            val startCal = Calendar.getInstance().apply {
+                timeInMillis = current.startMillis
+                set(Calendar.YEAR, targetYear)
+                set(Calendar.MONTH, targetMonth)
+                set(Calendar.DAY_OF_MONTH, targetDay)
+            }
+            val newStart = startCal.timeInMillis
+            val endCal = Calendar.getInstance().apply {
+                timeInMillis = current.endMillis
+                set(Calendar.YEAR, targetYear)
+                set(Calendar.MONTH, targetMonth)
+                set(Calendar.DAY_OF_MONTH, targetDay)
+            }
+            val duration = (current.endMillis - current.startMillis).coerceAtLeast(3600000L)
+            val newEnd = if (endCal.timeInMillis <= newStart) newStart + duration else endCal.timeInMillis
+            current.copy(startMillis = newStart, endMillis = newEnd)
+        }
     }
 
     fun updateStartDate(year: Int, month: Int, dayOfMonth: Int) {
@@ -721,17 +742,35 @@ class CreateEntryViewModel(
                 if (minutesList.isNotEmpty()) minutesList.first() else -1
             }
 
-            // For all-day reminders, default alarm trigger is normalized to 9:00 AM on the scheduled date
-            val effectiveStartTime = if (isReminder && current.isAllDay) {
-                Calendar.getInstance().apply {
+            val effectiveStartTime: Long
+            val effectiveEndTime: Long
+            if (current.isAllDay) {
+                val startCal = Calendar.getInstance().apply {
                     timeInMillis = current.startMillis
-                    set(Calendar.HOUR_OF_DAY, 9)
-                    set(Calendar.MINUTE, 0)
+                    if (isReminder) {
+                        set(Calendar.HOUR_OF_DAY, 9)
+                        set(Calendar.MINUTE, 0)
+                    } else {
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                    }
                     set(Calendar.SECOND, 0)
                     set(Calendar.MILLISECOND, 0)
-                }.timeInMillis
+                }
+                effectiveStartTime = startCal.timeInMillis
+
+                val endCal = Calendar.getInstance().apply {
+                    timeInMillis = if (current.endMillis >= current.startMillis) current.endMillis else current.startMillis
+                    set(Calendar.HOUR_OF_DAY, 23)
+                    set(Calendar.MINUTE, 59)
+                    set(Calendar.SECOND, 59)
+                    set(Calendar.MILLISECOND, 999)
+                }
+                effectiveEndTime = if (isReminder) effectiveStartTime else endCal.timeInMillis
             } else {
-                current.startMillis
+                effectiveStartTime = current.startMillis
+                val minEnd = effectiveStartTime + 60_000L
+                effectiveEndTime = if (isReminder) effectiveStartTime else if (current.endMillis <= effectiveStartTime) minEnd else current.endMillis
             }
 
             val activity = ActivityItem(
@@ -741,7 +780,7 @@ class CreateEntryViewModel(
                 category = if (isReminder) ActivityCategory.OTHER else current.category,
                 isAllDay = current.isAllDay,
                 startTimeMillis = effectiveStartTime,
-                endTimeMillis = if (isReminder) effectiveStartTime else current.endMillis,
+                endTimeMillis = effectiveEndTime,
                 location = if (isReminder || current.location.trim().equals("location", ignoreCase = true)) "" else current.location.trim(),
                 priority = current.priority,
                 reminderMinutesBefore = primaryOffset,

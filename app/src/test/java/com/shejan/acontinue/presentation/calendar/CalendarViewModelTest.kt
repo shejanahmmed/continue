@@ -683,5 +683,77 @@ class CalendarViewModelTest {
             assertTrue(octDays.all { it.dotColorsHex.contains(ActivityCategory.MEETING.colorHex) })
         }
     }
+
+    @Test
+    fun `test activity with inverted endTimeMillis indexes correctly on occurrence day`() = runTest(testDispatcher) {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 28, 14, 0, 0)
+        }
+        val startTime = cal.timeInMillis
+        val invalidEndTime = startTime - 3600000L
+
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 501L,
+                title = "Resilient Event",
+                entryType = EntryType.ACTIVITY,
+                category = ActivityCategory.PERSONAL,
+                startTimeMillis = startTime,
+                endTimeMillis = invalidEndTime
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        viewModel.selectDate(startTime)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            val day28 = state.monthDays.firstOrNull { it.isCurrentMonth && it.dayOfMonth == 28 }
+            assertNotNull(day28)
+            assertTrue(day28!!.activities.any { it.id == 501L })
+            assertEquals(1, state.selectedDayActivities.size)
+            assertEquals("Resilient Event", state.selectedDayActivities.first().title)
+        }
+    }
+
+    @Test
+    fun `test all day event appears in allDayActivities for selected date`() = runTest(testDispatcher) {
+        val cal = Calendar.getInstance().apply {
+            set(2026, Calendar.OCTOBER, 29, 0, 0, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+        val startTime = cal.timeInMillis
+        val endCal = (cal.clone() as Calendar).apply {
+            set(Calendar.HOUR_OF_DAY, 23)
+            set(Calendar.MINUTE, 59)
+            set(Calendar.SECOND, 59)
+            set(Calendar.MILLISECOND, 999)
+        }
+        val endTime = endCal.timeInMillis
+
+        activityRepository.insertActivity(
+            ActivityItem(
+                id = 502L,
+                title = "Annual Company Picnic",
+                entryType = EntryType.ACTIVITY,
+                category = ActivityCategory.OTHER,
+                isAllDay = true,
+                startTimeMillis = startTime,
+                endTimeMillis = endTime
+            )
+        )
+        testScheduler.advanceUntilIdle()
+
+        viewModel.selectDate(startTime)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertEquals(1, state.allDayActivities.size)
+            assertEquals("Annual Company Picnic", state.allDayActivities.first().title)
+            assertEquals(0, state.timedActivities.size)
+        }
+    }
 }
 
