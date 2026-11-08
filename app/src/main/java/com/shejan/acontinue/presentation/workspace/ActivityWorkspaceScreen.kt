@@ -123,6 +123,7 @@ import com.shejan.acontinue.ui.theme.UtilitarianCardBackground
 import com.shejan.acontinue.ui.theme.UtilitarianPureBlack
 import com.shejan.acontinue.ui.theme.UtilitarianTextDisabled
 import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
+import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
 import kotlinx.coroutines.flow.collectLatest
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -1812,7 +1813,10 @@ private fun LinksTabContent(
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         MonochromeCard {
-            Column {
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
                 Text(
                     text = "SAVE REFERENCE LINK / URL",
                     color = UtilitarianTextPrimary,
@@ -1821,37 +1825,65 @@ private fun LinksTabContent(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp
                 )
-                Spacer(modifier = Modifier.height(6.dp))
                 TextField(
                     value = titleInput,
                     onValueChange = { titleInput = it },
-                    placeholder = { Text("Link title (e.g. Lab Spec, Slide Deck)", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                    placeholder = { Text("Link title (e.g. Documentation, Repo)", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                    singleLine = true,
+                    maxLines = 1,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                     colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
+                        focusedContainerColor = UtilitarianPureBlack,
+                        unfocusedContainerColor = UtilitarianPureBlack,
                         focusedTextColor = UtilitarianTextPrimary,
-                        unfocusedTextColor = UtilitarianTextPrimary
+                        unfocusedTextColor = UtilitarianTextPrimary,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent
                     ),
-                    modifier = Modifier.fillMaxWidth()
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
                 )
                 TextField(
                     value = urlInput,
                     onValueChange = { urlInput = it },
                     placeholder = { Text("https://...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
-                    colors = TextFieldDefaults.colors(
-                        focusedContainerColor = Color.Transparent,
-                        unfocusedContainerColor = Color.Transparent,
-                        focusedTextColor = UtilitarianTextPrimary,
-                        unfocusedTextColor = UtilitarianTextPrimary
+                    singleLine = true,
+                    maxLines = 1,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                    keyboardActions = KeyboardActions(
+                        onDone = {
+                            val trimmedUrl = urlInput.trim()
+                            if (trimmedUrl.isNotBlank()) {
+                                onAddLink(trimmedUrl, titleInput.trim())
+                                urlInput = ""
+                                titleInput = ""
+                            }
+                        }
                     ),
-                    modifier = Modifier.fillMaxWidth()
+                    colors = TextFieldDefaults.colors(
+                        focusedContainerColor = UtilitarianPureBlack,
+                        unfocusedContainerColor = UtilitarianPureBlack,
+                        focusedTextColor = UtilitarianTextPrimary,
+                        unfocusedTextColor = UtilitarianTextPrimary,
+                        focusedIndicatorColor = Color.Transparent,
+                        unfocusedIndicatorColor = Color.Transparent,
+                        disabledIndicatorColor = Color.Transparent
+                    ),
+                    shape = RoundedCornerShape(8.dp),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(2.dp))
                 HighContrastButton(
                     text = "+ Save Link",
                     onClick = {
-                        if (urlInput.isNotBlank()) {
-                            onAddLink(urlInput, titleInput)
+                        val trimmedUrl = urlInput.trim()
+                        if (trimmedUrl.isNotBlank()) {
+                            onAddLink(trimmedUrl, titleInput.trim())
                             urlInput = ""
                             titleInput = ""
                         }
@@ -1863,42 +1895,28 @@ private fun LinksTabContent(
 
         if (links.isEmpty()) {
             Text(
-                text = "No resource links attached. Save URLs discussed in this session.",
-                color = UtilitarianTextPrimary,
+                text = "No resource links attached yet",
+                color = UtilitarianTextSecondary,
                 fontSize = 13.sp,
-                modifier = Modifier.padding(8.dp)
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp)
             )
         } else {
             links.forEach { link ->
-                MonochromeCard(
-                    onClick = {
+                WorkspaceLinkItem(
+                    link = link,
+                    onOpenLink = {
                         val parsed = if (!link.url.startsWith("http://") && !link.url.startsWith("https://")) "https://${link.url}" else link.url
                         runCatching {
                             val browserIntent = Intent(Intent.ACTION_VIEW, Uri.parse(parsed))
                             context.startActivity(browserIntent)
                         }
-                    }
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Icon(imageVector = Icons.Outlined.Link, contentDescription = null, tint = UtilitarianTextPrimary, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(text = link.title, color = UtilitarianTextPrimary, fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                            Text(text = link.url, color = UtilitarianTextPrimary, fontSize = 11.sp)
-                        }
-                        Icon(imageVector = Icons.AutoMirrored.Outlined.OpenInNew, contentDescription = null, tint = UtilitarianTextDisabled, modifier = Modifier.size(16.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        IconButton(onClick = { linkToEdit = link }) {
-                            Icon(imageVector = Icons.Outlined.Edit, contentDescription = "Edit", tint = UtilitarianTextDisabled, modifier = Modifier.size(16.dp))
-                        }
-                        IconButton(onClick = { onDeleteLink(link.id) }) {
-                            Icon(imageVector = Icons.Outlined.Delete, contentDescription = "Delete", tint = UtilitarianTextDisabled, modifier = Modifier.size(16.dp))
-                        }
-                    }
-                }
+                    },
+                    onEditLink = { linkToEdit = link },
+                    onDeleteLink = { onDeleteLink(link.id) }
+                )
             }
         }
     }
@@ -1933,27 +1951,52 @@ private fun LinksTabContent(
                         value = editTitle,
                         onValueChange = { editTitle = it },
                         placeholder = { Text("Link title", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                        singleLine = true,
+                        maxLines = 1,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Next),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = UtilitarianCardBackground,
                             unfocusedContainerColor = UtilitarianCardBackground,
                             focusedTextColor = UtilitarianTextPrimary,
-                            unfocusedTextColor = UtilitarianTextPrimary
+                            unfocusedTextColor = UtilitarianTextPrimary,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor = Color.Transparent
                         ),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
                     )
                     TextField(
                         value = editUrl,
                         onValueChange = { editUrl = it },
                         placeholder = { Text("https://...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                        singleLine = true,
+                        maxLines = 1,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                val trimmedUrl = editUrl.trim()
+                                if (trimmedUrl.isNotBlank()) {
+                                    onUpdateLink(currentLink.id, trimmedUrl, editTitle.trim())
+                                    linkToEdit = null
+                                }
+                            }
+                        ),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = UtilitarianCardBackground,
                             unfocusedContainerColor = UtilitarianCardBackground,
                             focusedTextColor = UtilitarianTextPrimary,
-                            unfocusedTextColor = UtilitarianTextPrimary
+                            unfocusedTextColor = UtilitarianTextPrimary,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor = Color.Transparent
                         ),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
@@ -1967,11 +2010,167 @@ private fun LinksTabContent(
                         HighContrastButton(
                             text = "Save",
                             onClick = {
-                                if (editUrl.isNotBlank()) {
-                                    onUpdateLink(currentLink.id, editUrl, editTitle)
+                                val trimmedUrl = editUrl.trim()
+                                if (trimmedUrl.isNotBlank()) {
+                                    onUpdateLink(currentLink.id, trimmedUrl, editTitle.trim())
                                     linkToEdit = null
                                 }
                             }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceLinkItem(
+    link: ActivityLink,
+    onOpenLink: () -> Unit,
+    onEditLink: () -> Unit,
+    onDeleteLink: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = UtilitarianCardBackground,
+        border = BorderStroke(1.dp, UtilitarianBorderStroke)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clickable { onOpenLink() }
+                .padding(horizontal = 14.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = Icons.Outlined.Link,
+                contentDescription = null,
+                tint = UtilitarianTextPrimary,
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = if (link.title.isNotBlank()) link.title else link.url,
+                    color = UtilitarianTextPrimary,
+                    fontWeight = FontWeight.Bold,
+                    fontSize = 14.sp,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                if (link.title.isNotBlank() && link.url.isNotBlank()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = link.url,
+                        color = UtilitarianTextSecondary,
+                        fontSize = 12.sp,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+            Spacer(modifier = Modifier.width(8.dp))
+            Box(
+                modifier = Modifier
+                    .size(28.dp)
+                    .clip(RoundedCornerShape(6.dp))
+                    .clickable { onOpenLink() },
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
+                    contentDescription = "Open Link",
+                    tint = UtilitarianTextSecondary,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
+            Spacer(modifier = Modifier.width(4.dp))
+            Box {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { showMenu = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.MoreVert,
+                        contentDescription = "Link Options",
+                        tint = UtilitarianTextPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    shape = RoundedCornerShape(12.dp),
+                    containerColor = Color(0xFF1E2023),
+                    border = BorderStroke(1.dp, Color(0xFF33383F)),
+                    modifier = Modifier
+                        .width(130.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp)
+                            .clickable {
+                                showMenu = false
+                                onEditLink()
+                            }
+                            .padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Edit,
+                            contentDescription = null,
+                            tint = UtilitarianTextPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Edit",
+                            color = UtilitarianTextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    HorizontalDivider(
+                        color = Color(0xFF2C3136),
+                        thickness = 0.5.dp,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp)
+                            .clickable {
+                                showMenu = false
+                                onDeleteLink()
+                            }
+                            .padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = null,
+                            tint = Color(0xFFD71921),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Delete",
+                            color = Color(0xFFD71921),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
