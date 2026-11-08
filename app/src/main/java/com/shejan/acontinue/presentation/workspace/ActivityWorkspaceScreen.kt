@@ -1523,15 +1523,20 @@ private fun TasksTabContent(
             TextField(
                 value = taskInput,
                 onValueChange = { taskInput = it },
-                placeholder = { Text("New checklist or follow-up task...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                placeholder = { Text("Add a new task...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = UtilitarianCardBackground,
                     unfocusedContainerColor = UtilitarianCardBackground,
                     focusedTextColor = UtilitarianTextPrimary,
-                    unfocusedTextColor = UtilitarianTextPrimary
+                    unfocusedTextColor = UtilitarianTextPrimary,
+                    focusedIndicatorColor = Color.Transparent,
+                    unfocusedIndicatorColor = Color.Transparent,
+                    disabledIndicatorColor = Color.Transparent
                 ),
                 shape = RoundedCornerShape(8.dp),
-                modifier = Modifier.weight(1f)
+                modifier = Modifier
+                    .weight(1f)
+                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
             )
             Spacer(modifier = Modifier.width(8.dp))
             HighContrastButton(
@@ -1547,10 +1552,13 @@ private fun TasksTabContent(
 
         if (tasks.isEmpty()) {
             Text(
-                text = "No checklist items. Add follow-up assignments or items to remember.",
+                text = "No tasks added yet",
                 color = UtilitarianTextPrimary,
                 fontSize = 13.sp,
-                modifier = Modifier.padding(8.dp)
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(vertical = 16.dp)
             )
         } else {
             tasks.forEach { task ->
@@ -1627,10 +1635,15 @@ private fun TasksTabContent(
                             focusedContainerColor = UtilitarianCardBackground,
                             unfocusedContainerColor = UtilitarianCardBackground,
                             focusedTextColor = UtilitarianTextPrimary,
-                            unfocusedTextColor = UtilitarianTextPrimary
+                            unfocusedTextColor = UtilitarianTextPrimary,
+                            focusedIndicatorColor = Color.Transparent,
+                            unfocusedIndicatorColor = Color.Transparent,
+                            disabledIndicatorColor = Color.Transparent
                         ),
                         shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
                     )
                     Row(
                         modifier = Modifier.fillMaxWidth(),
