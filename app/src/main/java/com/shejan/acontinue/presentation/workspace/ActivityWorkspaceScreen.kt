@@ -33,6 +33,8 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.wrapContentSize
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.interaction.MutableInteractionSource
@@ -92,6 +94,7 @@ import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
@@ -1524,6 +1527,17 @@ private fun TasksTabContent(
                 value = taskInput,
                 onValueChange = { taskInput = it },
                 placeholder = { Text("Add a new task...", color = UtilitarianTextDisabled, fontSize = 13.sp) },
+                singleLine = true,
+                maxLines = 1,
+                keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                keyboardActions = KeyboardActions(
+                    onDone = {
+                        if (taskInput.isNotBlank()) {
+                            onAddTask(taskInput)
+                            taskInput = ""
+                        }
+                    }
+                ),
                 colors = TextFieldDefaults.colors(
                     focusedContainerColor = UtilitarianCardBackground,
                     unfocusedContainerColor = UtilitarianCardBackground,
@@ -1562,43 +1576,12 @@ private fun TasksTabContent(
             )
         } else {
             tasks.forEach { task ->
-                Surface(
-                    modifier = Modifier.fillMaxWidth(),
-                    shape = RoundedCornerShape(8.dp),
-                    color = UtilitarianCardBackground,
-                    border = BorderStroke(1.dp, UtilitarianBorderStroke)
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 12.dp, vertical = 6.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Checkbox(
-                            checked = task.isCompleted,
-                            onCheckedChange = { done -> onToggleTask(task.id, done) },
-                            colors = CheckboxDefaults.colors(
-                                checkedColor = UtilitarianAccentRed,
-                                uncheckedColor = UtilitarianBorderStroke,
-                                checkmarkColor = UtilitarianTextPrimary
-                            )
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = task.title,
-                            color = if (task.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
-                            fontSize = 14.sp,
-                            textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
-                            modifier = Modifier.weight(1f)
-                        )
-                        IconButton(onClick = { taskToEdit = task }) {
-                            Icon(imageVector = Icons.Outlined.Edit, contentDescription = "Edit", tint = UtilitarianTextDisabled, modifier = Modifier.size(16.dp))
-                        }
-                        IconButton(onClick = { onDeleteTask(task.id) }) {
-                            Icon(imageVector = Icons.Outlined.Delete, contentDescription = "Delete", tint = UtilitarianTextDisabled, modifier = Modifier.size(16.dp))
-                        }
-                    }
-                }
+                WorkspaceTaskItem(
+                    task = task,
+                    onToggleTask = { done -> onToggleTask(task.id, done) },
+                    onEditTask = { taskToEdit = task },
+                    onDeleteTask = { onDeleteTask(task.id) }
+                )
             }
         }
     }
@@ -1631,6 +1614,18 @@ private fun TasksTabContent(
                     TextField(
                         value = editTitle,
                         onValueChange = { editTitle = it },
+                        singleLine = true,
+                        maxLines = 1,
+                        keyboardOptions = KeyboardOptions(imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(
+                            onDone = {
+                                val trimmed = editTitle.trim()
+                                if (trimmed.isNotBlank()) {
+                                    onUpdateTask(currentTask.id, trimmed)
+                                    taskToEdit = null
+                                }
+                            }
+                        ),
                         colors = TextFieldDefaults.colors(
                             focusedContainerColor = UtilitarianCardBackground,
                             unfocusedContainerColor = UtilitarianCardBackground,
@@ -1657,11 +1652,141 @@ private fun TasksTabContent(
                         HighContrastButton(
                             text = "Save",
                             onClick = {
-                                if (editTitle.isNotBlank()) {
-                                    onUpdateTask(currentTask.id, editTitle)
+                                val trimmed = editTitle.trim()
+                                if (trimmed.isNotBlank()) {
+                                    onUpdateTask(currentTask.id, trimmed)
                                     taskToEdit = null
                                 }
                             }
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun WorkspaceTaskItem(
+    task: ActivityTask,
+    onToggleTask: (Boolean) -> Unit,
+    onEditTask: () -> Unit,
+    onDeleteTask: () -> Unit
+) {
+    var showMenu by remember { mutableStateOf(false) }
+
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        color = UtilitarianCardBackground,
+        border = BorderStroke(1.dp, UtilitarianBorderStroke)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Checkbox(
+                checked = task.isCompleted,
+                onCheckedChange = onToggleTask,
+                colors = CheckboxDefaults.colors(
+                    checkedColor = UtilitarianAccentRed,
+                    uncheckedColor = UtilitarianBorderStroke,
+                    checkmarkColor = UtilitarianTextPrimary
+                )
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = task.title,
+                color = if (task.isCompleted) UtilitarianTextDisabled else UtilitarianTextPrimary,
+                fontSize = 14.sp,
+                textDecoration = if (task.isCompleted) TextDecoration.LineThrough else TextDecoration.None,
+                modifier = Modifier.weight(1f)
+            )
+
+            Box(modifier = Modifier.padding(start = 4.dp)) {
+                Box(
+                    modifier = Modifier
+                        .size(28.dp)
+                        .clip(RoundedCornerShape(6.dp))
+                        .clickable(
+                            interactionSource = remember { MutableInteractionSource() },
+                            indication = null
+                        ) { showMenu = true },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.Outlined.MoreVert,
+                        contentDescription = "Task Options",
+                        tint = UtilitarianTextPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+
+                DropdownMenu(
+                    expanded = showMenu,
+                    onDismissRequest = { showMenu = false },
+                    shape = RoundedCornerShape(12.dp),
+                    containerColor = Color(0xFF1E2023),
+                    border = BorderStroke(1.dp, Color(0xFF33383F)),
+                    modifier = Modifier
+                        .width(130.dp)
+                        .clip(RoundedCornerShape(12.dp))
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp)
+                            .clickable {
+                                showMenu = false
+                                onEditTask()
+                            }
+                            .padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Edit,
+                            contentDescription = null,
+                            tint = UtilitarianTextPrimary,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Edit",
+                            color = UtilitarianTextPrimary,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                    HorizontalDivider(
+                        color = Color(0xFF2C3136),
+                        thickness = 0.5.dp,
+                        modifier = Modifier.padding(horizontal = 8.dp)
+                    )
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(36.dp)
+                            .clickable {
+                                showMenu = false
+                                onDeleteTask()
+                            }
+                            .padding(horizontal = 14.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.Delete,
+                            contentDescription = null,
+                            tint = Color(0xFFD71921),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Delete",
+                            color = Color(0xFFD71921),
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
