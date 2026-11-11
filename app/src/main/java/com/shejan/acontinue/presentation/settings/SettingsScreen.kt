@@ -60,7 +60,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -91,6 +93,7 @@ fun SettingsScreen(
     val settings = uiState.settings
     val colors = LocalUtilitarianColors.current
     val context = LocalContext.current
+    val haptic = LocalHapticFeedback.current
 
     var showPrivacyPolicyDialog by remember { mutableStateOf(false) }
     var showLicenseDialog by remember { mutableStateOf(false) }
@@ -137,9 +140,7 @@ fun SettingsScreen(
         item {
             DotMatrixHeader(
                 title = "SETTINGS",
-                badgeText = "V1.0",
-                isAccentBadge = true,
-                actions = if (onNavigateBack != null) {
+                leadingContent = if (onNavigateBack != null) {
                     {
                         Box(
                             modifier = Modifier
@@ -147,7 +148,10 @@ fun SettingsScreen(
                                 .clip(RoundedCornerShape(8.dp))
                                 .border(1.dp, colors.borderStroke, RoundedCornerShape(8.dp))
                                 .background(Color(0xFF161616))
-                                .clickable { onNavigateBack() },
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onNavigateBack()
+                                },
                             contentAlignment = Alignment.Center
                         ) {
                             Icon(

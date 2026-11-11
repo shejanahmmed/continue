@@ -75,9 +75,7 @@ fun MenuScreen(
         // Header
         item {
             DotMatrixHeader(
-                title = "MENU",
-                badgeText = "V1.0",
-                isAccentBadge = true
+                title = "MENU"
             )
             Spacer(modifier = Modifier.height(16.dp))
         }

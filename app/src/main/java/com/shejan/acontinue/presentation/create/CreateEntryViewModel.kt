@@ -42,9 +42,9 @@ import java.util.Calendar
 
 fun defaultStartMillis(): Long {
     val cal = Calendar.getInstance()
-    // Anchor to current day when opened late at night to prevent rolling over to tomorrow
-    if (cal.get(Calendar.HOUR_OF_DAY) >= 23) {
-        cal.set(Calendar.HOUR_OF_DAY, 23)
+    // Anchor to current day when opened late at night so 1-hour duration stays on today
+    if (cal.get(Calendar.HOUR_OF_DAY) >= 22) {
+        cal.set(Calendar.HOUR_OF_DAY, 22)
         cal.set(Calendar.MINUTE, 0)
     } else {
         cal.add(Calendar.HOUR_OF_DAY, 1)
@@ -55,13 +55,7 @@ fun defaultStartMillis(): Long {
     return cal.timeInMillis
 }
 
-fun defaultEndMillis(startMillis: Long = defaultStartMillis()): Long {
-    val cal = Calendar.getInstance().apply {
-        timeInMillis = startMillis
-        add(Calendar.HOUR_OF_DAY, 1)
-    }
-    return cal.timeInMillis
-}
+fun defaultEndMillis(startMillis: Long = defaultStartMillis()): Long = startMillis + 3600000L
 
 fun defaultRecurrenceEndDateMillis(startMillis: Long = defaultStartMillis()): Long {
     val cal = Calendar.getInstance().apply {
@@ -422,8 +416,18 @@ class CreateEntryViewModel(
                 set(Calendar.DAY_OF_MONTH, dayOfMonth)
             }
             val newStart = cal.timeInMillis
-            val duration = (current.endMillis - current.startMillis).coerceAtLeast(3600000L)
-            val newEnd = if (current.endMillis <= newStart) newStart + duration else current.endMillis
+            val newEnd = if (current.isAllDay) {
+                val endCal = Calendar.getInstance().apply {
+                    timeInMillis = current.endMillis
+                    set(Calendar.YEAR, year)
+                    set(Calendar.MONTH, month)
+                    set(Calendar.DAY_OF_MONTH, dayOfMonth)
+                }
+                endCal.timeInMillis
+            } else {
+                val duration = (current.endMillis - current.startMillis).coerceAtLeast(3600000L)
+                if (current.endMillis <= newStart) newStart + duration else current.endMillis
+            }
             current.copy(startMillis = newStart, endMillis = newEnd)
         }
     }
