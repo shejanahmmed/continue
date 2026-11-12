@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
@@ -42,6 +43,7 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -75,111 +77,115 @@ fun BinScreen(
         modifier = modifier
             .fillMaxSize()
             .background(Color(0xFF000000))
+            .padding(horizontal = 16.dp)
     ) {
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp),
-            contentPadding = PaddingValues(top = 16.dp, bottom = 48.dp)
-        ) {
-            // Header
-            item {
-                DotMatrixHeader(
-                    title = "BIN",
-                    leadingContent = {
-                        Box(
-                            modifier = Modifier
-                                .size(30.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .border(1.dp, colors.borderStroke, RoundedCornerShape(8.dp))
-                                .background(Color(0xFF161616))
-                                .clickable {
-                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                    onNavigateBack()
-                                },
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                                contentDescription = "Back",
-                                tint = colors.textPrimary,
-                                modifier = Modifier.size(18.dp)
-                            )
-                        }
-                    },
-                    badgeText = if (uiState.items.isNotEmpty()) "${uiState.items.size} ITEMS" else null,
-                    actions = if (uiState.items.isNotEmpty()) {
-                        {
-                            Box(
-                                modifier = Modifier
-                                    .height(30.dp)
-                                    .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, Color(0xFFD71921), RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF22080A))
-                                    .clickable {
-                                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        showEmptyBinDialog = true
-                                    }
-                                    .padding(horizontal = 10.dp),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Text(
-                                    text = "EMPTY",
-                                    color = Color(0xFFFF5252),
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 11.sp
-                                )
-                            }
-                        }
-                    } else null
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-            }
-
-            // Empty state
-            if (uiState.items.isEmpty() && !uiState.isLoading) {
-                item {
+        // Header
+        DotMatrixHeader(
+            title = "BIN",
+            leadingContent = {
+                Box(
+                    modifier = Modifier
+                        .size(30.dp)
+                        .clip(RoundedCornerShape(8.dp))
+                        .border(1.dp, colors.borderStroke, RoundedCornerShape(8.dp))
+                        .background(Color(0xFF161616))
+                        .clickable {
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onNavigateBack()
+                        },
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                        contentDescription = "Back",
+                        tint = colors.textPrimary,
+                        modifier = Modifier.size(18.dp)
+                    )
+                }
+            },
+            badgeText = if (uiState.items.isNotEmpty()) "${uiState.items.size} ITEMS" else null,
+            actions = if (uiState.items.isNotEmpty()) {
+                {
                     Box(
                         modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 100.dp),
+                            .height(30.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .border(1.dp, Color(0xFFD71921), RoundedCornerShape(8.dp))
+                            .background(Color(0xFF22080A))
+                            .clickable {
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                showEmptyBinDialog = true
+                            }
+                            .padding(horizontal = 10.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                            Box(
-                                modifier = Modifier
-                                    .size(56.dp)
-                                    .clip(RoundedCornerShape(12.dp))
-                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(12.dp))
-                                    .background(Color(0xFF161616)),
-                                contentAlignment = Alignment.Center
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Outlined.DeleteOutline,
-                                    contentDescription = null,
-                                    tint = colors.textPrimaryMuted,
-                                    modifier = Modifier.size(28.dp)
-                                )
-                            }
-                            Spacer(modifier = Modifier.height(16.dp))
-                            Text(
-                                text = "BIN IS EMPTY",
-                                color = colors.textPrimary,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                            Spacer(modifier = Modifier.height(6.dp))
-                            Text(
-                                text = "Deleted events, reminders, and notes will appear here",
-                                color = colors.textPrimaryMuted,
-                                fontSize = 12.sp
-                            )
-                        }
+                        Text(
+                            text = "EMPTY",
+                            color = Color(0xFFFF5252),
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 11.sp
+                        )
                     }
                 }
-            } else {
+            } else null,
+            modifier = Modifier.padding(top = 16.dp)
+        )
+        Spacer(modifier = Modifier.height(16.dp))
+
+        // Empty state or Items List
+        if (uiState.items.isEmpty() && !uiState.isLoading) {
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f)
+                    .padding(bottom = 32.dp),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.Center
+                ) {
+                    Box(
+                        modifier = Modifier
+                            .size(64.dp)
+                            .clip(CircleShape)
+                            .border(1.dp, UtilitarianBorderStroke, CircleShape)
+                            .background(Color(0xFF161616)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Outlined.DeleteOutline,
+                            contentDescription = null,
+                            tint = colors.textPrimaryMuted,
+                            modifier = Modifier.size(28.dp)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = "BIN IS EMPTY",
+                        color = colors.textPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Text(
+                        text = "Deleted events, reminders, and notes will appear here",
+                        color = colors.textPrimaryMuted,
+                        fontSize = 12.sp,
+                        textAlign = TextAlign.Center
+                    )
+                }
+            }
+        } else {
+            LazyColumn(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .weight(1f),
+                contentPadding = PaddingValues(bottom = 48.dp)
+            ) {
                 items(uiState.items, key = { it.uniqueKey }) { item ->
                     MonochromeCard(modifier = Modifier.padding(bottom = 10.dp)) {
                         Column(modifier = Modifier.fillMaxWidth()) {
