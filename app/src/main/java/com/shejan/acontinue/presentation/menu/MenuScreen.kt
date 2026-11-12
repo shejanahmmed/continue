@@ -1,12 +1,8 @@
 package com.shejan.acontinue.presentation.menu
 
-import android.content.Intent
-import android.net.Uri
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -22,17 +18,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
-import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Folder
-import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.RestartAlt
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.TouchApp
 import androidx.compose.material.icons.outlined.Tune
 import androidx.compose.material3.Icon
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -40,7 +33,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -49,8 +41,6 @@ import com.shejan.acontinue.core.designsystem.components.DotMatrixHeader
 import com.shejan.acontinue.core.designsystem.components.MonochromeCard
 import com.shejan.acontinue.ui.theme.LocalUtilitarianColors
 import com.shejan.acontinue.ui.theme.UtilitarianBorderStroke
-import com.shejan.acontinue.ui.theme.UtilitarianTextPrimary
-import com.shejan.acontinue.ui.theme.UtilitarianTextSecondary
 
 @Composable
 fun MenuScreen(
@@ -257,7 +247,7 @@ fun MenuScreen(
             }
         }
 
-        // Section 2: Quick Actions
+        // Section 3: Quick Actions
         if (onNavigateToWelcome != null) {
             item {
                 MenuSectionHeader(
@@ -319,42 +309,6 @@ fun MenuScreen(
                 Spacer(modifier = Modifier.height(20.dp))
             }
         }
-
-        // Section 3: About & Developer
-        item {
-            MenuSectionHeader(
-                title = "ABOUT & DEVELOPER",
-                icon = Icons.Outlined.Info
-            )
-
-            MonochromeCard {
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    MenuSpecificationRow(label = "APPLICATION", value = "continue")
-                    MenuSpecificationRow(label = "VERSION", value = "1.0.0")
-                    MenuSpecificationRow(label = "LICENSE", value = "GNU GPL v3.0")
-                    MenuSpecificationRow(label = "DEVELOPER", value = "Farjan Ahmmed")
-                    MenuSpecificationRow(label = "CONTACT", value = "farjan.swe@gmail.com")
-
-                    Spacer(modifier = Modifier.height(14.dp))
-
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        MenuExternalLinkChip(
-                            label = "GITHUB",
-                            url = "https://github.com/shejanahmmed",
-                            modifier = Modifier.weight(1f)
-                        )
-                        MenuExternalLinkChip(
-                            label = "LINKEDIN",
-                            url = "https://www.linkedin.com/in/farjan-ahmmed/",
-                            modifier = Modifier.weight(1f)
-                        )
-                    }
-                }
-            }
-        }
     }
 }
 
@@ -383,71 +337,5 @@ private fun MenuSectionHeader(
             fontWeight = FontWeight.SemiBold,
             letterSpacing = 1.sp
         )
-    }
-}
-
-@Composable
-private fun MenuSpecificationRow(label: String, value: String) {
-    val colors = LocalUtilitarianColors.current
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 4.dp),
-        verticalAlignment = Alignment.CenterVertically
-    ) {
-        Text(
-            text = label,
-            color = colors.textSecondary,
-            fontFamily = FontFamily.Monospace,
-            fontSize = 11.sp,
-            modifier = Modifier.weight(1f)
-        )
-        Text(
-            text = value,
-            color = colors.textPrimary,
-            fontSize = 12.sp,
-            fontWeight = FontWeight.Medium
-        )
-    }
-}
-
-@Composable
-private fun MenuExternalLinkChip(
-    label: String,
-    url: String,
-    modifier: Modifier = Modifier
-) {
-    val colors = LocalUtilitarianColors.current
-    val context = LocalContext.current
-
-    Surface(
-        modifier = modifier.clickable {
-            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-            context.startActivity(intent)
-        },
-        shape = RoundedCornerShape(6.dp),
-        color = Color(0xFF161616),
-        border = BorderStroke(1.dp, colors.borderStroke)
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.Center
-        ) {
-            Text(
-                text = label,
-                color = colors.textPrimary,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 11.sp,
-                fontWeight = FontWeight.Medium
-            )
-            Spacer(modifier = Modifier.width(6.dp))
-            Icon(
-                imageVector = Icons.AutoMirrored.Outlined.OpenInNew,
-                contentDescription = null,
-                tint = colors.textSecondary,
-                modifier = Modifier.size(12.dp)
-            )
-        }
     }
 }
