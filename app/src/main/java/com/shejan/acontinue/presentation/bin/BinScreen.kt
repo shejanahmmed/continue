@@ -86,57 +86,53 @@ fun BinScreen(
             item {
                 DotMatrixHeader(
                     title = "BIN",
-                    badgeText = if (uiState.items.isNotEmpty()) "${uiState.items.size} ITEMS" else null,
-                    actions = {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
+                    leadingContent = {
+                        Box(
+                            modifier = Modifier
+                                .size(30.dp)
+                                .clip(RoundedCornerShape(8.dp))
+                                .border(1.dp, colors.borderStroke, RoundedCornerShape(8.dp))
+                                .background(Color(0xFF161616))
+                                .clickable {
+                                    haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                    onNavigateBack()
+                                },
+                            contentAlignment = Alignment.Center
                         ) {
-                            if (uiState.items.isNotEmpty()) {
-                                Box(
-                                    modifier = Modifier
-                                        .height(30.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .border(1.dp, Color(0xFFD71921), RoundedCornerShape(8.dp))
-                                        .background(Color(0xFF22080A))
-                                        .clickable {
-                                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                            showEmptyBinDialog = true
-                                        }
-                                        .padding(horizontal = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "EMPTY",
-                                        color = Color(0xFFFF5252),
-                                        fontFamily = FontFamily.Monospace,
-                                        fontWeight = FontWeight.Bold,
-                                        fontSize = 11.sp
-                                    )
-                                }
-                            }
-
+                            Icon(
+                                imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
+                                contentDescription = "Back",
+                                tint = colors.textPrimary,
+                                modifier = Modifier.size(18.dp)
+                            )
+                        }
+                    },
+                    badgeText = if (uiState.items.isNotEmpty()) "${uiState.items.size} ITEMS" else null,
+                    actions = if (uiState.items.isNotEmpty()) {
+                        {
                             Box(
                                 modifier = Modifier
-                                    .size(30.dp)
+                                    .height(30.dp)
                                     .clip(RoundedCornerShape(8.dp))
-                                    .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp))
-                                    .background(Color(0xFF161616))
+                                    .border(1.dp, Color(0xFFD71921), RoundedCornerShape(8.dp))
+                                    .background(Color(0xFF22080A))
                                     .clickable {
                                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                                        onNavigateBack()
-                                    },
+                                        showEmptyBinDialog = true
+                                    }
+                                    .padding(horizontal = 10.dp),
                                 contentAlignment = Alignment.Center
                             ) {
-                                Icon(
-                                    imageVector = Icons.AutoMirrored.Outlined.ArrowBack,
-                                    contentDescription = "Back",
-                                    tint = colors.textPrimary,
-                                    modifier = Modifier.size(18.dp)
+                                Text(
+                                    text = "EMPTY",
+                                    color = Color(0xFFFF5252),
+                                    fontFamily = FontFamily.Monospace,
+                                    fontWeight = FontWeight.Bold,
+                                    fontSize = 11.sp
                                 )
                             }
                         }
-                    }
+                    } else null
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }

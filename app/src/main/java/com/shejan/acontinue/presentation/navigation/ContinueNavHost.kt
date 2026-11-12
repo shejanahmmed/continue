@@ -89,7 +89,6 @@ sealed class Screen(val route: String) {
     }
     data object Archive : Screen("archive")
     data object Bin : Screen("bin")
-    data object Year : Screen("year")
     data object Search : Screen("search")
 }
 
@@ -271,9 +270,6 @@ fun ContinueNavHost(
                     onNavigateToBin = {
                         navController.navigate(Screen.Bin.route)
                     },
-                    onNavigateToYear = {
-                        navController.navigate(Screen.Year.route)
-                    },
                     modifier = Modifier.statusBarsPadding()
                 )
             }
@@ -321,20 +317,6 @@ fun ContinueNavHost(
                 )
                 com.shejan.acontinue.presentation.bin.BinScreen(
                     viewModel = binViewModel,
-                    onNavigateBack = {
-                        navController.popBackStack()
-                    },
-                    modifier = Modifier.statusBarsPadding()
-                )
-            }
-
-            // Year Calendar Destination
-            composable(Screen.Year.route) {
-                val yearViewModel: com.shejan.acontinue.presentation.year.YearViewModel = viewModel(
-                    factory = container.provideYearViewModelFactory()
-                )
-                com.shejan.acontinue.presentation.year.YearScreen(
-                    viewModel = yearViewModel,
                     onNavigateBack = {
                         navController.popBackStack()
                     },

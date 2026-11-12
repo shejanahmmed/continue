@@ -24,7 +24,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.automirrored.outlined.OpenInNew
 import androidx.compose.material.icons.outlined.Archive
-import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.Folder
 import androidx.compose.material.icons.outlined.Info
@@ -36,8 +35,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
-import java.util.Calendar
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -61,8 +58,7 @@ fun MenuScreen(
     modifier: Modifier = Modifier,
     onNavigateToWelcome: (() -> Unit)? = null,
     onNavigateToArchive: (() -> Unit)? = null,
-    onNavigateToBin: (() -> Unit)? = null,
-    onNavigateToYear: (() -> Unit)? = null
+    onNavigateToBin: (() -> Unit)? = null
 ) {
     val colors = LocalUtilitarianColors.current
 
@@ -139,71 +135,6 @@ fun MenuScreen(
             }
 
             Spacer(modifier = Modifier.height(20.dp))
-        }
-
-        // Section: Year Overview
-        if (onNavigateToYear != null) {
-            item {
-                MenuSectionHeader(
-                    title = "YEAR",
-                    icon = Icons.Outlined.CalendarMonth
-                )
-
-                val currentYear = remember { Calendar.getInstance().get(Calendar.YEAR) }
-
-                MonochromeCard(onClick = onNavigateToYear) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(38.dp)
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(Color(0xFF161616))
-                                .border(1.dp, UtilitarianBorderStroke, RoundedCornerShape(8.dp)),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Icon(
-                                imageVector = Icons.Outlined.CalendarMonth,
-                                contentDescription = "Year Calendar",
-                                tint = colors.textPrimary,
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(12.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "$currentYear CALENDAR",
-                                color = colors.textPrimary,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "Full year calendar overview and monthly matrix",
-                                color = colors.textSecondary,
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp
-                            )
-                        }
-
-                        Spacer(modifier = Modifier.width(8.dp))
-
-                        Icon(
-                            imageVector = Icons.AutoMirrored.Outlined.ArrowForwardIos,
-                            contentDescription = "Open Year Calendar",
-                            tint = colors.textSecondary,
-                            modifier = Modifier.size(14.dp)
-                        )
-                    }
-                }
-
-                Spacer(modifier = Modifier.height(20.dp))
-            }
         }
 
         // Section 2: Storage & Repository

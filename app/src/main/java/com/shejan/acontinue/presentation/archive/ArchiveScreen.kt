@@ -83,8 +83,7 @@ fun ArchiveScreen(
             item {
                 DotMatrixHeader(
                     title = "ARCHIVE",
-                    badgeText = if (uiState.notes.isNotEmpty()) "${uiState.notes.size} NOTES" else null,
-                    actions = {
+                    leadingContent = {
                         Box(
                             modifier = Modifier
                                 .size(30.dp)
@@ -104,7 +103,8 @@ fun ArchiveScreen(
                                 modifier = Modifier.size(18.dp)
                             )
                         }
-                    }
+                    },
+                    badgeText = if (uiState.notes.isNotEmpty()) "${uiState.notes.size} NOTES" else null
                 )
                 Spacer(modifier = Modifier.height(16.dp))
             }
