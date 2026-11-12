@@ -2652,7 +2652,7 @@ fun CreateNoteScreen(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
-                        text = "This note will be moved to trash and then deleted forever from all your devices after 7 days.",
+                        text = "This note will be moved to the bin and then deleted forever from all your devices after 7 days.",
                         color = colors.textSecondary.copy(alpha = 0.85f),
                         fontSize = 15.sp,
                         lineHeight = 22.sp,

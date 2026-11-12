@@ -4,7 +4,6 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -96,22 +95,14 @@ fun MenuScreen(
 
                     Spacer(modifier = Modifier.width(12.dp))
 
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = "SETTINGS",
-                            color = colors.textPrimary,
-                            fontFamily = FontFamily.Monospace,
-                            fontWeight = FontWeight.Bold,
-                            fontSize = 14.sp
-                        )
-                        Spacer(modifier = Modifier.height(2.dp))
-                        Text(
-                            text = "Themes, accent colors, reminders, alerts & sounds",
-                            color = colors.textSecondary,
-                            fontSize = 12.sp,
-                            lineHeight = 16.sp
-                        )
-                    }
+                    Text(
+                        text = "SETTINGS",
+                        color = colors.textPrimary,
+                        fontFamily = FontFamily.Monospace,
+                        fontWeight = FontWeight.Bold,
+                        fontSize = 14.sp,
+                        modifier = Modifier.weight(1f)
+                    )
 
                     Spacer(modifier = Modifier.width(8.dp))
 
@@ -159,22 +150,14 @@ fun MenuScreen(
 
                             Spacer(modifier = Modifier.width(12.dp))
 
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "ARCHIVE",
-                                    color = colors.textPrimary,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Archived notes and records",
-                                    color = colors.textSecondary,
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.sp
-                                )
-                            }
+                            Text(
+                                text = "ARCHIVE",
+                                color = colors.textPrimary,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                modifier = Modifier.weight(1f)
+                            )
 
                             Spacer(modifier = Modifier.width(8.dp))
 
@@ -214,22 +197,14 @@ fun MenuScreen(
 
                             Spacer(modifier = Modifier.width(12.dp))
 
-                            Column(modifier = Modifier.weight(1f)) {
-                                Text(
-                                    text = "BIN / TRASH",
-                                    color = colors.textPrimary,
-                                    fontFamily = FontFamily.Monospace,
-                                    fontWeight = FontWeight.Bold,
-                                    fontSize = 14.sp
-                                )
-                                Spacer(modifier = Modifier.height(2.dp))
-                                Text(
-                                    text = "Deleted events, reminders, and notes",
-                                    color = colors.textSecondary,
-                                    fontSize = 12.sp,
-                                    lineHeight = 16.sp
-                                )
-                            }
+                            Text(
+                                text = "BIN",
+                                color = colors.textPrimary,
+                                fontFamily = FontFamily.Monospace,
+                                fontWeight = FontWeight.Bold,
+                                fontSize = 14.sp,
+                                modifier = Modifier.weight(1f)
+                            )
 
                             Spacer(modifier = Modifier.width(8.dp))
 
@@ -278,22 +253,14 @@ fun MenuScreen(
 
                         Spacer(modifier = Modifier.width(12.dp))
 
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = "WELCOME WALKTHROUGH",
-                                color = colors.textPrimary,
-                                fontFamily = FontFamily.Monospace,
-                                fontWeight = FontWeight.Bold,
-                                fontSize = 14.sp
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = "View the welcome walkthrough and feature overview",
-                                color = colors.textSecondary,
-                                fontSize = 12.sp,
-                                lineHeight = 16.sp
-                            )
-                        }
+                        Text(
+                            text = "WELCOME WALKTHROUGH",
+                            color = colors.textPrimary,
+                            fontFamily = FontFamily.Monospace,
+                            fontWeight = FontWeight.Bold,
+                            fontSize = 14.sp,
+                            modifier = Modifier.weight(1f)
+                        )
 
                         Spacer(modifier = Modifier.width(8.dp))
 
