@@ -3,7 +3,6 @@ package com.shejan.acontinue.presentation.bin
 import app.cash.turbine.test
 import com.shejan.acontinue.FakeActivityRepository
 import com.shejan.acontinue.FakeNoteRepository
-import com.shejan.acontinue.domain.model.ActivityCategory
 import com.shejan.acontinue.domain.model.ActivityItem
 import com.shejan.acontinue.domain.model.ActivityNote
 import com.shejan.acontinue.domain.model.EntryType
@@ -92,7 +91,196 @@ class BinViewModelTest {
     }
 
     @Test
-    fun `test restoreItem moves item from trash back to active`() = runTest(testDispatcher) {
+    fun `test deduplicates deleted activity note and child note sharing activityId`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+
+        // When a note is saved, both an ActivityItem and an ActivityNote are created.
+        // When deleted, both rows are soft-deleted.
+        val actId = activityRepository.insertActivity(
+            ActivityItem(
+                id = 100L,
+                title = "Meeting Notes",
+                description = "Discussion on project milestones",
+                entryType = EntryType.NOTE,
+                startTimeMillis = now,
+                endTimeMillis = now,
+                isDeleted = true,
+                deletedAtMillis = now - 2000
+            )
+        )
+
+        noteRepository.insertNote(
+            ActivityNote(
+                id = 200L,
+                activityId = actId,
+                title = "Meeting Notes",
+                content = "Discussion on project milestones",
+                labels = listOf("Work"),
+                isDeleted = true,
+                deletedAtMillis = now - 1500
+            )
+        )
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            testScheduler.advanceUntilIdle()
+            val loadedState = if (state.isLoading) awaitItem() else state
+
+            // Must produce exactly ONE item instead of duplicate cards
+            assertEquals(1, loadedState.items.size)
+            val item = loadedState.items[0]
+            assertEquals(actId, item.id)
+            assertTrue(item.isActivity)
+            assertEquals(200L, item.linkedNoteId)
+            assertEquals("Meeting Notes", item.title)
+            assertEquals("Discussion on project milestones", item.previewText)
+            assertEquals("Work", item.categoryName)
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun `test restoreItem restores both activity and linked child note`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        val actId = activityRepository.insertActivity(
+            ActivityItem(
+                id = 101L,
+                title = "Sprint Planning Note",
+                description = "Plan items",
+                entryType = EntryType.NOTE,
+                startTimeMillis = now,
+                endTimeMillis = now,
+                isDeleted = true,
+                deletedAtMillis = now
+            )
+        )
+
+        val noteId = noteRepository.insertNote(
+            ActivityNote(
+                id = 201L,
+                activityId = actId,
+                title = "Sprint Planning Note",
+                content = "Plan items",
+                isDeleted = true,
+                deletedAtMillis = now
+            )
+        )
+
+        val trashItem = TrashItem(
+            id = actId,
+            isActivity = true,
+            title = "Sprint Planning Note",
+            previewText = "Plan items",
+            entryType = EntryType.NOTE,
+            deletedAtMillis = now,
+            linkedNoteId = noteId,
+            activityId = actId
+        )
+
+        viewModel.restoreItem(trashItem)
+        testScheduler.advanceUntilIdle()
+
+        val restoredAct = activityRepository.activitiesFlow.value.first { it.id == actId }
+        val restoredNote = noteRepository.notesFlow.value.first { it.id == noteId }
+
+        assertTrue(!restoredAct.isDeleted)
+        assertEquals(0L, restoredAct.deletedAtMillis)
+        assertTrue(!restoredNote.isDeleted)
+        assertEquals(0L, restoredNote.deletedAtMillis)
+    }
+
+    @Test
+    fun `test permanentlyDeleteItem removes both activity and linked child note`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        val actId = activityRepository.insertActivity(
+            ActivityItem(
+                id = 102L,
+                title = "Throwaway Note",
+                entryType = EntryType.NOTE,
+                startTimeMillis = now,
+                endTimeMillis = now,
+                isDeleted = true,
+                deletedAtMillis = now
+            )
+        )
+
+        val noteId = noteRepository.insertNote(
+            ActivityNote(
+                id = 202L,
+                activityId = actId,
+                title = "Throwaway Note",
+                content = "Trash me",
+                isDeleted = true,
+                deletedAtMillis = now
+            )
+        )
+
+        val trashItem = TrashItem(
+            id = actId,
+            isActivity = true,
+            title = "Throwaway Note",
+            previewText = "Trash me",
+            entryType = EntryType.NOTE,
+            deletedAtMillis = now,
+            linkedNoteId = noteId,
+            activityId = actId
+        )
+
+        viewModel.permanentlyDeleteItem(trashItem)
+        testScheduler.advanceUntilIdle()
+
+        assertTrue(activityRepository.activitiesFlow.value.none { it.id == actId })
+        assertTrue(noteRepository.notesFlow.value.none { it.id == noteId })
+    }
+
+    @Test
+    fun `test restoreItem on standalone note with parent activityId restores parent activity`() = runTest(testDispatcher) {
+        val now = System.currentTimeMillis()
+        val actId = activityRepository.insertActivity(
+            ActivityItem(
+                id = 103L,
+                title = "Linked Event",
+                entryType = EntryType.ACTIVITY,
+                startTimeMillis = now,
+                endTimeMillis = now,
+                isDeleted = true,
+                deletedAtMillis = now
+            )
+        )
+
+        val noteId = noteRepository.insertNote(
+            ActivityNote(
+                id = 203L,
+                activityId = actId,
+                title = "Event Attached Note",
+                content = "Details",
+                isDeleted = true,
+                deletedAtMillis = now
+            )
+        )
+
+        val trashItem = TrashItem(
+            id = noteId,
+            isActivity = false,
+            title = "Event Attached Note",
+            previewText = "Details",
+            entryType = EntryType.NOTE,
+            deletedAtMillis = now,
+            activityId = actId
+        )
+
+        viewModel.restoreItem(trashItem)
+        testScheduler.advanceUntilIdle()
+
+        val restoredNote = noteRepository.notesFlow.value.first { it.id == noteId }
+        val restoredAct = activityRepository.activitiesFlow.value.first { it.id == actId }
+
+        assertTrue(!restoredNote.isDeleted)
+        assertTrue(!restoredAct.isDeleted)
+    }
+
+    @Test
+    fun `test restoreItem moves standalone note from trash back to active`() = runTest(testDispatcher) {
         val now = System.currentTimeMillis()
         val delNoteId = noteRepository.insertNote(
             ActivityNote(
@@ -195,4 +383,3 @@ class BinViewModelTest {
         assertTrue(noteRepository.notesFlow.value.isEmpty())
     }
 }
-

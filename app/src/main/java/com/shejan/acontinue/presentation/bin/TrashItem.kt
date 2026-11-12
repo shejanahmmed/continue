@@ -10,7 +10,9 @@ data class TrashItem(
     val entryType: EntryType,
     val deletedAtMillis: Long,
     val colorHex: Long = 0L,
-    val categoryName: String = ""
+    val categoryName: String = "",
+    val linkedNoteId: Long = 0L,
+    val activityId: Long = 0L
 ) {
     val uniqueKey: String
         get() = if (isActivity) "act_$id" else "note_$id"
