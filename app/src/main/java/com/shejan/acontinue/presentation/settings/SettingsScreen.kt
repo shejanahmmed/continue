@@ -205,7 +205,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Hardware-inspired color applied to navigation highlights, active badges, and focus indicators.",
+                        text = "Color for highlights, badges, and focus indicators.",
                         color = colors.textSecondary,
                         fontSize = 12.sp,
                         lineHeight = 16.sp
@@ -256,7 +256,7 @@ fun SettingsScreen(
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Tactile vibration when checking items or switching tabs.",
+                                text = "Tactile vibration for actions and navigation.",
                                 color = colors.textSecondary,
                                 fontSize = 12.sp
                             )
@@ -304,7 +304,7 @@ fun SettingsScreen(
                             }
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "Trigger 10-minute alerts before scheduled activities.",
+                                text = "Alerts and notifications for upcoming activities.",
                                 color = colors.textSecondary,
                                 fontSize = 12.sp
                             )
@@ -340,9 +340,8 @@ fun SettingsScreen(
                             )
                             Spacer(modifier = Modifier.height(2.dp))
                             Text(
-                                text = "OS POST_NOTIFICATIONS & EXACT_ALARM",
+                                text = "Notifications and exact alarm permissions.",
                                 color = colors.textSecondary,
-                                fontFamily = FontFamily.Monospace,
                                 fontSize = 11.sp
                             )
                         }
@@ -383,7 +382,7 @@ fun SettingsScreen(
                     SettingsNavigationItem(
                         icon = Icons.Outlined.Security,
                         title = "Privacy Policy",
-                        subtitle = "100% offline, zero-tracking, zero telemetry architecture.",
+                        subtitle = "100% offline with zero data tracking.",
                         onClick = { showPrivacyPolicyDialog = true }
                     )
 
@@ -421,7 +420,7 @@ fun SettingsScreen(
                     )
                     Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "A minimalist, context-bound productivity application that treats every scheduled activity as an isolated execution workspace.",
+                        text = "Minimalist, offline-first execution workspace.",
                         color = colors.textSecondary,
                         fontSize = 12.sp,
                         lineHeight = 17.sp
@@ -432,7 +431,7 @@ fun SettingsScreen(
                     Spacer(modifier = Modifier.height(14.dp))
 
                     Text(
-                        text = "SYSTEM ARCHITECTURE",
+                        text = "SPECIFICATIONS",
                         color = colors.textSecondary,
                         fontFamily = FontFamily.Monospace,
                         fontSize = 11.sp,
@@ -442,11 +441,7 @@ fun SettingsScreen(
                     )
 
                     SpecificationRow("VERSION", "1.0.0 (Build 1)")
-                    SpecificationRow("PACKAGE", "com.shejan.acontinue")
-                    SpecificationRow("MIN SDK", "API 24 (Android 7.0)")
-                    SpecificationRow("TARGET SDK", "API 37")
                     SpecificationRow("PERSISTENCE", "Room Database (SQLite)")
-                    SpecificationRow("ARCHITECTURE", "Offline-First Clean Architecture + MVVM")
                 }
             }
         }
