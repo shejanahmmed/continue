@@ -89,6 +89,19 @@ class SettingsViewModelTest {
     }
 
     @Test
+    fun `test toggling notifications enabled updates repository and state`() = runTest(testDispatcher) {
+        testScheduler.advanceUntilIdle()
+
+        viewModel.setNotificationsEnabled(false)
+        testScheduler.advanceUntilIdle()
+
+        viewModel.uiState.test {
+            val state = awaitItem()
+            assertFalse(state.settings.notificationsEnabled)
+        }
+    }
+
+    @Test
     fun `test onboarding completion status updates repository and state`() = runTest(testDispatcher) {
         testScheduler.advanceUntilIdle()
 
