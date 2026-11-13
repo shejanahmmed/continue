@@ -43,8 +43,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.draw.scale
+import androidx.compose.ui.graphics.FilterQuality
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.imageResource
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -137,6 +141,10 @@ fun WelcomeScreen(
     )
 
     val logoRes = if (colors.isDark) R.drawable.app_logo_light else R.drawable.app_logo_dark
+    val logoBitmap = ImageBitmap.imageResource(id = logoRes)
+    val logoPainter = remember(logoBitmap) {
+        BitmapPainter(image = logoBitmap, filterQuality = FilterQuality.High)
+    }
 
     Box(
         modifier = modifier
@@ -171,7 +179,7 @@ fun WelcomeScreen(
                     contentAlignment = Alignment.Center
                 ) {
                     Image(
-                        painter = painterResource(id = logoRes),
+                        painter = logoPainter,
                         contentDescription = "Continue Logo",
                         modifier = Modifier.size(92.dp)
                     )
